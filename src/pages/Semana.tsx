@@ -165,33 +165,90 @@ export default function Semana() {
     return motos.filter((m) => !rentedMotoIds.has(m.id))
   }, [motos, activeContratos])
 
-  // Weeks list to display: historical stacked above (oldest first) + current/selected week at bottom
-  const weeksToDisplay = useMemo(() => {
-    const list: { year: number; week: number; code: string; isCurrent: boolean }[] = []
+  // Nomes dos meses em português maiúsculo
+  const NOMES_MESES = [
+    'JANEIRO',
+    'FEVEREIRO',
+    'MARÇO',
+    'ABRIL',
+    'MAIO',
+    'JUNHO',
+    'JULHO',
+    'AGOSTO',
+    'SETEMBRO',
+    'OUTUBRO',
+    'NOVEMBRO',
+    'DEZEMBRO',
+  ]
 
-    // Stack previous weeks above (from selectedWeek - historyCount up to selectedWeek - 1)
-    for (let i = historyCount; i >= 1; i--) {
+  // Helper para identificar o Mês e qual Semana do Mês (1 a 5) a semana ISO pertence.
+  // Regra padrão de calendário: a quinta-feira (midweek) define o mês da semana.
+  // Contamos quantas semanas iniciadas em segunda-feira já ocorreram naquele mês até ela.
+  const getWeekMonthInfo = (year: number, week: number) => {
+    const weekDates = getWeekDates(year, week)
+    // Quinta-feira (midweek) determina o mês oficial da semana
+    const thursdayDate = weekDates['QUI'].date
+    const monthIndex = thursdayDate.getUTCMonth()
+    const monthYear = thursdayDate.getUTCFullYear()
+    const monthName = NOMES_MESES[monthIndex]
+
+    // Determinar a semana do mês (1 a 5):
+    // Descobrimos quantas semanas completas ou parciais do mês já ocorreram até esta quinta-feira
+    const dayOfThursday = thursdayDate.getUTCDate()
+    // A quinta-feira dia 1..7 é SEMANA 1; 8..14 é SEMANA 2; 15..21 é SEMANA 3; 22..28 é SEMANA 4; 29..31 é SEMANA 5
+    let weekOfMonth = Math.min(5, Math.max(1, Math.floor((dayOfThursday - 1) / 7) + 1))
+
+    return {
+      monthName,
+      monthYear,
+      weekOfMonth,
+    }
+  }
+
+  // Weeks list to display:
+  // Item 1: A semana atual sempre fica no topo e as outras vão descendo em ordem (decrescente: mais recente primeiro)
+  const weeksToDisplay = useMemo(() => {
+    const list: {
+      year: number
+      week: number
+      code: string
+      isCurrent: boolean
+      monthName: string
+      monthYear: number
+      weekOfMonth: number
+    }[] = []
+
+    // 1. Semana atual/selecionada no topo
+    const currentInfo = getWeekMonthInfo(selectedYear, selectedWeek)
+    list.push({
+      year: selectedYear,
+      week: selectedWeek,
+      code: `${selectedYear}-W${String(selectedWeek).padStart(2, '0')}`,
+      isCurrent: true,
+      monthName: currentInfo.monthName,
+      monthYear: currentInfo.monthYear,
+      weekOfMonth: currentInfo.weekOfMonth,
+    })
+
+    // 2. Histórico de semanas anteriores descendo em ordem decrescente (mais recente primeiro: -1, -2, -3...)
+    for (let i = 1; i <= historyCount; i++) {
       let targetWeek = selectedWeek - i
       let targetYear = selectedYear
       if (targetWeek < 1) {
         targetYear -= 1
         targetWeek += 52
       }
+      const prevInfo = getWeekMonthInfo(targetYear, targetWeek)
       list.push({
         year: targetYear,
         week: targetWeek,
         code: `${targetYear}-W${String(targetWeek).padStart(2, '0')}`,
         isCurrent: false,
+        monthName: prevInfo.monthName,
+        monthYear: prevInfo.monthYear,
+        weekOfMonth: prevInfo.weekOfMonth,
       })
     }
-
-    // Current selected week at the bottom
-    list.push({
-      year: selectedYear,
-      week: selectedWeek,
-      code: `${selectedYear}-W${String(selectedWeek).padStart(2, '0')}`,
-      isCurrent: true,
-    })
 
     return list
   }, [selectedYear, selectedWeek, historyCount])
@@ -512,14 +569,15 @@ export default function Semana() {
             value={String(historyCount)}
             onValueChange={(val) => setHistoryCount(Number(val))}
           >
-            <SelectTrigger className="h-7 text-[11px] w-36">
+            <SelectTrigger className="h-7 text-[11px] w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">1 semana acima</SelectItem>
-              <SelectItem value="2">2 semanas acima</SelectItem>
-              <SelectItem value="3">3 semanas acima</SelectItem>
-              <SelectItem value="4">4 semanas acima</SelectItem>
+              <SelectItem value="1">1 semana abaixo</SelectItem>
+              <SelectItem value="2">2 semanas abaixo</SelectItem>
+              <SelectItem value="3">3 semanas abaixo</SelectItem>
+              <SelectItem value="4">4 semanas abaixo</SelectItem>
+              <SelectItem value="5">5 semanas abaixo</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -527,7 +585,7 @@ export default function Semana() {
 
       {/* WEEKS ACCORDION / STACK */}
       <div className="space-y-6">
-        {weeksToDisplay.map((weekInfo, weekIndex) => {
+        {weeksToDisplay.map((weekInfo) => {
           const isCurrentBlock = weekInfo.isCurrent
           const weekDates = getWeekDates(weekInfo.year, weekInfo.week)
 
@@ -557,35 +615,59 @@ export default function Semana() {
               className={`shadow-sm overflow-hidden border-2 transition-all ${
                 isCurrentBlock
                   ? 'border-blue-500 shadow-md ring-1 ring-blue-500/20'
-                  : 'border-slate-200 dark:border-slate-800 opacity-90'
+                  : 'border-slate-200 dark:border-slate-800'
               }`}
             >
-              {/* Week Block Header */}
+              {/* Week Block Header:
+                  Item 1: Semana atual fica no topo, anteriores descem em ordem
+                  Item 2: "MES: SEMANA 1 A 5" (ex.: MAIO: SEMANA 3)
+                  Item 3: Em letra pequena a semana do ano (ex.: Semana 21 do ano)
+                  Item 4: NÃO colocar dados financeiros no topo do card (deixar apenas embaixo)
+              */}
               <div
-                className={`px-4 py-2.5 flex items-center justify-between border-b ${
+                className={`px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 border-b ${
                   isCurrentBlock
-                    ? 'bg-blue-600 text-white font-bold'
+                    ? 'bg-blue-600 text-white'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm px-2 py-0.5 rounded bg-black/20 text-white font-black">
-                    SEMANA {weekInfo.week}
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  {/* MES: SEMANA 1 A 5 */}
+                  <span
+                    className={`font-black text-sm tracking-wide px-2.5 py-1 rounded shadow-sm ${
+                      isCurrentBlock
+                        ? 'bg-blue-900/60 text-white border border-blue-400/30'
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600'
+                    }`}
+                  >
+                    {weekInfo.monthName}: SEMANA {weekInfo.weekOfMonth}
                   </span>
-                  <span className="text-xs">
-                    {isCurrentBlock
-                      ? '(Semana Selecionada / Atual)'
-                      : '(Semana Anterior / Histórico)'}
-                  </span>
+
+                  {/* Badge da semana atual ou histórico */}
+                  {isCurrentBlock ? (
+                    <Badge
+                      variant="secondary"
+                      className="bg-emerald-500 text-white hover:bg-emerald-600 font-bold text-[10px] px-2 py-0.5 uppercase tracking-wider"
+                    >
+                      Semana Atual
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] px-2 py-0.5 text-muted-foreground border-slate-300 dark:border-slate-600 uppercase"
+                    >
+                      Histórico Anterior
+                    </Badge>
+                  )}
                 </div>
-                <div className="text-xs font-mono">
-                  Ano {weekInfo.year} • Bruto: R${' '}
-                  {totalBrutoSemana.toLocaleString('pt-BR', { minimumFractionDigits: 0 })} • Líquido
-                  ({percentualLiquido}%): R${' '}
-                  {totalLiquidoSemana.toLocaleString('pt-BR', {
-                    minimumFractionDigits: 1,
-                    maximumFractionDigits: 2,
-                  })}
+
+                {/* Em letra pequena a semana do ano */}
+                <div
+                  className={`text-[11px] font-medium ${
+                    isCurrentBlock ? 'text-blue-100' : 'text-muted-foreground dark:text-slate-400'
+                  }`}
+                >
+                  Semana {weekInfo.week} do ano ({weekInfo.year})
                 </div>
               </div>
 
@@ -596,10 +678,10 @@ export default function Semana() {
                     <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
                       <th className="p-2.5 text-left font-bold text-slate-700 dark:text-slate-200 w-44 sticky left-0 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 z-10">
                         <div className="flex items-center gap-1 font-mono">
-                          <span className="text-blue-600 dark:text-blue-400 font-black">
-                            {weekInfo.week}
+                          <span className="text-blue-600 dark:text-blue-400 font-black text-xs">
+                            SEM {weekInfo.week}
                           </span>
-                          <span>MOTO (ALUGADA)</span>
+                          <span className="text-[11px]">MOTO (ALUGADA)</span>
                         </div>
                       </th>
                       {DIAS_SEMANA.map((d) => (
