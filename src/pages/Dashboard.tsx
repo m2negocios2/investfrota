@@ -69,18 +69,20 @@ export default function Dashboard() {
   const motosLocadas = motos.filter((m) => m.status === 'locada').length
   const motosDisponiveis = motos.filter((m) => m.status === 'disponivel').length
   const motosManutencao = motos.filter((m) => m.status === 'manutencao').length
+  const motosLojaDetran = motos.filter((m) => m.status === 'em_loja_detran').length
   const taxaOcupacao = totalMotos > 0 ? Math.round((motosLocadas / totalMotos) * 100) : 0
 
   // Weekly Revenue Forecast (Active Contracts weekly value or daily * 7)
   const activeContracts = contratos.filter((c) => c.status === 'ativo')
   const previsaoSemanal = activeContracts.reduce((acc, c) => {
-    const weekly = c.valor_semanal || c.valor_diario * 7
+    const weekly = c.valor_semanal || (c.valor_diario ? c.valor_diario * 7 : 0)
     return acc + weekly
   }, 0)
 
-  // Monthly Revenue Forecast
+  // Monthly Revenue Forecast based on weekly revenue (approx 4.33 weeks per month or weekly / 7 * 30)
   const previsaoMensal = activeContracts.reduce((acc, c) => {
-    return acc + c.valor_diario * 30
+    const weekly = c.valor_semanal || (c.valor_diario ? c.valor_diario * 7 : 0)
+    return acc + (weekly / 7) * 30
   }, 0)
 
   // Status of Recebimentos
@@ -160,9 +162,12 @@ export default function Dashboard() {
                 {taxaOcupacao}% ocupadas
               </span>
             </div>
-            <div className="mt-2 text-xs text-muted-foreground flex items-center justify-between">
+            <div className="mt-2 text-xs text-muted-foreground flex flex-wrap items-center justify-between gap-1">
               <span className="text-emerald-600">{motosDisponiveis} disponíveis</span>
-              <span className="text-amber-600">{motosManutencao} em manutenção</span>
+              <span className="text-amber-600">{motosManutencao} oficina</span>
+              {motosLojaDetran > 0 && (
+                <span className="text-purple-600">{motosLojaDetran} Loja/Detran</span>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -271,7 +276,7 @@ export default function Dashboard() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-base font-bold">Resumo da Frota</CardTitle>
-                <CardDescription>Status atual e diárias das motos cadastradas</CardDescription>
+                <CardDescription>Status atual e valores semanais das motos</CardDescription>
               </div>
               <Button asChild variant="ghost" size="sm">
                 <Link to="/motos" className="text-xs">
@@ -282,14 +287,28 @@ export default function Dashboard() {
             <CardContent>
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 {motos.slice(0, 5).map((moto) => {
-                  const statusColors = {
+                  const statusColors: Record<string, string> = {
                     disponivel:
                       'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300',
                     locada:
                       'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300',
                     manutencao:
                       'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300',
+                    em_loja_detran:
+                      'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300',
                   }
+                  const valorSem =
+                    moto.valor_semanal !== undefined && moto.valor_semanal !== null
+                      ? moto.valor_semanal
+                      : (moto.valor_diario || 0) * 7
+                  const statusLabel =
+                    moto.status === 'em_loja_detran'
+                      ? 'Em Loja/Detran'
+                      : moto.status === 'disponivel'
+                        ? 'Disponível'
+                        : moto.status === 'locada'
+                          ? 'Locada'
+                          : 'Manutenção'
                   return (
                     <div key={moto.id} className="py-3 flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
@@ -310,13 +329,13 @@ export default function Dashboard() {
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 hidden sm:inline">
-                          R$ {moto.valor_diario}/dia
+                          R$ {valorSem.toFixed(0)}/sem
                         </span>
                         <Badge
                           variant="outline"
-                          className={`text-xs capitalize ${statusColors[moto.status]}`}
+                          className={`text-xs ${statusColors[moto.status] || 'bg-slate-100'}`}
                         >
-                          {moto.status}
+                          {statusLabel}
                         </Badge>
                         <Button asChild variant="ghost" size="sm" className="h-8 px-2">
                           <Link to={`/motos/${moto.id}`}>

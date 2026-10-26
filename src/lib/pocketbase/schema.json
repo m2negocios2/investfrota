@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T19:16:49.336Z",
+  "generatedAt": "2026-10-26T20:11:13.350Z",
   "collections": [
     {
       "name": "users",
@@ -89,7 +89,7 @@
         {
           "name": "valor_diario",
           "type": "number",
-          "required": true,
+          "required": false,
           "system": false
         },
         {
@@ -104,7 +104,7 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["disponivel", "locada", "manutencao"]
+          "selectValues": ["disponivel", "locada", "manutencao", "em_loja_detran"]
         },
         {
           "name": "observacoes",
@@ -146,6 +146,24 @@
         },
         {
           "name": "km_ultimo_oleo",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_semanal",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_compra",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor_compra",
           "type": "number",
           "required": false,
           "system": false

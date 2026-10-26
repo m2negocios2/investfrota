@@ -129,6 +129,7 @@ export default function MotosList() {
                   <SelectItem value="disponivel">Disponível</SelectItem>
                   <SelectItem value="locada">Locada</SelectItem>
                   <SelectItem value="manutencao">Em Manutenção</SelectItem>
+                  <SelectItem value="em_loja_detran">Em Loja/Detran</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -181,8 +182,18 @@ export default function MotosList() {
                   'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300',
                 icon: Wrench,
               },
+              em_loja_detran: {
+                label: 'Em Loja/Detran',
+                color:
+                  'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300',
+                icon: Clock,
+              },
             }
-            const statusInfo = statusConfig[moto.status]
+            const statusInfo = statusConfig[moto.status] || {
+              label: moto.status,
+              color: 'bg-slate-100 text-slate-700 border-slate-200',
+              icon: Bike,
+            }
             const StatusIcon = statusInfo.icon
 
             return (
@@ -225,9 +236,13 @@ export default function MotosList() {
                       </span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground block">Valor Diário:</span>
+                      <span className="text-muted-foreground block">Valor Semanal:</span>
                       <span className="font-bold text-slate-900 dark:text-white">
-                        R$ {moto.valor_diario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R${' '}
+                        {(moto.valor_semanal !== undefined && moto.valor_semanal !== null
+                          ? moto.valor_semanal
+                          : (moto.valor_diario || 0) * 7
+                        ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                     <div className="col-span-2 pt-1 border-t border-slate-200/50 dark:border-slate-700/50">

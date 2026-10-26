@@ -608,7 +608,8 @@ export default function Semana() {
 
           activeContratos.forEach((contrato) => {
             const dia = getContractDay(contrato)
-            const valor = contrato.valor_semanal || contrato.valor_diario * 7
+            const valor =
+              contrato.valor_semanal || (contrato.valor_diario ? contrato.valor_diario * 7 : 0)
             dailyTotals[dia] += valor
           })
 
@@ -734,7 +735,9 @@ export default function Semana() {
                           updated: '',
                         }
                         const diaPgto = getContractDay(contrato)
-                        const valorSemanal = contrato.valor_semanal || contrato.valor_diario * 7
+                        const valorSemanal =
+                          contrato.valor_semanal ||
+                          (contrato.valor_diario ? contrato.valor_diario * 7 : 0)
 
                         // Unrented moto shown in this row (matching owner's spreadsheet style where unrented are on the right column)
                         const unrentedMotoThisRow = unrentedMotos[rowIdx]
@@ -977,7 +980,12 @@ export default function Semana() {
                     </span>
                     <span className="font-mono text-xs text-muted-foreground">{m.placa}</span>
                     <span className="text-xs block text-slate-600 dark:text-slate-400 mt-0.5">
-                      {m.modelo} • Diária R$ {m.valor_diario.toFixed(2)}
+                      {m.modelo} • R${' '}
+                      {(m.valor_semanal !== undefined && m.valor_semanal !== null
+                        ? m.valor_semanal
+                        : (m.valor_diario || 0) * 7
+                      ).toFixed(0)}
+                      /sem
                     </span>
                   </div>
                   <Badge
@@ -985,10 +993,16 @@ export default function Semana() {
                     className={
                       m.status === 'manutencao'
                         ? 'border-amber-300 text-amber-700 bg-amber-50'
-                        : 'border-emerald-300 text-emerald-700 bg-emerald-50'
+                        : m.status === 'em_loja_detran'
+                          ? 'border-purple-300 text-purple-700 bg-purple-50'
+                          : 'border-emerald-300 text-emerald-700 bg-emerald-50'
                     }
                   >
-                    {m.status.toUpperCase()}
+                    {m.status === 'em_loja_detran'
+                      ? 'LOJA/DETRAN'
+                      : m.status === 'manutencao'
+                        ? 'MANUTENÇÃO'
+                        : 'DISPONÍVEL'}
                   </Badge>
                 </div>
               ))}

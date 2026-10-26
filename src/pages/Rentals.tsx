@@ -95,12 +95,21 @@ export default function Rentals() {
     loadData()
   }, [])
 
-  // Auto-populate daily value when moto is selected
+  // Auto-populate weekly value when moto is selected
+  const [valorSemanalContrato, setValorSemanalContrato] = useState<number>(245)
+
   const handleMotoChange = (motoId: string) => {
     setMotoSelected(motoId)
     const found = motos.find((m) => m.id === motoId)
     if (found) {
-      setValorDiario(found.valor_diario)
+      const sem =
+        found.valor_semanal !== undefined && found.valor_semanal !== null
+          ? found.valor_semanal
+          : found.valor_diario
+            ? Number((found.valor_diario * 7).toFixed(2))
+            : 245
+      setValorSemanalContrato(sem)
+      setValorDiario(Number((sem / 7).toFixed(2)))
       setTipoContrato(found.tipo_locacao_padrao)
     }
   }
@@ -121,8 +130,8 @@ export default function Rentals() {
         locatario_telefone: locatarioTel.trim(),
         tipo: tipoContrato,
         data_inicio: dataInicio,
-        valor_diario: Number(valorDiario),
-        valor_semanal: Number(valorDiario) * 7,
+        valor_semanal: Number(valorSemanalContrato),
+        valor_diario: Number((Number(valorSemanalContrato) / 7).toFixed(2)),
         dia_pagamento_semana: diaSemana,
         status: 'ativo',
         observacoes: observacoes.trim(),
@@ -144,7 +153,7 @@ export default function Rentals() {
         contrato: created.id,
         locatario_nome: locatarioNome.trim(),
         data_vencimento: nextDue,
-        valor: Number(valorDiario) * 7,
+        valor: Number(valorSemanalContrato),
         status: 'em_dia',
       })
 
@@ -365,7 +374,11 @@ export default function Rentals() {
                         Ano: {moto.ano} • Cor: {moto.cor}
                       </p>
                       <p className="font-bold text-slate-800 dark:text-slate-200 mt-1">
-                        Diária: R$ {moto.valor_diario.toFixed(2)}
+                        Semanal: R${' '}
+                        {(moto.valor_semanal !== undefined && moto.valor_semanal !== null
+                          ? moto.valor_semanal
+                          : (moto.valor_diario || 0) * 7
+                        ).toFixed(2)}
                       </p>
                     </div>
                     <Button
@@ -595,17 +608,23 @@ export default function Rentals() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="valorDiario">Valor Diário Acordado (R$)</Label>
+              <Label htmlFor="valorSemanalContrato">Valor Semanal de Aluguel (R$)</Label>
               <Input
-                id="valorDiario"
+                id="valorSemanalContrato"
                 type="number"
                 step="0.01"
-                value={valorDiario}
-                onChange={(e) => setValorDiario(Number(e.target.value))}
+                min={1}
+                value={valorSemanalContrato}
+                onChange={(e) => {
+                  const val = Number(e.target.value)
+                  setValorSemanalContrato(val)
+                  setValorDiario(Number((val / 7).toFixed(2)))
+                }}
                 required
               />
               <span className="text-[11px] text-muted-foreground">
-                Equivalente a R$ {(valorDiario * 7).toFixed(2)} por semana.
+                Valor pago semanalmente (equivale a ~R$ {(valorSemanalContrato / 7).toFixed(2)}
+                /dia).
               </span>
             </div>
 

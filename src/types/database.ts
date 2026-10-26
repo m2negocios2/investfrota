@@ -10,7 +10,7 @@ export interface User {
   updated: string
 }
 
-export type MotoStatus = 'disponivel' | 'locada' | 'manutencao'
+export type MotoStatus = 'disponivel' | 'locada' | 'manutencao' | 'em_loja_detran'
 export type TipoLocacao = 'normal' | 'plano_conquista'
 
 export interface Moto {
@@ -20,7 +20,10 @@ export interface Moto {
   modelo: string
   ano: number
   cor: string
-  valor_diario: number
+  valor_diario?: number
+  valor_semanal?: number
+  data_compra?: string
+  valor_compra?: number
   tipo_locacao_padrao: TipoLocacao
   status: MotoStatus
   observacoes?: string

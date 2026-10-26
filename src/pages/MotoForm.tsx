@@ -38,9 +38,11 @@ export default function MotoForm() {
   const [modelo, setModelo] = useState('')
   const [ano, setAno] = useState<number>(new Date().getFullYear())
   const [cor, setCor] = useState('')
-  const [valorDiario, setValorDiario] = useState<number>(35)
+  const [valorSemanal, setValorSemanal] = useState<number>(245)
   const [tipoLocacaoPadrao, setTipoLocacaoPadrao] = useState<TipoLocacao>('normal')
   const [status, setStatus] = useState<MotoStatus>('disponivel')
+  const [dataCompra, setDataCompra] = useState<string>('')
+  const [valorCompra, setValorCompra] = useState<string>('')
   const [kmAtual, setKmAtual] = useState<string>('')
   const [kmUltimoOleo, setKmUltimoOleo] = useState<string>('')
   const [observacoes, setObservacoes] = useState('')
@@ -55,9 +57,21 @@ export default function MotoForm() {
           setModelo(moto.modelo)
           setAno(moto.ano)
           setCor(moto.cor)
-          setValorDiario(moto.valor_diario)
+          const sem =
+            moto.valor_semanal !== undefined && moto.valor_semanal !== null
+              ? moto.valor_semanal
+              : moto.valor_diario
+                ? Number((moto.valor_diario * 7).toFixed(2))
+                : 245
+          setValorSemanal(sem)
           setTipoLocacaoPadrao(moto.tipo_locacao_padrao)
           setStatus(moto.status)
+          setDataCompra(moto.data_compra ? moto.data_compra.split('T')[0] : '')
+          setValorCompra(
+            moto.valor_compra !== undefined && moto.valor_compra !== null
+              ? String(moto.valor_compra)
+              : '',
+          )
           setKmAtual(moto.km_atual !== undefined ? String(moto.km_atual) : '')
           setKmUltimoOleo(moto.km_ultimo_oleo !== undefined ? String(moto.km_ultimo_oleo) : '')
           setObservacoes(moto.observacoes || '')
@@ -90,9 +104,12 @@ export default function MotoForm() {
       modelo: modelo.trim(),
       ano: Number(ano),
       cor: cor.trim(),
-      valor_diario: Number(valorDiario),
+      valor_semanal: Number(valorSemanal),
+      valor_diario: Number((Number(valorSemanal) / 7).toFixed(2)),
       tipo_locacao_padrao: tipoLocacaoPadrao,
       status: status,
+      data_compra: dataCompra ? dataCompra : undefined,
+      valor_compra: valorCompra !== '' ? Number(valorCompra) : undefined,
       km_atual: kmAtual !== '' ? Number(kmAtual) : undefined,
       km_atualizado_em: kmAtual !== '' ? new Date().toISOString() : undefined,
       km_ultimo_oleo: kmUltimoOleo !== '' ? Number(kmUltimoOleo) : undefined,
@@ -233,18 +250,22 @@ export default function MotoForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="valorDiario">
-                  Valor Diário (R$) <span className="text-red-500">*</span>
+                <Label htmlFor="valorSemanal">
+                  Valor Semanal de Aluguel (R$) <span className="text-red-500">*</span>
                 </Label>
                 <Input
-                  id="valorDiario"
+                  id="valorSemanal"
                   type="number"
                   step="0.01"
                   min={1}
-                  value={valorDiario}
-                  onChange={(e) => setValorDiario(Number(e.target.value))}
+                  placeholder="Ex: 245"
+                  value={valorSemanal}
+                  onChange={(e) => setValorSemanal(Number(e.target.value))}
                   required
                 />
+                <span className="text-[11px] text-muted-foreground">
+                  Cobrança por semana (ex.: R$ 245/semana = ~R$ {(valorSemanal / 7).toFixed(2)}/dia)
+                </span>
               </div>
             </div>
 
@@ -281,8 +302,44 @@ export default function MotoForm() {
                     <SelectItem value="disponivel">Disponível para Locação</SelectItem>
                     <SelectItem value="locada">Locada (Em Contrato Ativo)</SelectItem>
                     <SelectItem value="manutencao">Em Manutenção / Oficina</SelectItem>
+                    <SelectItem value="em_loja_detran">Em Loja/Detran</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            {/* Dados de Aquisição da Moto (Honda / Compra) */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+              <div>
+                <Label className="text-sm font-bold text-slate-900 dark:text-white">
+                  Aquisição & Compra do Veículo
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Informações de compra ou faturamento pela Honda
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="dataCompra">Data da Compra ou Recebimento pela Honda</Label>
+                  <Input
+                    id="dataCompra"
+                    type="date"
+                    value={dataCompra}
+                    onChange={(e) => setDataCompra(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="valorCompra">Valor de Compra (R$)</Label>
+                  <Input
+                    id="valorCompra"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    placeholder="Ex: 17500.00"
+                    value={valorCompra}
+                    onChange={(e) => setValorCompra(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 

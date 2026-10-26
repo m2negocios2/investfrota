@@ -216,8 +216,21 @@ export default function MotoDetails() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Modelo: {moto.modelo} • Ano {moto.ano} • Cor {moto.cor} • Diária R${' '}
-              {moto.valor_diario.toFixed(2)}
+              Modelo: {moto.modelo} • Ano {moto.ano} • Cor {moto.cor} • Semanal R${' '}
+              {(moto.valor_semanal !== undefined && moto.valor_semanal !== null
+                ? moto.valor_semanal
+                : (moto.valor_diario || 0) * 7
+              ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              {moto.data_compra && (
+                <> • Compra/Honda: {new Date(moto.data_compra).toLocaleDateString('pt-BR')}</>
+              )}
+              {moto.valor_compra !== undefined && moto.valor_compra > 0 && (
+                <>
+                  {' '}
+                  • Valor Compra: R${' '}
+                  {moto.valor_compra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -242,78 +255,6 @@ export default function MotoDetails() {
         </div>
       </div>
 
-      {/* Painel Destaque: KM & Troca de Óleo a cada 1000 km */}
-      <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200 dark:border-blue-900 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
-        <div className="flex items-start sm:items-center gap-3">
-          <div className="p-3 bg-blue-600 text-white rounded-xl shadow-sm shrink-0">
-            <Gauge className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs uppercase font-bold tracking-wider text-blue-800 dark:text-blue-300">
-                KM Atual
-              </span>
-              {moto.km_atualizado_em && (
-                <span className="text-[11px] text-muted-foreground">
-                  (atualizado em {new Date(moto.km_atualizado_em).toLocaleDateString('pt-BR')})
-                </span>
-              )}
-            </div>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-black text-slate-900 dark:text-white">
-                {moto.km_atual !== undefined
-                  ? `${moto.km_atual.toLocaleString('pt-BR')} km`
-                  : 'Não informado'}
-              </span>
-              {moto.km_ultimo_oleo !== undefined && (
-                <span className="text-xs text-muted-foreground">
-                  • Último óleo: {moto.km_ultimo_oleo.toLocaleString('pt-BR')} km
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Lembrete Óleo a cada 1000 km */}
-        <div className="flex items-center gap-3 border-t sm:border-t-0 sm:border-l border-blue-200 dark:border-blue-800 pt-3 sm:pt-0 sm:pl-4">
-          <div className="p-2.5 rounded-xl shrink-0 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-            <Droplet className="w-5 h-5" />
-          </div>
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-900 dark:text-white">
-                Troca de Óleo a cada 1.000 km
-              </span>
-              {precisaTrocaOleo ? (
-                <Badge variant="destructive" className="text-[10px] animate-pulse">
-                  Troca Necessária!
-                </Badge>
-              ) : (
-                <Badge
-                  variant="outline"
-                  className="text-[10px] text-emerald-700 border-emerald-300 bg-emerald-50 dark:bg-emerald-950"
-                >
-                  Em dia
-                </Badge>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {moto.km_ultimo_oleo !== undefined
-                ? `Próxima troca recomendada: ${kmProximaTrocaOleo.toLocaleString('pt-BR')} km (${Math.max(0, kmProximaTrocaOleo - kmAtualVal)} km restantes)`
-                : 'Defina o KM da última troca de óleo para acompanhar os 1.000 km'}
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={openKmModal}
-            className="h-8 text-xs shrink-0"
-          >
-            Ajustar
-          </Button>
-        </div>
-      </div>
-
       {/* Summary KPI Cards for this Moto */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="shadow-sm">
@@ -326,21 +267,31 @@ export default function MotoDetails() {
             <div className="flex items-center gap-2">
               <Badge
                 variant="outline"
-                className={`text-sm py-1 px-3 capitalize font-semibold ${
+                className={`text-sm py-1 px-3 font-semibold ${
                   moto.status === 'locada'
                     ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300'
                     : moto.status === 'disponivel'
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300'
-                      : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300'
+                      : moto.status === 'em_loja_detran'
+                        ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300'
+                        : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300'
                 }`}
               >
-                {moto.status}
+                {moto.status === 'em_loja_detran'
+                  ? 'Em Loja/Detran'
+                  : moto.status === 'disponivel'
+                    ? 'Disponível'
+                    : moto.status === 'locada'
+                      ? 'Locada'
+                      : 'Em Manutenção'}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
               {activeContract
                 ? `Locada para ${activeContract.locatario_nome}`
-                : 'Nenhum contrato ativo no momento'}
+                : moto.status === 'em_loja_detran'
+                  ? 'Veículo em loja / aguardando Detran'
+                  : 'Nenhum contrato ativo no momento'}
             </p>
           </CardContent>
         </Card>
@@ -621,10 +572,14 @@ export default function MotoDetails() {
 
                       <div className="flex items-center gap-4 text-right">
                         <div>
-                          <span className="text-xs text-muted-foreground block">Valor</span>
+                          <span className="text-xs text-muted-foreground block">Valor Semanal</span>
                           <span className="font-bold text-sm text-slate-900 dark:text-white">
-                            R$ {contrato.valor_diario}/dia (R${' '}
-                            {contrato.valor_semanal || contrato.valor_diario * 7}/sem)
+                            R${' '}
+                            {(contrato.valor_semanal || contrato.valor_diario * 7).toLocaleString(
+                              'pt-BR',
+                              { minimumFractionDigits: 2 },
+                            )}
+                            /sem
                           </span>
                         </div>
                       </div>
