@@ -561,9 +561,17 @@ export default function MotoDetails() {
                         <p className="text-xs text-muted-foreground">
                           Início: {new Date(contrato.data_inicio).toLocaleDateString('pt-BR')}
                           {contrato.prazo_meses ? ` • Prazo: ${contrato.prazo_meses} meses` : ''}
-                          {contrato.data_entrega
-                            ? ` • Entrega estimada: ${new Date(contrato.data_entrega).toLocaleDateString('pt-BR')}`
-                            : ''}
+                          {contrato.data_entrega ? (
+                            <span className="font-semibold text-slate-800 dark:text-slate-200">
+                              {contrato.tipo === 'plano_conquista'
+                                ? ` • Fim / Quitação: ${new Date(contrato.data_entrega).toLocaleDateString('pt-BR')}`
+                                : ` • Fim do contrato: ${new Date(contrato.data_entrega).toLocaleDateString('pt-BR')}`}
+                            </span>
+                          ) : (
+                            contrato.tipo === 'normal' && (
+                              <span> • Fim: Recorrente / Sem término</span>
+                            )
+                          )}
                           {contrato.locatario_telefone
                             ? ` • Tel: ${contrato.locatario_telefone}`
                             : ''}

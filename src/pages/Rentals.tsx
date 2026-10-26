@@ -62,6 +62,7 @@ export default function Rentals() {
   )
   const [prazoMeses, setPrazoMeses] = useState<number>(12)
   const [dataEntrega, setDataEntrega] = useState('')
+  const [dataFimContratoManual, setDataFimContratoManual] = useState(false)
   const [valorDiario, setValorDiario] = useState<number>(35)
   const [observacoes, setObservacoes] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -98,6 +99,21 @@ export default function Rentals() {
   // Auto-populate weekly value when moto is selected
   const [valorSemanalContrato, setValorSemanalContrato] = useState<number>(245)
 
+  // Calculate projected end date for Plano Conquista
+  const calculateEndDate = (startDate: string, months: number): string => {
+    if (!startDate || !months) return ''
+    try {
+      const [yearStr, monthStr, dayStr] = startDate.split('-')
+      const y = parseInt(yearStr, 10)
+      const m = parseInt(monthStr, 10) - 1
+      const d = parseInt(dayStr, 10)
+      const targetDate = new Date(y, m + months, d)
+      return targetDate.toISOString().split('T')[0]
+    } catch {
+      return ''
+    }
+  }
+
   const handleMotoChange = (motoId: string) => {
     setMotoSelected(motoId)
     const found = motos.find((m) => m.id === motoId)
@@ -111,6 +127,37 @@ export default function Rentals() {
       setValorSemanalContrato(sem)
       setValorDiario(Number((sem / 7).toFixed(2)))
       setTipoContrato(found.tipo_locacao_padrao)
+      if (found.tipo_locacao_padrao === 'plano_conquista' && !dataFimContratoManual) {
+        setDataEntrega(calculateEndDate(dataInicio, prazoMeses))
+      }
+    }
+  }
+
+  const handleTipoContratoChange = (newTipo: TipoLocacao) => {
+    setTipoContrato(newTipo)
+    if (newTipo === 'plano_conquista') {
+      if (!dataFimContratoManual) {
+        setDataEntrega(calculateEndDate(dataInicio, prazoMeses))
+      }
+    } else {
+      // If switching back to normal and wasn't manually set, keep or clear
+      if (!dataFimContratoManual) {
+        setDataEntrega('')
+      }
+    }
+  }
+
+  const handleDataInicioChange = (newDate: string) => {
+    setDataInicio(newDate)
+    if (tipoContrato === 'plano_conquista' && !dataFimContratoManual) {
+      setDataEntrega(calculateEndDate(newDate, prazoMeses))
+    }
+  }
+
+  const handlePrazoMesesChange = (months: number) => {
+    setPrazoMeses(months)
+    if (tipoContrato === 'plano_conquista' && !dataFimContratoManual) {
+      setDataEntrega(calculateEndDate(dataInicio, months))
     }
   }
 
@@ -139,7 +186,9 @@ export default function Rentals() {
 
       if (tipoContrato === 'plano_conquista') {
         payload.prazo_meses = Number(prazoMeses)
-        if (dataEntrega) payload.data_entrega = dataEntrega
+      }
+      if (dataEntrega) {
+        payload.data_entrega = dataEntrega
       }
 
       const created = await contratosService.create(payload)
@@ -163,6 +212,8 @@ export default function Rentals() {
       setLocatarioNome('')
       setLocatarioDoc('')
       setLocatarioTel('')
+      setDataEntrega('')
+      setDataFimContratoManual(false)
       loadData()
     } catch (err) {
       console.error(err)
@@ -293,15 +344,20 @@ export default function Rentals() {
                         <div>
                           <span className="text-muted-foreground block">
                             {contrato.tipo === 'plano_conquista'
-                              ? 'Prazo / Término:'
-                              : 'Término Previsto:'}
+                              ? 'Fim do Contrato / Prazo:'
+                              : 'Fim do Contrato:'}
                           </span>
                           <span className="font-medium">
-                            {contrato.data_entrega
-                              ? new Date(contrato.data_entrega).toLocaleDateString('pt-BR')
-                              : contrato.prazo_meses
-                                ? `${contrato.prazo_meses} meses`
-                                : 'Contínuo / Recorrente'}
+                            {contrato.data_entrega ? (
+                              <span className="text-slate-900 dark:text-white font-semibold">
+                                {new Date(contrato.data_entrega).toLocaleDateString('pt-BR')}
+                                {contrato.prazo_meses ? ` (${contrato.prazo_meses} meses)` : ''}
+                              </span>
+                            ) : contrato.prazo_meses ? (
+                              `${contrato.prazo_meses} meses`
+                            ) : (
+                              'Contínuo / Sem data de término'
+                            )}
                           </span>
                         </div>
                         <div>
@@ -541,7 +597,7 @@ export default function Rentals() {
                 <Label htmlFor="tipoContrato">Tipo de Contrato</Label>
                 <Select
                   value={tipoContrato}
-                  onValueChange={(val: TipoLocacao) => setTipoContrato(val)}
+                  onValueChange={(val: TipoLocacao) => handleTipoContratoChange(val)}
                 >
                   <SelectTrigger id="tipoContrato">
                     <SelectValue />
@@ -559,7 +615,7 @@ export default function Rentals() {
                   id="dataInicio"
                   type="date"
                   value={dataInicio}
-                  onChange={(e) => setDataInicio(e.target.value)}
+                  onChange={(e) => handleDataInicioChange(e.target.value)}
                   required
                 />
               </div>
@@ -583,27 +639,63 @@ export default function Rentals() {
               </Select>
             </div>
 
-            {tipoContrato === 'plano_conquista' && (
-              <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200">
-                <div className="space-y-2">
-                  <Label htmlFor="prazo">Prazo (Meses)</Label>
-                  <Input
-                    id="prazo"
-                    type="number"
-                    min={1}
-                    value={prazoMeses}
-                    onChange={(e) => setPrazoMeses(Number(e.target.value))}
-                  />
+            {tipoContrato === 'plano_conquista' ? (
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-900/50 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="prazo">Prazo (Meses)</Label>
+                    <Input
+                      id="prazo"
+                      type="number"
+                      min={1}
+                      value={prazoMeses}
+                      onChange={(e) => handlePrazoMesesChange(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="dataFimContrato">Data de Fim de Contrato</Label>
+                      <span className="text-[10px] text-muted-foreground">(Opcional)</span>
+                    </div>
+                    <Input
+                      id="dataFimContrato"
+                      type="date"
+                      value={dataEntrega}
+                      onChange={(e) => {
+                        setDataEntrega(e.target.value)
+                        setDataFimContratoManual(true)
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dataEntrega">Data de Entrega da Moto</Label>
-                  <Input
-                    id="dataEntrega"
-                    type="date"
-                    value={dataEntrega}
-                    onChange={(e) => setDataEntrega(e.target.value)}
-                  />
+                <p className="text-[11px] text-amber-800 dark:text-amber-300">
+                  Calculada automaticamente com base no prazo de {prazoMeses} meses. Você pode
+                  ajustar ou limpar se desejar.
+                </p>
+              </div>
+            ) : (
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/60 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="dataFimContratoNormal">Data de Fim de Contrato</Label>
+                  <span className="text-[10px] font-medium text-slate-500 bg-slate-200/60 dark:bg-slate-700 px-1.5 py-0.5 rounded">
+                    Opcional
+                  </span>
                 </div>
+                <Input
+                  id="dataFimContratoNormal"
+                  type="date"
+                  value={dataEntrega}
+                  onChange={(e) => {
+                    setDataEntrega(e.target.value)
+                    setDataFimContratoManual(true)
+                  }}
+                  placeholder="dd/mm/aaaa"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Deixe vazio para contratos contínuos/recorrentes sem data de término definida.
+                  Preencha apenas se houver uma data estipulada para devolução ou término do
+                  contrato.
+                </p>
               </div>
             )}
 
