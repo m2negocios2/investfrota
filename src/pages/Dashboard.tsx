@@ -285,68 +285,82 @@ export default function Dashboard() {
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {motos.slice(0, 5).map((moto) => {
-                  const statusColors: Record<string, string> = {
-                    disponivel:
-                      'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300',
-                    locada:
-                      'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300',
-                    manutencao:
-                      'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300',
-                    em_loja_detran:
-                      'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300',
-                  }
-                  const valorSem =
-                    moto.valor_semanal !== undefined && moto.valor_semanal !== null
-                      ? moto.valor_semanal
-                      : (moto.valor_diario || 0) * 7
-                  const statusLabel =
-                    moto.status === 'em_loja_detran'
-                      ? 'Em Loja/Detran'
-                      : moto.status === 'disponivel'
-                        ? 'Disponível'
-                        : moto.status === 'locada'
-                          ? 'Locada'
-                          : 'Manutenção'
-                  return (
-                    <div key={moto.id} className="py-3 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300">
-                          <Bike className="w-5 h-5" />
+              {motos.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Bike className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                  <p className="text-sm font-medium">Nenhuma moto cadastrada no momento.</p>
+                  <p className="text-xs mt-1">Comece cadastrando as motos reais da frota.</p>
+                  <Button asChild size="sm" className="mt-3">
+                    <Link to="/motos/nova">
+                      <Plus className="w-4 h-4 mr-1.5" />
+                      Cadastrar Primeira Moto
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {motos.slice(0, 5).map((moto) => {
+                    const statusColors: Record<string, string> = {
+                      disponivel:
+                        'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300',
+                      locada:
+                        'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300',
+                      manutencao:
+                        'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300',
+                      em_loja_detran:
+                        'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300',
+                    }
+                    const valorSem =
+                      moto.valor_semanal !== undefined && moto.valor_semanal !== null
+                        ? moto.valor_semanal
+                        : (moto.valor_diario || 0) * 7
+                    const statusLabel =
+                      moto.status === 'em_loja_detran'
+                        ? 'Em Loja/Detran'
+                        : moto.status === 'disponivel'
+                          ? 'Disponível'
+                          : moto.status === 'locada'
+                            ? 'Locada'
+                            : 'Manutenção'
+                    return (
+                      <div key={moto.id} className="py-3 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300">
+                            <Bike className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                              {moto.nome || moto.modelo}
+                            </p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                              <span className="font-mono font-semibold px-1 py-0.2 bg-slate-100 dark:bg-slate-800 rounded border">
+                                {moto.placa}
+                              </span>
+                              <span>• {moto.modelo}</span>
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                            {moto.nome || moto.modelo}
-                          </p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                            <span className="font-mono font-semibold px-1 py-0.2 bg-slate-100 dark:bg-slate-800 rounded border">
-                              {moto.placa}
-                            </span>
-                            <span>• {moto.modelo}</span>
-                          </p>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 hidden sm:inline">
+                            R$ {valorSem.toFixed(0)}/sem
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${statusColors[moto.status] || 'bg-slate-100'}`}
+                          >
+                            {statusLabel}
+                          </Badge>
+                          <Button asChild variant="ghost" size="sm" className="h-8 px-2">
+                            <Link to={`/motos/${moto.id}`}>
+                              <ArrowRight className="w-4 h-4" />
+                            </Link>
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 hidden sm:inline">
-                          R$ {valorSem.toFixed(0)}/sem
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${statusColors[moto.status] || 'bg-slate-100'}`}
-                        >
-                          {statusLabel}
-                        </Badge>
-                        <Button asChild variant="ghost" size="sm" className="h-8 px-2">
-                          <Link to={`/motos/${moto.id}`}>
-                            <ArrowRight className="w-4 h-4" />
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 
