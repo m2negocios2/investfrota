@@ -154,15 +154,16 @@ export default function MotoDetails() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {moto.modelo}
+              <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                {moto.nome || moto.modelo}
               </h1>
-              <span className="font-mono text-sm px-2.5 py-0.5 bg-slate-200 dark:bg-slate-800 rounded font-semibold text-slate-800 dark:text-slate-200">
+              <span className="font-mono text-sm px-2.5 py-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded font-bold border border-blue-200 dark:border-blue-800">
                 {moto.placa}
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Ano {moto.ano} • Cor {moto.cor} • Diária R$ {moto.valor_diario.toFixed(2)}
+              Modelo: {moto.modelo} • Ano {moto.ano} • Cor {moto.cor} • Diária R${' '}
+              {moto.valor_diario.toFixed(2)}
             </p>
           </div>
         </div>

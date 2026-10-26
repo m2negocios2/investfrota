@@ -26,4 +26,11 @@ export const caixaService = {
   async delete(id: string): Promise<boolean> {
     return await pb.collection('caixa_lancamentos').delete(id)
   },
+
+  async clearDemo(): Promise<void> {
+    const list = await pb.collection('caixa_lancamentos').getFullList()
+    for (const item of list) {
+      await pb.collection('caixa_lancamentos').delete(item.id)
+    }
+  },
 }

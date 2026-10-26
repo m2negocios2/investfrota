@@ -265,15 +265,15 @@ export default function Dashboard() {
                         <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300">
                           <Bike className="w-5 h-5" />
                         </div>
-                        <div>
-                          <p className="font-semibold text-sm text-slate-900 dark:text-white">
-                            {moto.modelo} ({moto.placa})
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                            {moto.nome || moto.modelo}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {moto.cor} • {moto.ano} • Padrão:{' '}
-                            {moto.tipo_locacao_padrao === 'plano_conquista'
-                              ? 'Plano Conquista'
-                              : 'Normal'}
+                          <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                            <span className="font-mono font-semibold px-1 py-0.2 bg-slate-100 dark:bg-slate-800 rounded border">
+                              {moto.placa}
+                            </span>
+                            <span>• {moto.modelo}</span>
                           </p>
                         </div>
                       </div>
@@ -385,7 +385,7 @@ export default function Dashboard() {
                         </p>
                         <p className="text-[11px] text-muted-foreground">
                           Venc: {new Date(conta.data_vencimento).toLocaleDateString('pt-BR')} •
-                          Categoria: {conta.categoria}
+                          Categoria: {conta.categoria_nome || conta.categoria}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
@@ -401,11 +401,9 @@ export default function Dashboard() {
                       </div>
                     </div>
                   ))}
-                  {isProprietario && (
-                    <Button asChild variant="default" size="sm" className="w-full mt-2">
-                      <Link to="/contas-a-pagar">Aprovar Pagamentos Pendentes</Link>
-                    </Button>
-                  )}
+                  <Button asChild variant="default" size="sm" className="w-full mt-2">
+                    <Link to="/contas-a-pagar">Ver Avisos e Pagar no Caixa</Link>
+                  </Button>
                 </div>
               )}
             </CardContent>

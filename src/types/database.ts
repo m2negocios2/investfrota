@@ -15,6 +15,7 @@ export type TipoLocacao = 'normal' | 'plano_conquista'
 
 export interface Moto {
   id: string
+  nome?: string
   placa: string
   modelo: string
   ano: number
@@ -23,6 +24,15 @@ export interface Moto {
   tipo_locacao_padrao: TipoLocacao
   status: MotoStatus
   observacoes?: string
+  created: string
+  updated: string
+}
+
+export interface CategoriaGasto {
+  id: string
+  nome: string
+  descricao?: string
+  cor?: string
   created: string
   updated: string
 }
@@ -78,13 +88,16 @@ export type PagamentoCategoria =
   | 'combustivel'
   | 'rastreador'
   | 'outros'
+  | string
+
 export type PagamentoStatus = 'pendente' | 'aprovado' | 'rejeitado' | 'pago'
 
 export interface Pagamento {
   id: string
   moto: string
   descricao: string
-  categoria: PagamentoCategoria
+  categoria: string
+  categoria_nome?: string
   data_vencimento: string
   data_pagamento?: string
   valor: number

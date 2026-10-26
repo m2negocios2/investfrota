@@ -33,11 +33,13 @@ import {
 import { toast } from 'sonner'
 import { caixaService } from '@/services/caixa'
 import { motosService } from '@/services/motos'
-import { CaixaLancamento, Moto, CaixaTipo, FormaPagamento } from '@/types/database'
+import { categoriasService } from '@/services/categorias'
+import { CaixaLancamento, Moto, CaixaTipo, FormaPagamento, CategoriaGasto } from '@/types/database'
 
 export default function CashFlow() {
   const [lancamentos, setLancamentos] = useState<CaixaLancamento[]>([])
   const [motos, setMotos] = useState<Moto[]>([])
+  const [categorias, setCategorias] = useState<CategoriaGasto[]>([])
   const [loading, setLoading] = useState(true)
 
   // Filters
@@ -58,9 +60,14 @@ export default function CashFlow() {
 
   const loadData = async () => {
     try {
-      const [cx, m] = await Promise.all([caixaService.getAll(), motosService.getAll()])
+      const [cx, m, c] = await Promise.all([
+        caixaService.getAll(),
+        motosService.getAll(),
+        categoriasService.getAll(),
+      ])
       setLancamentos(cx)
       setMotos(m)
+      setCategorias(c)
     } catch (err) {
       console.error(err)
       toast.error('Erro ao carregar livro caixa')
@@ -147,12 +154,13 @@ export default function CashFlow() {
             Registro de entradas (aluguéis) e saídas (manutenções, custos) por moto.
           </p>
         </div>
-        <Button onClick={() => setNewModalOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Novo Lançamento no Caixa
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setNewModalOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Novo Lançamento
+          </Button>
+        </div>
       </div>
-
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="shadow-sm">
@@ -239,7 +247,7 @@ export default function CashFlow() {
                 <SelectItem value="todas">Todas as Motos</SelectItem>
                 {motos.map((m) => (
                   <SelectItem key={m.id} value={m.id}>
-                    {m.modelo} - {m.placa}
+                    {m.nome || m.modelo} — {m.placa}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -301,7 +309,10 @@ export default function CashFlow() {
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {new Date(item.data).toLocaleDateString('pt-BR')} •{' '}
-                          {moto ? `${moto.modelo} (${moto.placa})` : 'Moto'} • Forma:{' '}
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">
+                            {moto?.nome || moto?.modelo || 'Moto'}
+                          </span>
+                          {moto?.placa && ` (${moto.placa})`} • Forma:{' '}
                           {item.forma_pagamento ? item.forma_pagamento.toUpperCase() : 'PIX'}
                         </p>
                       </div>
@@ -376,7 +387,7 @@ export default function CashFlow() {
                 <SelectContent>
                   {motos.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
-                      {m.modelo} ({m.placa})
+                      {m.nome || m.modelo} — {m.placa}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -445,13 +456,29 @@ export default function CashFlow() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="cat">Categoria</Label>
-                <Input
-                  id="cat"
-                  placeholder="Ex: Aluguel, Oficina, IPVA"
-                  value={categoria}
-                  onChange={(e) => setCategoria(e.target.value)}
-                />
+                <Label htmlFor="catSelect">Categoria de Gasto/Entrada</Label>
+                {tipo === 'entrada' ? (
+                  <Input
+                    id="catInput"
+                    placeholder="Ex: Aluguel Semanal, Caução..."
+                    value={categoria}
+                    onChange={(e) => setCategoria(e.target.value)}
+                  />
+                ) : (
+                  <Select value={categoria} onValueChange={setCategoria}>
+                    <SelectTrigger id="catSelect">
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categorias.map((c) => (
+                        <SelectItem key={c.id} value={c.nome}>
+                          {c.nome}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="Outros">Outros</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
 

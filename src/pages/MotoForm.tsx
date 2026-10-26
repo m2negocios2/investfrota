@@ -33,6 +33,7 @@ export default function MotoForm() {
   const [fetching, setFetching] = useState(isEditing)
 
   // Form fields
+  const [nome, setNome] = useState('')
   const [placa, setPlaca] = useState('')
   const [modelo, setModelo] = useState('')
   const [ano, setAno] = useState<number>(new Date().getFullYear())
@@ -47,6 +48,7 @@ export default function MotoForm() {
       motosService
         .getById(id)
         .then((moto) => {
+          setNome(moto.nome || '')
           setPlaca(moto.placa)
           setModelo(moto.modelo)
           setAno(moto.ano)
@@ -69,13 +71,17 @@ export default function MotoForm() {
     e.preventDefault()
 
     if (!placa.trim() || !modelo.trim() || !cor.trim()) {
-      toast.error('Preencha os campos obrigatórios')
+      toast.error('Preencha os campos obrigatórios (Placa, Modelo e Cor)')
       return
     }
 
     setLoading(true)
 
+    // Se a dona não informou um nome específico, usamos o modelo ou modelo + cor como padrão
+    const finalNome = nome.trim() || modelo.trim()
+
     const payload = {
+      nome: finalNome,
       placa: placa.trim().toUpperCase(),
       modelo: modelo.trim(),
       ano: Number(ano),
@@ -135,25 +141,35 @@ export default function MotoForm() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Campo NOME da moto com destaque */}
+            <div className="p-4 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="nome"
+                  className="text-sm font-bold text-blue-900 dark:text-blue-100"
+                >
+                  Nome / Apelido da Moto <span className="text-primary">*</span>
+                </Label>
+                <span className="text-[11px] text-blue-700 dark:text-blue-300 font-medium">
+                  Identificação principal nos relatórios e avisos
+                </span>
+              </div>
+              <Input
+                id="nome"
+                placeholder="Ex: CG 160 Vermelha, Bis da Maria, Factor 150 Preta..."
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                className="bg-white dark:bg-slate-900 text-base font-semibold"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Como a dona chama ou identifica essa moto no dia a dia.
+              </p>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="placa">
-                  Placa <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="placa"
-                  placeholder="Ex: BRA2E19"
-                  value={placa}
-                  onChange={(e) => setPlaca(e.target.value.toUpperCase())}
-                  required
-                  className="font-mono uppercase"
-                  maxLength={8}
-                />
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="modelo">
-                  Modelo / Marca <span className="text-red-500">*</span>
+                  Modelo / Fabricante <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="modelo"
@@ -161,6 +177,21 @@ export default function MotoForm() {
                   value={modelo}
                   onChange={(e) => setModelo(e.target.value)}
                   required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="placa">
+                  Placa do Veículo <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="placa"
+                  placeholder="Ex: BRA2E19"
+                  value={placa}
+                  onChange={(e) => setPlaca(e.target.value.toUpperCase())}
+                  required
+                  className="font-mono uppercase tracking-wider"
+                  maxLength={8}
                 />
               </div>
             </div>

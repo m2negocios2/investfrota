@@ -244,8 +244,15 @@ export default function Rentals() {
                           <CardTitle className="text-base font-bold flex items-center gap-2">
                             <span>{contrato.locatario_nome}</span>
                           </CardTitle>
-                          <CardDescription className="text-xs mt-0.5">
-                            {moto ? `${moto.modelo} (${moto.placa})` : 'Moto'}
+                          <CardDescription className="text-xs mt-0.5 flex items-center gap-1.5">
+                            <span className="font-bold text-slate-800 dark:text-slate-200">
+                              {moto?.nome || moto?.modelo || 'Moto'}
+                            </span>
+                            {moto?.placa && (
+                              <span className="font-mono text-[11px] px-1.5 py-0.2 bg-slate-100 dark:bg-slate-800 rounded border">
+                                {moto.placa}
+                              </span>
+                            )}
                           </CardDescription>
                         </div>
                         <Badge
@@ -338,8 +345,15 @@ export default function Rentals() {
               {availableMotos.map((moto) => (
                 <Card key={moto.id} className="shadow-sm hover:shadow-md transition-shadow">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-bold">{moto.modelo}</CardTitle>
-                    <CardDescription className="font-mono text-xs">{moto.placa}</CardDescription>
+                    <CardTitle className="text-base font-bold">
+                      {moto.nome || moto.modelo}
+                    </CardTitle>
+                    <CardDescription className="flex items-center gap-2 mt-1">
+                      <span className="font-mono text-xs font-semibold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded border">
+                        {moto.placa}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{moto.modelo}</span>
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="text-xs text-muted-foreground">
@@ -347,7 +361,7 @@ export default function Rentals() {
                         Ano: {moto.ano} • Cor: {moto.cor}
                       </p>
                       <p className="font-bold text-slate-800 dark:text-slate-200 mt-1">
-                        Diária sugerida: R$ {moto.valor_diario.toFixed(2)}
+                        Diária: R$ {moto.valor_diario.toFixed(2)}
                       </p>
                     </div>
                     <Button
@@ -466,7 +480,7 @@ export default function Rentals() {
                 <SelectContent>
                   {motos.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
-                      {m.modelo} - {m.placa} ({m.status.toUpperCase()})
+                      {m.nome || m.modelo} — {m.placa} ({m.status.toUpperCase()})
                     </SelectItem>
                   ))}
                 </SelectContent>

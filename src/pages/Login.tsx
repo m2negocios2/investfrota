@@ -73,8 +73,8 @@ export default function Login() {
           <div className="inline-flex p-3 bg-primary/10 rounded-2xl text-primary mb-2 shadow-sm">
             <Bike className="w-10 h-10" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            MotoLoc Gestão
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+            M2 Gestão de Motos
           </h1>
           <p className="text-sm text-muted-foreground">
             Acesso para Proprietários e Administradores

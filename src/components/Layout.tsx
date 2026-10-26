@@ -17,6 +17,8 @@ import {
   TrendingUp,
   ShieldCheck,
   ShieldAlert,
+  Tags,
+  Smartphone,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -54,10 +56,15 @@ export default function Layout() {
     { name: 'Aluguéis & Contratos', href: '/alugueis', icon: KeyRound },
     { name: 'Fluxo de Caixa', href: '/caixa', icon: Wallet },
     {
-      name: 'Contas a Pagar',
+      name: 'Avisos de Custos',
       href: '/contas-a-pagar',
       icon: Receipt,
       badge: pendingBills.length > 0 ? pendingBills.length : undefined,
+    },
+    {
+      name: 'Categorias de Gastos',
+      href: '/categorias-gastos',
+      icon: Tags,
     },
     { name: 'Projeções & Relatórios', href: '/relatorios', icon: TrendingUp },
   ]
@@ -84,12 +91,12 @@ export default function Layout() {
       <aside className="hidden md:flex md:w-64 flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
         {/* Brand */}
         <div className="h-16 flex items-center px-6 border-b border-slate-200 dark:border-slate-800 gap-3">
-          <div className="p-2 bg-primary/10 rounded-xl text-primary">
+          <div className="p-2 bg-blue-600 text-white rounded-xl shadow-sm">
             <Bike className="w-6 h-6" />
           </div>
           <div>
-            <span className="font-bold text-base tracking-tight text-slate-900 dark:text-white block leading-none">
-              MotoLoc Gestão
+            <span className="font-extrabold text-base tracking-tight text-slate-900 dark:text-white block leading-none">
+              M2 Gestão de Motos
             </span>
             <span className="text-xs text-muted-foreground">Controle de Frotas</span>
           </div>
@@ -163,6 +170,18 @@ export default function Layout() {
           })}
         </nav>
 
+        {/* Guia Como Instalar no Celular */}
+        <div className="mx-3 mb-2 p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl border border-blue-200/60 dark:border-blue-900/40">
+          <div className="flex items-center gap-2 text-xs font-bold text-blue-900 dark:text-blue-100">
+            <Smartphone className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            <span>Instalar no Celular</span>
+          </div>
+          <p className="text-[11px] text-blue-700 dark:text-blue-300 mt-1 leading-snug">
+            Abra no Chrome ou Safari e toque em <strong>"Adicionar à Tela de Início"</strong> para
+            usar como app!
+          </p>
+        </div>
+
         {/* Bottom Actions */}
         <div className="p-4 border-t border-slate-200 dark:border-slate-800">
           <Button
@@ -188,8 +207,12 @@ export default function Layout() {
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
             <div className="flex items-center gap-2">
-              <Bike className="w-6 h-6 text-primary" />
-              <span className="font-bold text-slate-900 dark:text-white">MotoLoc</span>
+              <div className="p-1 bg-blue-600 text-white rounded-lg">
+                <Bike className="w-5 h-5" />
+              </div>
+              <span className="font-extrabold text-slate-900 dark:text-white text-base">
+                M2 Gestão de Motos
+              </span>
             </div>
           </div>
 
@@ -274,20 +297,20 @@ export default function Layout() {
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
               <span>
-                <strong>Aviso Semanal de Contas a Pagar:</strong> Existem{' '}
+                <strong>Avisos de Custos & Pendências:</strong> Existem{' '}
                 <span className="font-bold text-amber-800 dark:text-amber-100">
-                  {pendingBills.length} conta(s) pendente(s)
+                  {pendingBills.length} pendência(s)
                 </span>{' '}
                 {isProprietario
-                  ? 'aguardando sua aprovação para pagamento.'
-                  : 'lançadas no sistema.'}
+                  ? 'aguardando quitação no caixa pela proprietária.'
+                  : 'registradas no sistema.'}
               </span>
             </div>
             <Link
               to="/contas-a-pagar"
               className="text-xs font-semibold text-amber-700 dark:text-amber-300 hover:underline flex items-center gap-1 shrink-0"
             >
-              Revisar Contas &rarr;
+              Ver Avisos & Pagar no Caixa &rarr;
             </Link>
           </div>
         )}

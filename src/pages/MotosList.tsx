@@ -64,6 +64,7 @@ export default function MotosList() {
 
   const filteredMotos = motos.filter((moto) => {
     const matchesSearch =
+      (moto.nome && moto.nome.toLowerCase().includes(search.toLowerCase())) ||
       moto.placa.toLowerCase().includes(search.toLowerCase()) ||
       moto.modelo.toLowerCase().includes(search.toLowerCase()) ||
       moto.cor.toLowerCase().includes(search.toLowerCase())
@@ -75,7 +76,7 @@ export default function MotosList() {
     if (!motoToDelete) return
     try {
       await motosService.delete(motoToDelete.id)
-      toast.success(`Moto ${motoToDelete.placa} excluída com sucesso`)
+      toast.success(`Moto "${motoToDelete.nome || motoToDelete.modelo}" excluída com sucesso`)
       setMotos(motos.filter((m) => m.id !== motoToDelete.id))
       setDeleteModalOpen(false)
     } catch (err) {
@@ -110,7 +111,7 @@ export default function MotosList() {
             <div className="relative w-full sm:max-w-xs">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por placa, modelo ou cor..."
+                placeholder="Buscar por nome, placa, modelo..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -191,17 +192,23 @@ export default function MotosList() {
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <CardTitle className="text-lg font-bold flex items-center gap-2">
-                        <span>{moto.modelo}</span>
+                    <div className="min-w-0">
+                      {/* Destaque para o NOME da moto com placa secundária */}
+                      <CardTitle className="text-lg font-extrabold text-slate-900 dark:text-white truncate">
+                        {moto.nome || moto.modelo}
                       </CardTitle>
-                      <CardDescription className="font-mono text-sm uppercase text-slate-700 dark:text-slate-300 font-semibold mt-0.5">
-                        {moto.placa}
-                      </CardDescription>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="font-mono text-xs uppercase px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded border border-slate-200 dark:border-slate-700">
+                          {moto.placa}
+                        </span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          {moto.modelo}
+                        </span>
+                      </div>
                     </div>
                     <Badge
                       variant="outline"
-                      className={`text-xs capitalize ${statusInfo.color} flex items-center gap-1`}
+                      className={`text-xs capitalize shrink-0 ${statusInfo.color} flex items-center gap-1`}
                     >
                       <StatusIcon className="w-3 h-3" />
                       {statusInfo.label}
@@ -284,7 +291,7 @@ export default function MotosList() {
             <DialogDescription>
               Tem certeza que deseja excluir a moto{' '}
               <strong>
-                {motoToDelete?.modelo} ({motoToDelete?.placa})
+                {motoToDelete?.nome || motoToDelete?.modelo} (Placa: {motoToDelete?.placa})
               </strong>
               ? Esta ação não pode ser desfeita.
             </DialogDescription>

@@ -26,47 +26,56 @@ export const pagamentosService = {
   },
 
   async create(data: Omit<Pagamento, 'id' | 'created' | 'updated'>): Promise<Pagamento> {
-    return await pb.collection('pagamentos').create<Pagamento>(data)
+    // Normaliza categoria para os valores aceitos pela collection caso use enum
+    const validEnums = ['manutencao', 'ipva_seguro', 'combustivel', 'rastreador', 'outros']
+    const enumCat = validEnums.includes(data.categoria) ? data.categoria : 'outros'
+    return await pb.collection('pagamentos').create<Pagamento>({
+      ...data,
+      categoria: enumCat,
+      categoria_nome: data.categoria_nome || data.categoria,
+    })
   },
 
   async update(id: string, data: Partial<Pagamento>): Promise<Pagamento> {
     return await pb.collection('pagamentos').update<Pagamento>(id, data)
   },
 
-  async aprovar(id: string, proprietarioId: string): Promise<Pagamento> {
-    const today = new Date().toISOString().split('T')[0]
-    return await pb.collection('pagamentos').update<Pagamento>(id, {
-      status: 'aprovado',
-      aprovado_por: proprietarioId,
-      data_aprovacao: today,
-    })
+  async delete(id: string): Promise<boolean> {
+    return await pb.collection('pagamentos').delete(id)
   },
 
-  async rejeitar(id: string): Promise<Pagamento> {
-    return await pb.collection('pagamentos').update<Pagamento>(id, {
-      status: 'rejeitado',
-    })
-  },
-
-  async pagar(
+  // Novo fluxo: A dona registra pagamento diretamente no caixa e liquida a pendência
+  async pagarNoCaixa(
     pagamento: Pagamento,
-    formaPagamento: 'pix' | 'dinheiro' | 'cartao' | 'transferencia' | 'outro' = 'pix',
+    options: {
+      data?: string
+      formaPagamento?: 'pix' | 'dinheiro' | 'cartao' | 'transferencia' | 'outro'
+      categoria?: string
+      descricao?: string
+      valor?: number
+    } = {},
   ): Promise<Pagamento> {
-    const today = new Date().toISOString().split('T')[0]
+    const today = options.data || new Date().toISOString().split('T')[0]
+    const forma = options.formaPagamento || 'pix'
+    const desc = options.descricao || `Manutenção: ${pagamento.descricao}`
+    const cat = options.categoria || pagamento.categoria_nome || pagamento.categoria || 'Manutenção'
+    const val = options.valor ?? pagamento.valor
+
+    // 1. Marca pagamento como pago
     const updated = await pb.collection('pagamentos').update<Pagamento>(pagamento.id, {
       status: 'pago',
       data_pagamento: today,
     })
 
-    // Also register in Caixa
+    // 2. Lança saída no livro caixa da moto apropriada
     await pb.collection('caixa_lancamentos').create({
       moto: pagamento.moto,
       tipo: 'saida',
-      descricao: `Pagamento: ${pagamento.descricao}`,
-      categoria: pagamento.categoria,
-      valor: pagamento.valor,
+      descricao: desc,
+      categoria: cat,
+      valor: val,
       data: today,
-      forma_pagamento: formaPagamento,
+      forma_pagamento: forma,
     })
 
     return updated
