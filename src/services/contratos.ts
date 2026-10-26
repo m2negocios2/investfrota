@@ -71,31 +71,68 @@ export const contratosService = {
   },
 
   async delete(id: string, motoId?: string): Promise<boolean> {
-    // 1. Desvincular recebimentos associados a este contrato para não dar conflito de chave estrangeira
+    // Obter dados do contrato antes de apagar (para locatario_nome, motoId, etc.)
+    let targetContrato: Contrato | null = null
+    try {
+      targetContrato = await pb.collection('contratos').getOne<Contrato>(id)
+    } catch (err) {
+      console.warn('Contrato já não encontrado ou erro ao carregar:', err)
+    }
+
+    const locatarioNome = targetContrato?.locatario_nome?.trim()
+    const finalMotoId = motoId || targetContrato?.moto
+
+    // 1. Apagar TODOS os recebimentos vinculados a este contrato
     try {
       const recs = await pb.collection('recebimentos').getFullList({
         filter: `contrato = "${id}"`,
       })
       for (const rec of recs) {
-        await pb.collection('recebimentos').update(rec.id, { contrato: null })
+        try {
+          await pb.collection('recebimentos').delete(rec.id)
+        } catch (errDelRec) {
+          console.warn('Aviso ao apagar recebimento vinculado:', errDelRec)
+        }
       }
     } catch (err) {
-      console.warn('Aviso ao desvincular recebimentos do contrato:', err)
+      console.warn('Aviso ao buscar recebimentos do contrato:', err)
     }
 
-    // 2. Apagar o registro do contrato
+    // 2. Apagar lançamentos de caixa gerados por recebimento de aluguel deste contrato/locatário
+    if (finalMotoId && locatarioNome) {
+      try {
+        // Formato padrão gerado em recebimentosService: "Recebimento de aluguel - {locatarioNome}"
+        const descSearch = `Recebimento de aluguel - ${locatarioNome}`
+        const lancamentos = await pb.collection('caixa_lancamentos').getFullList({
+          filter: `moto = "${finalMotoId}" && tipo = "entrada" && categoria = "aluguel" && descricao ~ "${locatarioNome}"`,
+        })
+        for (const lanc of lancamentos) {
+          if (lanc.descricao === descSearch || lanc.descricao?.includes(locatarioNome)) {
+            try {
+              await pb.collection('caixa_lancamentos').delete(lanc.id)
+            } catch (errDelCaixa) {
+              console.warn('Aviso ao apagar lançamento de caixa do contrato:', errDelCaixa)
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Aviso ao buscar lançamentos de caixa vinculados ao contrato:', err)
+      }
+    }
+
+    // 3. Apagar o registro do contrato
     await pb.collection('contratos').delete(id)
 
-    // 3. Se foi passado o motoId (ou se conseguirmos checar), reavaliar status da moto
-    if (motoId) {
+    // 4. Se foi passado o motoId (ou obtido do contrato), reavaliar status da moto
+    if (finalMotoId) {
       try {
         const active = await pb.collection('contratos').getList(1, 1, {
-          filter: `moto = "${motoId}" && status = "ativo"`,
+          filter: `moto = "${finalMotoId}" && status = "ativo" && id != "${id}"`,
         })
         if (active.totalItems === 0) {
-          const motoAtual = await pb.collection('motos').getOne(motoId)
+          const motoAtual = await pb.collection('motos').getOne(finalMotoId)
           if (motoAtual.status === 'locada') {
-            await pb.collection('motos').update(motoId, { status: 'disponivel' })
+            await pb.collection('motos').update(finalMotoId, { status: 'disponivel' })
           }
         }
       } catch (err) {

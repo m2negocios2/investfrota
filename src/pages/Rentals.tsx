@@ -923,9 +923,10 @@ export default function Rentals() {
               <div className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-md border border-amber-200 dark:border-amber-900/60 flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Atenção:</strong> A exclusão é irreversível. O contrato deixará de constar
-                  nos históricos, relatórios e painéis semanais. Se o contrato estiver ativo, a moto
-                  voltará automaticamente para o status <strong>Disponível</strong>.
+                  <strong>Atenção:</strong> A exclusão é irreversível e definitiva. Todos os valores
+                  a receber (parcelas de recebimento) e registros gerados por este contrato serão
+                  apagados permanentemente. Se o contrato estiver ativo, a moto voltará
+                  automaticamente para o status <strong>Disponível</strong>.
                 </span>
               </div>
             </div>

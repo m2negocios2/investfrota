@@ -797,9 +797,11 @@ export default function MotoDetails() {
               <div className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-md border border-amber-200 dark:border-amber-900/60 flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Atenção:</strong> A exclusão é irreversível. O contrato deixará de constar
-                  no histórico, mapa de ocupação e painéis da semana. Se o contrato for apenas
-                  finalizado normalmente, use &quot;Finalizar Contrato&quot;.
+                  <strong>Atenção:</strong> A exclusão é irreversível e definitiva. Todos os valores
+                  a receber vinculados e registros deste contrato serão apagados permanentemente. Se
+                  a moto estiver locada por este contrato, ela voltará automaticamente para{' '}
+                  <strong>Disponível</strong>. Se o contrato foi apenas encerrado no prazo, use
+                  &quot;Finalizar Contrato&quot;.
                 </span>
               </div>
             </div>
