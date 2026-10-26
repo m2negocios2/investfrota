@@ -64,19 +64,11 @@ export default function Layout() {
 
   const navigation = [
     { name: 'PAINEL GERAL', href: '/', icon: LayoutDashboard },
-    {
-      name: 'INFRAÇÕES',
-      href: '/infracoes',
-      icon: AlertTriangle,
-      badge: pendingInfracoes.length > 0 ? pendingInfracoes.length : undefined,
-    },
-    { name: 'ATRASOS', href: '/atrasos', icon: AlertTriangle },
-    { name: 'PENDÊNCIAS', href: '/pendencias', icon: ListTodo },
-    { name: 'SEMANA', href: '/semana', icon: CalendarDays },
-    { name: 'CAUÇÕES', href: '/caucoes', icon: Shield },
     { name: 'MOTOS', href: '/motos', icon: Bike },
     { name: 'ALUGUÉIS & CONTRATOS', href: '/alugueis', icon: KeyRound },
     { name: 'FLUXO DE CAIXA', href: '/caixa', icon: Wallet },
+    { name: 'SEMANA', href: '/semana', icon: CalendarDays },
+    { name: 'CAUÇÕES', href: '/caucoes', icon: Shield },
     {
       name: 'AVISOS DE CUSTOS',
       href: '/contas-a-pagar',
@@ -89,6 +81,13 @@ export default function Layout() {
       icon: Tags,
     },
     { name: 'PROJEÇÕES & RELATÓRIOS', href: '/relatorios', icon: TrendingUp },
+    {
+      name: 'INFRAÇÕES',
+      href: '/infracoes',
+      icon: AlertTriangle,
+      badge: pendingInfracoes.length > 0 ? pendingInfracoes.length : undefined,
+    },
+    { name: 'PENDÊNCIAS', href: '/pendencias', icon: ListTodo },
   ]
 
   const handleLogout = () => {
