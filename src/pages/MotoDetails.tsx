@@ -37,6 +37,7 @@ import { motosService } from '@/services/motos'
 import { contratosService } from '@/services/contratos'
 import { caixaService } from '@/services/caixa'
 import { pagamentosService } from '@/services/pagamentos'
+import { FinalizeContractModal } from '@/components/FinalizeContractModal'
 import { Moto, Contrato, CaixaLancamento, Pagamento } from '@/types/database'
 
 export default function MotoDetails() {
@@ -54,6 +55,10 @@ export default function MotoDetails() {
   const [inputKmAtual, setInputKmAtual] = useState('')
   const [inputKmOleo, setInputKmOleo] = useState('')
   const [kmUpdating, setKmUpdating] = useState(false)
+
+  // Finalize contract modal
+  const [finalizeModalOpen, setFinalizeModalOpen] = useState(false)
+  const [contractToFinalize, setContractToFinalize] = useState<Contrato | null>(null)
 
   const loadData = async () => {
     if (!id) return
@@ -110,6 +115,23 @@ export default function MotoDetails() {
     setInputKmAtual(moto.km_atual !== undefined ? String(moto.km_atual) : '')
     setInputKmOleo(moto.km_ultimo_oleo !== undefined ? String(moto.km_ultimo_oleo) : '')
     setKmModalOpen(true)
+  }
+
+  const handleOpenFinalizeModal = (contrato: Contrato) => {
+    setContractToFinalize(contrato)
+    setFinalizeModalOpen(true)
+  }
+
+  const handleConfirmFinalize = async (contrato: Contrato, dataFim: string) => {
+    try {
+      await contratosService.finalizar(contrato.id, contrato.moto, dataFim)
+      toast.success('Contrato finalizado com sucesso!')
+      loadData()
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao finalizar contrato')
+      throw err
+    }
   }
 
   const handleSaveKm = async (e: React.FormEvent) => {
@@ -590,6 +612,17 @@ export default function MotoDetails() {
                             /sem
                           </span>
                         </div>
+
+                        {contrato.status === 'ativo' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenFinalizeModal(contrato)}
+                            className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            Finalizar Contrato
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -647,6 +680,15 @@ export default function MotoDetails() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Finalize Contract Modal with Custom End Date */}
+      <FinalizeContractModal
+        open={finalizeModalOpen}
+        onOpenChange={setFinalizeModalOpen}
+        contrato={contractToFinalize}
+        moto={moto}
+        onConfirm={handleConfirmFinalize}
+      />
 
       {/* Quick KM Modal */}
       <Dialog open={kmModalOpen} onOpenChange={setKmModalOpen}>

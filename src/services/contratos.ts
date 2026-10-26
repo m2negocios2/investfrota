@@ -52,8 +52,14 @@ export const contratosService = {
     return await pb.collection('contratos').update<Contrato>(id, data)
   },
 
-  async finalizar(id: string, motoId: string): Promise<Contrato> {
-    const updated = await pb.collection('contratos').update<Contrato>(id, { status: 'finalizado' })
+  async finalizar(id: string, motoId: string, dataFim?: string): Promise<Contrato> {
+    const updatePayload: Partial<Contrato> = {
+      status: 'finalizado',
+    }
+    if (dataFim) {
+      updatePayload.data_entrega = dataFim
+    }
+    const updated = await pb.collection('contratos').update<Contrato>(id, updatePayload)
     // If no other active contracts for this moto, set status to disponivel
     const active = await pb.collection('contratos').getList(1, 1, {
       filter: `moto = "${motoId}" && status = "ativo" && id != "${id}"`,

@@ -38,6 +38,7 @@ import { toast } from 'sonner'
 import { contratosService } from '@/services/contratos'
 import { motosService } from '@/services/motos'
 import { recebimentosService } from '@/services/recebimentos'
+import { FinalizeContractModal } from '@/components/FinalizeContractModal'
 import { Contrato, Moto, TipoLocacao, Recebimento } from '@/types/database'
 
 export default function Rentals() {
@@ -73,6 +74,10 @@ export default function Rentals() {
   const [formaPagamento, setFormaPagamento] = useState<
     'pix' | 'dinheiro' | 'cartao' | 'transferencia'
   >('pix')
+
+  // Finalize contract dialog with custom end date
+  const [finalizeModalOpen, setFinalizeModalOpen] = useState(false)
+  const [contractToFinalize, setContractToFinalize] = useState<Contrato | null>(null)
 
   const loadData = async () => {
     try {
@@ -223,17 +228,20 @@ export default function Rentals() {
     }
   }
 
-  const handleFinalizeContract = async (contrato: Contrato) => {
-    if (!confirm(`Deseja realmente finalizar o contrato de ${contrato.locatario_nome}?`)) {
-      return
-    }
+  const handleOpenFinalizeModal = (contrato: Contrato) => {
+    setContractToFinalize(contrato)
+    setFinalizeModalOpen(true)
+  }
+
+  const handleConfirmFinalize = async (contrato: Contrato, dataFim: string) => {
     try {
-      await contratosService.finalizar(contrato.id, contrato.moto)
+      await contratosService.finalizar(contrato.id, contrato.moto, dataFim)
       toast.success('Contrato finalizado com sucesso!')
       loadData()
     } catch (err) {
       console.error(err)
       toast.error('Erro ao finalizar contrato')
+      throw err
     }
   }
 
@@ -383,7 +391,7 @@ export default function Rentals() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleFinalizeContract(contrato)}
+                          onClick={() => handleOpenFinalizeModal(contrato)}
                           className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
                           Finalizar Contrato
@@ -736,6 +744,15 @@ export default function Rentals() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Finalize Contract Modal with Custom End Date */}
+      <FinalizeContractModal
+        open={finalizeModalOpen}
+        onOpenChange={setFinalizeModalOpen}
+        contrato={contractToFinalize}
+        moto={motos.find((m) => m.id === contractToFinalize?.moto)}
+        onConfirm={handleConfirmFinalize}
+      />
 
       {/* Confirm Payment Dialog */}
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>

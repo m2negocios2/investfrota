@@ -154,12 +154,33 @@ export default function Semana() {
     loadData()
   }, [])
 
-  // Active contracts with their moto
-  const activeContratos = useMemo(() => {
-    return contratos.filter((c) => c.status === 'ativo')
-  }, [contratos])
+  // Selected week date boundaries (Monday 00:00:00 to Sunday 23:59:59 pure date string comparison)
+  const selectedWeekDates = useMemo(() => {
+    return getWeekDates(selectedYear, selectedWeek)
+  }, [selectedYear, selectedWeek])
 
-  // Motos not rented (disponivel or manutencao or without active contract)
+  const selectedWeekStartStr = selectedWeekDates['SEG'].dateStr
+  const selectedWeekEndStr = selectedWeekDates['DOM'].dateStr
+
+  // Active contracts with their moto for the currently selected week.
+  // Regra de negócio: contratos ativos cuja data_inicio <= fim da semana E
+  // (se tiver data_entrega/término definida, data_entrega >= início da semana).
+  // Contratos que já foram finalizados (status === 'finalizado') antes desta semana NÃO entram.
+  // Contratos ativos continuam aparecendo a partir de sua data_inicio.
+  const activeContratos = useMemo(() => {
+    return contratos.filter((c) => {
+      if (c.status !== 'ativo') return false
+      const inicio = c.data_inicio ? c.data_inicio.split('T')[0] : ''
+      if (inicio && inicio > selectedWeekEndStr) return false
+      if (c.data_entrega) {
+        const fim = c.data_entrega.split('T')[0]
+        if (fim && fim < selectedWeekStartStr) return false
+      }
+      return true
+    })
+  }, [contratos, selectedWeekStartStr, selectedWeekEndStr])
+
+  // Motos not rented (disponivel or manutencao or without active contract in this week)
   const unrentedMotos = useMemo(() => {
     const rentedMotoIds = new Set(activeContratos.map((c) => c.moto))
     return motos.filter((m) => !rentedMotoIds.has(m.id))
