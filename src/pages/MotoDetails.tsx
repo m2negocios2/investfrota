@@ -17,6 +17,8 @@ import {
   Gauge,
   Droplet,
   Save,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -59,6 +61,11 @@ export default function MotoDetails() {
   // Finalize contract modal
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false)
   const [contractToFinalize, setContractToFinalize] = useState<Contrato | null>(null)
+
+  // Delete contract modal
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [contractToDelete, setContractToDelete] = useState<Contrato | null>(null)
+  const [deletingContract, setDeletingContract] = useState(false)
 
   const loadData = async () => {
     if (!id) return
@@ -122,6 +129,11 @@ export default function MotoDetails() {
     setFinalizeModalOpen(true)
   }
 
+  const handleOpenDeleteModal = (contrato: Contrato) => {
+    setContractToDelete(contrato)
+    setDeleteModalOpen(true)
+  }
+
   const handleConfirmFinalize = async (contrato: Contrato, dataFim: string) => {
     try {
       await contratosService.finalizar(contrato.id, contrato.moto, dataFim)
@@ -131,6 +143,25 @@ export default function MotoDetails() {
       console.error(err)
       toast.error('Erro ao finalizar contrato')
       throw err
+    }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!contractToDelete) return
+    setDeletingContract(true)
+    try {
+      await contratosService.delete(contractToDelete.id, contractToDelete.moto)
+      toast.success('Contrato excluído com sucesso!')
+      setDeleteModalOpen(false)
+      setContractToDelete(null)
+      loadData()
+    } catch (err) {
+      console.error(err)
+      toast.error(
+        'Não foi possível excluir o contrato. Verifique suas permissões ou tente novamente.',
+      )
+    } finally {
+      setDeletingContract(false)
     }
   }
 
@@ -618,11 +649,22 @@ export default function MotoDetails() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleOpenFinalizeModal(contrato)}
-                            className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="text-xs text-amber-700 hover:text-amber-800 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40"
                           >
                             Finalizar Contrato
                           </Button>
                         )}
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleOpenDeleteModal(contrato)}
+                          title="Excluir contrato cadastrado erroneamente"
+                          aria-label="Excluir contrato"
+                          className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -689,6 +731,105 @@ export default function MotoDetails() {
         moto={moto}
         onConfirm={handleConfirmFinalize}
       />
+
+      {/* Delete Contract Confirmation Modal */}
+      <Dialog
+        open={deleteModalOpen}
+        onOpenChange={(open) => {
+          if (!deletingContract) {
+            setDeleteModalOpen(open)
+            if (!open) setContractToDelete(null)
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-500">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <span>Apagar Contrato Errôneo</span>
+            </DialogTitle>
+            <DialogDescription>
+              Esta ação removerá definitivamente o contrato do sistema. Use apenas para cadastros
+              feitos por engano ou com erros de digitação.
+            </DialogDescription>
+          </DialogHeader>
+
+          {contractToDelete && (
+            <div className="space-y-3 py-2">
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-sm space-y-2">
+                <div className="flex justify-between items-start">
+                  <span className="text-xs text-muted-foreground">Locatário:</span>
+                  <span className="font-semibold text-slate-900 dark:text-white text-right">
+                    {contractToDelete.locatario_nome}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground">Data Início:</span>
+                  <span className="font-medium text-slate-800 dark:text-slate-200">
+                    {new Date(contractToDelete.data_inicio).toLocaleDateString('pt-BR')}
+                  </span>
+                </div>
+                {contractToDelete.data_entrega && (
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground">Data Fim / Término:</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {new Date(contractToDelete.data_entrega).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground">Valor Semanal:</span>
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    R${' '}
+                    {(
+                      contractToDelete.valor_semanal || contractToDelete.valor_diario * 7
+                    ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground">Status Atual:</span>
+                  <Badge variant="outline" className="text-[10px] uppercase">
+                    {contractToDelete.status}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-md border border-amber-200 dark:border-amber-900/60 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Atenção:</strong> A exclusão é irreversível. O contrato deixará de constar
+                  no histórico, mapa de ocupação e painéis da semana. Se o contrato for apenas
+                  finalizado normalmente, use &quot;Finalizar Contrato&quot;.
+                </span>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="pt-2 gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDeleteModalOpen(false)
+                setContractToDelete(null)
+              }}
+              disabled={deletingContract}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={deletingContract}
+              className="gap-1.5"
+            >
+              <Trash2 className="w-4 h-4" />
+              {deletingContract ? 'Apagando...' : 'Sim, Apagar Contrato'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Quick KM Modal */}
       <Dialog open={kmModalOpen} onOpenChange={setKmModalOpen}>

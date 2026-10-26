@@ -69,4 +69,40 @@ export const contratosService = {
     }
     return updated
   },
+
+  async delete(id: string, motoId?: string): Promise<boolean> {
+    // 1. Desvincular recebimentos associados a este contrato para não dar conflito de chave estrangeira
+    try {
+      const recs = await pb.collection('recebimentos').getFullList({
+        filter: `contrato = "${id}"`,
+      })
+      for (const rec of recs) {
+        await pb.collection('recebimentos').update(rec.id, { contrato: null })
+      }
+    } catch (err) {
+      console.warn('Aviso ao desvincular recebimentos do contrato:', err)
+    }
+
+    // 2. Apagar o registro do contrato
+    await pb.collection('contratos').delete(id)
+
+    // 3. Se foi passado o motoId (ou se conseguirmos checar), reavaliar status da moto
+    if (motoId) {
+      try {
+        const active = await pb.collection('contratos').getList(1, 1, {
+          filter: `moto = "${motoId}" && status = "ativo"`,
+        })
+        if (active.totalItems === 0) {
+          const motoAtual = await pb.collection('motos').getOne(motoId)
+          if (motoAtual.status === 'locada') {
+            await pb.collection('motos').update(motoId, { status: 'disponivel' })
+          }
+        }
+      } catch (err) {
+        console.warn('Aviso ao atualizar status da moto após exclusão do contrato:', err)
+      }
+    }
+
+    return true
+  },
 }
