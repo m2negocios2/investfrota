@@ -9,6 +9,7 @@ import {
   Calendar,
   Trash2,
   Bike,
+  Pencil,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -57,6 +58,18 @@ export default function CashFlow() {
   const [data, setData] = useState(new Date().toISOString().split('T')[0])
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('pix')
   const [submitting, setSubmitting] = useState(false)
+
+  // Edit Entry Modal
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editMotoId, setEditMotoId] = useState('')
+  const [editTipo, setEditTipo] = useState<CaixaTipo>('entrada')
+  const [editDescricao, setEditDescricao] = useState('')
+  const [editCategoria, setEditCategoria] = useState('')
+  const [editValor, setEditValor] = useState<number>(0)
+  const [editData, setEditData] = useState('')
+  const [editFormaPagamento, setEditFormaPagamento] = useState<FormaPagamento>('pix')
+  const [editSubmitting, setEditSubmitting] = useState(false)
 
   const loadData = async () => {
     try {
@@ -109,6 +122,54 @@ export default function CashFlow() {
       toast.error('Erro ao lançar no caixa')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleOpenEdit = (item: CaixaLancamento) => {
+    setEditingId(item.id)
+    setEditMotoId(item.moto || '')
+    setEditTipo(item.tipo)
+    setEditDescricao(item.descricao || '')
+    setEditCategoria(item.categoria || '')
+    setEditValor(item.valor || 0)
+    // Extrai apenas a parte da data YYYY-MM-DD caso venha com timestamp
+    const dateFormatted = item.data
+      ? item.data.split('T')[0]
+      : new Date().toISOString().split('T')[0]
+    setEditData(dateFormatted)
+    setEditFormaPagamento(item.forma_pagamento || 'pix')
+    setEditModalOpen(true)
+  }
+
+  const handleUpdateEntry = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingId) return
+    if (!editMotoId || !editDescricao.trim() || editValor <= 0 || !editData) {
+      toast.error('Preencha os campos obrigatórios e valor válido')
+      return
+    }
+
+    setEditSubmitting(true)
+    try {
+      await caixaService.update(editingId, {
+        moto: editMotoId,
+        tipo: editTipo,
+        descricao: editDescricao.trim(),
+        categoria: editCategoria.trim() || (editTipo === 'entrada' ? 'Aluguel' : 'Despesa'),
+        valor: Number(editValor),
+        data: editData,
+        forma_pagamento: editFormaPagamento,
+      })
+
+      toast.success('Lançamento atualizado com sucesso!')
+      setEditModalOpen(false)
+      setEditingId(null)
+      loadData()
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao atualizar lançamento no caixa')
+    } finally {
+      setEditSubmitting(false)
     }
   }
 
@@ -327,14 +388,26 @@ export default function CashFlow() {
                         {item.tipo === 'entrada' ? '+' : '-'} R${' '}
                         {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(item.id)}
-                        className="h-8 w-8 p-0 text-slate-400 hover:text-red-600"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenEdit(item)}
+                          className="h-8 w-8 p-0 text-slate-400 hover:text-blue-600"
+                          title="Alterar lançamento"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(item.id)}
+                          className="h-8 w-8 p-0 text-slate-400 hover:text-red-600"
+                          title="Excluir lançamento"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )
@@ -493,6 +566,164 @@ export default function CashFlow() {
               </Button>
               <Button type="submit" disabled={submitting}>
                 {submitting ? 'Salvando...' : 'Confirmar Lançamento'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Entry Modal */}
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Alterar Lançamento</DialogTitle>
+            <DialogDescription>
+              Edite as informações do lançamento de caixa selecionado.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleUpdateEntry} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Tipo de Lançamento</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={editTipo === 'entrada' ? 'default' : 'outline'}
+                  onClick={() => setEditTipo('entrada')}
+                  className={editTipo === 'entrada' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                >
+                  <ArrowUpRight className="w-4 h-4 mr-1.5" />
+                  Entrada (Receita)
+                </Button>
+                <Button
+                  type="button"
+                  variant={editTipo === 'saida' ? 'destructive' : 'outline'}
+                  onClick={() => setEditTipo('saida')}
+                >
+                  <ArrowDownRight className="w-4 h-4 mr-1.5" />
+                  Saída (Custo)
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="editMotoId">Moto Relacionada *</Label>
+              <Select value={editMotoId} onValueChange={setEditMotoId}>
+                <SelectTrigger id="editMotoId">
+                  <SelectValue placeholder="Selecione a moto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {motos.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.nome || m.modelo} — {m.placa}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="editDesc">Descrição do Lançamento *</Label>
+              <Input
+                id="editDesc"
+                placeholder={
+                  editTipo === 'entrada'
+                    ? 'Ex: Aluguel semanal Carlos'
+                    : 'Ex: Troca de pastilhas de freio'
+                }
+                value={editDescricao}
+                onChange={(e) => setEditDescricao(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="editVal">Valor (R$) *</Label>
+                <Input
+                  id="editVal"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={editValor || ''}
+                  onChange={(e) => setEditValor(Number(e.target.value))}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editEntryDate">Data *</Label>
+                <Input
+                  id="editEntryDate"
+                  type="date"
+                  value={editData}
+                  onChange={(e) => setEditData(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="editForma">Forma de Pagamento</Label>
+                <Select
+                  value={editFormaPagamento}
+                  onValueChange={(val: FormaPagamento) => setEditFormaPagamento(val)}
+                >
+                  <SelectTrigger id="editForma">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pix">PIX</SelectItem>
+                    <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                    <SelectItem value="cartao">Cartão</SelectItem>
+                    <SelectItem value="transferencia">Transferência</SelectItem>
+                    <SelectItem value="outro">Outro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editCatSelect">Categoria de Gasto/Entrada</Label>
+                {editTipo === 'entrada' ? (
+                  <Input
+                    id="editCatInput"
+                    placeholder="Ex: Aluguel Semanal, Caução..."
+                    value={editCategoria}
+                    onChange={(e) => setEditCategoria(e.target.value)}
+                  />
+                ) : (
+                  <Select value={editCategoria} onValueChange={setEditCategoria}>
+                    <SelectTrigger id="editCatSelect">
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categorias.map((c) => (
+                        <SelectItem key={c.id} value={c.nome}>
+                          {c.nome}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="Outros">Outros</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditModalOpen(false)
+                  setEditingId(null)
+                }}
+                disabled={editSubmitting}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={editSubmitting}>
+                {editSubmitting ? 'Salvando...' : 'Salvar Alterações'}
               </Button>
             </DialogFooter>
           </form>

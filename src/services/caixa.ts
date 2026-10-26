@@ -23,6 +23,13 @@ export const caixaService = {
     return await pb.collection('caixa_lancamentos').create<CaixaLancamento>(data)
   },
 
+  async update(
+    id: string,
+    data: Partial<Omit<CaixaLancamento, 'id' | 'created' | 'updated'>>,
+  ): Promise<CaixaLancamento> {
+    return await pb.collection('caixa_lancamentos').update<CaixaLancamento>(id, data)
+  },
+
   async delete(id: string): Promise<boolean> {
     return await pb.collection('caixa_lancamentos').delete(id)
   },
