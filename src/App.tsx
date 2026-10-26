@@ -20,6 +20,8 @@ import CashFlow from './pages/CashFlow'
 import BillsToPay from './pages/BillsToPay'
 import ExpenseCategories from './pages/ExpenseCategories'
 import Reports from './pages/Reports'
+import Caucoes from './pages/Caucoes'
+import Semana from './pages/Semana'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -43,6 +45,8 @@ const App = () => (
             }
           >
             <Route path="/" element={<Dashboard />} />
+            <Route path="/semana" element={<Semana />} />
+            <Route path="/caucoes" element={<Caucoes />} />
             <Route path="/motos" element={<MotosList />} />
             <Route path="/motos/nova" element={<MotoForm />} />
             <Route path="/motos/:id" element={<MotoDetails />} />

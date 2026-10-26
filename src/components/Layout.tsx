@@ -19,6 +19,8 @@ import {
   ShieldAlert,
   Tags,
   Smartphone,
+  CalendarDays,
+  Shield,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -52,6 +54,8 @@ export default function Layout() {
 
   const navigation = [
     { name: 'Painel Geral', href: '/', icon: LayoutDashboard },
+    { name: 'Semana', href: '/semana', icon: CalendarDays },
+    { name: 'Cauções', href: '/caucoes', icon: Shield },
     { name: 'Motos', href: '/motos', icon: Bike },
     { name: 'Aluguéis & Contratos', href: '/alugueis', icon: KeyRound },
     { name: 'Fluxo de Caixa', href: '/caixa', icon: Wallet },

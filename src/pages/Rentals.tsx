@@ -57,6 +57,9 @@ export default function Rentals() {
   const [locatarioTel, setLocatarioTel] = useState('')
   const [tipoContrato, setTipoContrato] = useState<TipoLocacao>('normal')
   const [dataInicio, setDataInicio] = useState(new Date().toISOString().split('T')[0])
+  const [diaSemana, setDiaSemana] = useState<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'>(
+    'SEG',
+  )
   const [prazoMeses, setPrazoMeses] = useState<number>(12)
   const [dataEntrega, setDataEntrega] = useState('')
   const [valorDiario, setValorDiario] = useState<number>(35)
@@ -120,6 +123,7 @@ export default function Rentals() {
         data_inicio: dataInicio,
         valor_diario: Number(valorDiario),
         valor_semanal: Number(valorDiario) * 7,
+        dia_pagamento_semana: diaSemana,
         status: 'ativo',
         observacoes: observacoes.trim(),
       }
@@ -546,6 +550,24 @@ export default function Rentals() {
                   required
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="diaPagamento">Dia de Pagamento Semanal no Painel Semana</Label>
+              <Select value={diaSemana} onValueChange={(val: any) => setDiaSemana(val)}>
+                <SelectTrigger id="diaPagamento">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SEG">SEG — Segunda-feira</SelectItem>
+                  <SelectItem value="TER">TER — Terça-feira</SelectItem>
+                  <SelectItem value="QUA">QUA — Quarta-feira</SelectItem>
+                  <SelectItem value="QUI">QUI — Quinta-feira</SelectItem>
+                  <SelectItem value="SEX">SEX — Sexta-feira</SelectItem>
+                  <SelectItem value="SAB">SAB — Sábado</SelectItem>
+                  <SelectItem value="DOM">DOM — Domingo</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {tipoContrato === 'plano_conquista' && (

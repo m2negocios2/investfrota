@@ -38,6 +38,7 @@ export interface CategoriaGasto {
 }
 
 export type ContratoStatus = 'ativo' | 'finalizado' | 'cancelado'
+export type DiaSemana = 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
 
 export interface Contrato {
   id: string
@@ -51,6 +52,7 @@ export interface Contrato {
   data_entrega?: string
   valor_diario: number
   valor_semanal?: number
+  dia_pagamento_semana?: DiaSemana
   status: ContratoStatus
   observacoes?: string
   created: string
@@ -73,12 +75,32 @@ export interface Recebimento {
   valor: number
   status: RecebimentoStatus
   forma_pagamento?: FormaPagamento
+  semana_ano?: string // ex: "2026-W43"
   observacoes?: string
   created: string
   updated: string
   expand?: {
     moto?: Moto
     contrato?: Contrato
+  }
+}
+
+export type CaucaoPosse = 'proprietario' | 'adm'
+export type CaucaoStatus = 'retida' | 'devolvida'
+
+export interface Caucao {
+  id: string
+  moto: string
+  valor: number
+  data: string
+  posse: CaucaoPosse
+  status?: CaucaoStatus
+  data_devolucao?: string
+  observacao?: string
+  created: string
+  updated: string
+  expand?: {
+    moto?: Moto
   }
 }
 

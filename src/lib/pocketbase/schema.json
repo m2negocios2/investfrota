@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T18:11:56.127Z",
+  "generatedAt": "2026-10-26T18:36:49.453Z",
   "collections": [
     {
       "name": "users",
@@ -234,6 +234,13 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "dia_pagamento_semana",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["SEG", "TER", "QUA", "QUI", "SEX", "SAB", "DOM"]
         }
       ],
       "indexes": [
@@ -323,6 +330,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "semana_ano",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
@@ -574,6 +587,82 @@
         }
       ],
       "indexes": ["CREATE UNIQUE INDEX idx_categorias_nome ON categorias_gastos (nome)"]
+    },
+    {
+      "name": "caucoes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "moto",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "motos"
+        },
+        {
+          "name": "valor",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "posse",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["proprietario", "adm"]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["retida", "devolvida"]
+        },
+        {
+          "name": "data_devolucao",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_caucoes_moto ON caucoes (moto)",
+        "CREATE INDEX idx_caucoes_posse ON caucoes (posse)"
+      ]
     }
   ]
 }

@@ -52,4 +52,16 @@ export const recebimentosService = {
 
     return updated
   },
+
+  async estornarPagamento(
+    id: string,
+    novoStatus: 'em_dia' | 'em_atraso' = 'em_dia',
+  ): Promise<Recebimento> {
+    const updated = await pb.collection('recebimentos').update<Recebimento>(id, {
+      status: novoStatus,
+      data_pagamento: '',
+      forma_pagamento: '' as any,
+    })
+    return updated
+  },
 }

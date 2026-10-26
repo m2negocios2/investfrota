@@ -18,12 +18,34 @@ export const contratosService = {
   },
 
   async create(data: Omit<Contrato, 'id' | 'created' | 'updated'>): Promise<Contrato> {
-    const record = await pb.collection('contratos').create<Contrato>(data)
+    // If dia_pagamento_semana is not set, derive from data_inicio
+    const payload = { ...data }
+    if (!payload.dia_pagamento_semana && payload.data_inicio) {
+      const dt = new Date(payload.data_inicio)
+      const daysMap: Array<'DOM' | 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB'> = [
+        'DOM',
+        'SEG',
+        'TER',
+        'QUA',
+        'QUI',
+        'SEX',
+        'SAB',
+      ]
+      payload.dia_pagamento_semana = daysMap[dt.getUTCDay()] || 'SEG'
+    }
+    const record = await pb.collection('contratos').create<Contrato>(payload)
     // If contract is active, update moto status to locada
     if (data.status === 'ativo') {
       await pb.collection('motos').update(data.moto, { status: 'locada' })
     }
     return record
+  },
+
+  async updateDiaSemana(
+    id: string,
+    dia: 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM',
+  ): Promise<Contrato> {
+    return await pb.collection('contratos').update<Contrato>(id, { dia_pagamento_semana: dia })
   },
 
   async update(id: string, data: Partial<Contrato>): Promise<Contrato> {
