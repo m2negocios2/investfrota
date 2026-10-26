@@ -187,9 +187,11 @@ export default function CashFlow() {
 
   // Filtered List
   const filtered = lancamentos.filter((l) => {
+    const desc = l.descricao || ''
+    const cat = l.categoria || ''
     const matchesSearch =
-      l.descricao.toLowerCase().includes(search.toLowerCase()) ||
-      (l.categoria && l.categoria.toLowerCase().includes(search.toLowerCase()))
+      desc.toLowerCase().includes(search.toLowerCase()) ||
+      cat.toLowerCase().includes(search.toLowerCase())
     const matchesTipo = tipoFilter === 'todos' || l.tipo === tipoFilter
     const matchesMoto = motoFilter === 'todas' || l.moto === motoFilter
     return matchesSearch && matchesTipo && matchesMoto

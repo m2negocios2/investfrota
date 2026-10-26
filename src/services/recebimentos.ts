@@ -31,24 +31,46 @@ export const recebimentosService = {
     valor: number,
     locatarioNome: string,
     formaPagamento: 'pix' | 'dinheiro' | 'cartao' | 'transferencia' = 'pix',
+    dataPagamento?: string,
   ): Promise<Recebimento> {
-    const today = new Date().toISOString().split('T')[0]
+    const today = dataPagamento || new Date().toISOString().split('T')[0]
     const updated = await pb.collection('recebimentos').update<Recebimento>(id, {
       status: 'pago',
       data_pagamento: today,
       forma_pagamento: formaPagamento,
     })
 
-    // Also register in Caixa
-    await pb.collection('caixa_lancamentos').create({
-      moto: motoId,
-      tipo: 'entrada',
-      descricao: `Recebimento de aluguel - ${locatarioNome}`,
-      categoria: 'aluguel',
-      valor: valor,
-      data: today,
-      forma_pagamento: formaPagamento,
-    })
+    // Also register in Caixa (com proteção contra duplicidade imediata)
+    try {
+      const cleanDate = today.split('T')[0]
+      const existing = await pb.collection('caixa_lancamentos').getList(1, 1, {
+        filter: `moto = "${motoId}" && tipo = "entrada" && data ~ "${cleanDate}" && valor >= ${valor - 0.01} && valor <= ${valor + 0.01}`,
+      })
+
+      if (existing.totalItems === 0) {
+        await pb.collection('caixa_lancamentos').create({
+          moto: motoId,
+          tipo: 'entrada',
+          descricao: `Recebimento de aluguel - ${locatarioNome}`,
+          categoria: 'aluguel',
+          valor: valor,
+          data: cleanDate,
+          forma_pagamento: formaPagamento,
+        })
+      }
+    } catch (errCaixa) {
+      console.warn('Aviso ao registrar no caixa:', errCaixa)
+      // Tenta fallback sem o filtro caso dê erro de sintaxe
+      await pb.collection('caixa_lancamentos').create({
+        moto: motoId,
+        tipo: 'entrada',
+        descricao: `Recebimento de aluguel - ${locatarioNome}`,
+        categoria: 'aluguel',
+        valor: valor,
+        data: today.split('T')[0],
+        forma_pagamento: formaPagamento,
+      })
+    }
 
     return updated
   },

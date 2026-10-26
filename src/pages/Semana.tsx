@@ -390,9 +390,10 @@ export default function Semana() {
           cellTarget.valor,
           cellTarget.contrato.locatario_nome,
           formaPagamento,
+          todayStr,
         )
       } else {
-        // Create new paid recebimento with semana_ano
+        // Create new paid recebimento with semana_ano and register in caixa
         const newRec = await recebimentosService.create({
           moto: cellTarget.moto.id,
           contrato: cellTarget.contrato.id,
@@ -404,13 +405,13 @@ export default function Semana() {
           forma_pagamento: formaPagamento,
           semana_ano: weekCode,
         })
-        // Also register in caixa
         await recebimentosService.marcarComoPago(
           newRec.id,
           cellTarget.moto.id,
           cellTarget.valor,
           cellTarget.contrato.locatario_nome,
           formaPagamento,
+          todayStr,
         )
       }
 

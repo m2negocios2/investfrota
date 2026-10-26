@@ -279,12 +279,14 @@ export default function Rentals() {
   const handleConfirmRecebimento = async () => {
     if (!selectedRecebimento) return
     try {
+      const todayStr = new Date().toISOString().split('T')[0]
       await recebimentosService.marcarComoPago(
         selectedRecebimento.id,
         selectedRecebimento.moto,
         selectedRecebimento.valor,
         selectedRecebimento.locatario_nome,
         formaPagamento,
+        todayStr,
       )
       toast.success('Recebimento registrado e lançado no caixa!')
       setPaymentDialogOpen(false)

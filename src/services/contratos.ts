@@ -98,27 +98,10 @@ export const contratosService = {
       console.warn('Aviso ao buscar recebimentos do contrato:', err)
     }
 
-    // 2. Apagar lançamentos de caixa gerados por recebimento de aluguel deste contrato/locatário
-    if (finalMotoId && locatarioNome) {
-      try {
-        // Formato padrão gerado em recebimentosService: "Recebimento de aluguel - {locatarioNome}"
-        const descSearch = `Recebimento de aluguel - ${locatarioNome}`
-        const lancamentos = await pb.collection('caixa_lancamentos').getFullList({
-          filter: `moto = "${finalMotoId}" && tipo = "entrada" && categoria = "aluguel" && descricao ~ "${locatarioNome}"`,
-        })
-        for (const lanc of lancamentos) {
-          if (lanc.descricao === descSearch || lanc.descricao?.includes(locatarioNome)) {
-            try {
-              await pb.collection('caixa_lancamentos').delete(lanc.id)
-            } catch (errDelCaixa) {
-              console.warn('Aviso ao apagar lançamento de caixa do contrato:', errDelCaixa)
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Aviso ao buscar lançamentos de caixa vinculados ao contrato:', err)
-      }
-    }
+    // Nota: O Livro Caixa é o registro contábil e financeiro oficial e NUNCA deve sofrer
+    // exclusão em massa por nome de cliente ao excluir um contrato cancelado/duplicado,
+    // pois isso causava a perda de lançamentos de caixa legítimos e confirmados.
+    // Lançamentos no caixa devem ser editados ou excluídos diretamente pelo usuário na tela /caixa.
 
     // 3. Apagar o registro do contrato
     await pb.collection('contratos').delete(id)
