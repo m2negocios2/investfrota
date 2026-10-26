@@ -313,18 +313,18 @@ export default function Layout() {
         )}
 
         {/* Monday / Pending Bills Notification Bar */}
-        {(showMondayBanner || pendingBills.length > 0) && (
+        {location.pathname !== '/' && (showMondayBanner || pendingBills.length > 0) && (
           <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2.5 text-xs sm:text-sm text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
               <span>
-                <strong>Avisos de Custos & Pendências:</strong> Existem{' '}
+                <strong>Avisos de Custos:</strong> Existem{' '}
                 <span className="font-bold text-amber-800 dark:text-amber-100">
-                  {pendingBills.length} pendência(s)
+                  {pendingBills.length} aviso(s)
                 </span>{' '}
                 {isProprietario
                   ? 'aguardando quitação no caixa pela proprietária.'
-                  : 'registradas no sistema.'}
+                  : 'registrados no sistema.'}
               </span>
             </div>
             <Link
