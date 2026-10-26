@@ -24,6 +24,9 @@ export interface Moto {
   tipo_locacao_padrao: TipoLocacao
   status: MotoStatus
   observacoes?: string
+  km_atual?: number
+  km_atualizado_em?: string
+  km_ultimo_oleo?: number
   created: string
   updated: string
 }
@@ -155,4 +158,37 @@ export interface CaixaLancamento {
   expand?: {
     moto?: Moto
   }
+}
+
+export type InfracaoStatusPagamento = 'pendente' | 'paga'
+
+export interface Infracao {
+  id: string
+  moto: string
+  numero?: number
+  data?: string
+  codigo_multa?: string
+  valor?: number
+  cliente?: string
+  status_pagamento: InfracaoStatusPagamento
+  data_pagamento?: string
+  deu_entrada_detran?: boolean
+  data_entrada_detran?: string
+  prazo?: string
+  observacao?: string
+  created: string
+  updated: string
+  expand?: {
+    moto?: Moto
+  }
+}
+
+export interface Pendencia {
+  id: string
+  titulo: string
+  data?: string
+  feito?: boolean
+  observacao?: string
+  created: string
+  updated: string
 }

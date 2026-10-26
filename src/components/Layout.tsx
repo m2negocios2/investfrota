@@ -21,12 +21,14 @@ import {
   Smartphone,
   CalendarDays,
   Shield,
+  ListTodo,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { pagamentosService } from '@/services/pagamentos'
-import { Pagamento } from '@/types/database'
+import { infracoesService } from '@/services/infracoes'
+import { Pagamento, Infracao } from '@/types/database'
 
 export default function Layout() {
   const { user, role, isProprietario, logout, isAuthenticated } = useAuth()
@@ -34,6 +36,7 @@ export default function Layout() {
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [pendingBills, setPendingBills] = useState<Pagamento[]>([])
+  const [pendingInfracoes, setPendingInfracoes] = useState<Infracao[]>([])
   const [showMondayBanner, setShowMondayBanner] = useState(false)
 
   // Check if today is Monday (1) or if user wants to see bills
@@ -49,28 +52,43 @@ export default function Layout() {
           setPendingBills(bills)
         })
         .catch(console.error)
+
+      infracoesService
+        .getPendentes()
+        .then((infs) => {
+          setPendingInfracoes(infs)
+        })
+        .catch(console.error)
     }
   }, [isAuthenticated, location.pathname])
 
   const navigation = [
-    { name: 'Painel Geral', href: '/', icon: LayoutDashboard },
-    { name: 'Semana', href: '/semana', icon: CalendarDays },
-    { name: 'Cauções', href: '/caucoes', icon: Shield },
-    { name: 'Motos', href: '/motos', icon: Bike },
-    { name: 'Aluguéis & Contratos', href: '/alugueis', icon: KeyRound },
-    { name: 'Fluxo de Caixa', href: '/caixa', icon: Wallet },
+    { name: 'PAINEL GERAL', href: '/', icon: LayoutDashboard },
     {
-      name: 'Avisos de Custos',
+      name: 'INFRAÇÕES',
+      href: '/infracoes',
+      icon: AlertTriangle,
+      badge: pendingInfracoes.length > 0 ? pendingInfracoes.length : undefined,
+    },
+    { name: 'ATRASOS', href: '/atrasos', icon: AlertTriangle },
+    { name: 'PENDÊNCIAS', href: '/pendencias', icon: ListTodo },
+    { name: 'SEMANA', href: '/semana', icon: CalendarDays },
+    { name: 'CAUÇÕES', href: '/caucoes', icon: Shield },
+    { name: 'MOTOS', href: '/motos', icon: Bike },
+    { name: 'ALUGUÉIS & CONTRATOS', href: '/alugueis', icon: KeyRound },
+    { name: 'FLUXO DE CAIXA', href: '/caixa', icon: Wallet },
+    {
+      name: 'AVISOS DE CUSTOS',
       href: '/contas-a-pagar',
       icon: Receipt,
       badge: pendingBills.length > 0 ? pendingBills.length : undefined,
     },
     {
-      name: 'Categorias de Gastos',
+      name: 'CATEGORIAS DE GASTOS',
       href: '/categorias-gastos',
       icon: Tags,
     },
-    { name: 'Projeções & Relatórios', href: '/relatorios', icon: TrendingUp },
+    { name: 'PROJEÇÕES & RELATÓRIOS', href: '/relatorios', icon: TrendingUp },
   ]
 
   const handleLogout = () => {

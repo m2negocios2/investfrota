@@ -14,11 +14,24 @@ import {
   TrendingUp,
   FileText,
   User,
+  Gauge,
+  Droplet,
+  Save,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { motosService } from '@/services/motos'
 import { contratosService } from '@/services/contratos'
@@ -35,6 +48,12 @@ export default function MotoDetails() {
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+
+  // Quick KM update dialog
+  const [kmModalOpen, setKmModalOpen] = useState(false)
+  const [inputKmAtual, setInputKmAtual] = useState('')
+  const [inputKmOleo, setInputKmOleo] = useState('')
+  const [kmUpdating, setKmUpdating] = useState(false)
 
   const loadData = async () => {
     if (!id) return
@@ -79,6 +98,41 @@ export default function MotoDetails() {
     .reduce((acc, c) => acc + c.valor, 0)
   const totalDespesas = caixa.filter((c) => c.tipo === 'saida').reduce((acc, c) => acc + c.valor, 0)
   const lucroMoto = totalReceitas - totalDespesas
+
+  // KM and Oil calculations
+  const kmAtualVal = moto.km_atual || 0
+  const kmUltimoOleoVal = moto.km_ultimo_oleo || 0
+  const kmProximaTrocaOleo = kmUltimoOleoVal > 0 ? kmUltimoOleoVal + 1000 : kmAtualVal + 1000
+  const kmRodadosDesdeOleo = kmUltimoOleoVal > 0 ? Math.max(0, kmAtualVal - kmUltimoOleoVal) : 0
+  const precisaTrocaOleo = kmUltimoOleoVal > 0 && kmAtualVal >= kmProximaTrocaOleo
+
+  const openKmModal = () => {
+    setInputKmAtual(moto.km_atual !== undefined ? String(moto.km_atual) : '')
+    setInputKmOleo(moto.km_ultimo_oleo !== undefined ? String(moto.km_ultimo_oleo) : '')
+    setKmModalOpen(true)
+  }
+
+  const handleSaveKm = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!moto) return
+    setKmUpdating(true)
+    try {
+      const payload: Partial<Moto> = {
+        km_atual: inputKmAtual !== '' ? Number(inputKmAtual) : undefined,
+        km_atualizado_em: new Date().toISOString(),
+        km_ultimo_oleo: inputKmOleo !== '' ? Number(inputKmOleo) : undefined,
+      }
+      const updated = await motosService.update(moto.id, payload)
+      setMoto(updated)
+      toast.success('Quilometragem e controle de óleo atualizados!')
+      setKmModalOpen(false)
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao atualizar KM')
+    } finally {
+      setKmUpdating(false)
+    }
+  }
 
   // Occupation Map Calculation for Selected Year (12 months)
   // Check contracts overlap with each month
@@ -169,6 +223,10 @@ export default function MotoDetails() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={openKmModal} className="gap-1.5">
+            <Gauge className="w-4 h-4 text-blue-600" />
+            Atualizar KM
+          </Button>
           <Button asChild variant="outline" size="sm">
             <Link to={`/motos/${moto.id}/editar`}>
               <Edit className="w-4 h-4 mr-1.5" />
@@ -180,6 +238,78 @@ export default function MotoDetails() {
               <Plus className="w-4 h-4 mr-1.5" />
               Novo Aluguel
             </Link>
+          </Button>
+        </div>
+      </div>
+
+      {/* Painel Destaque: KM & Troca de Óleo a cada 1000 km */}
+      <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200 dark:border-blue-900 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-sm">
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="p-3 bg-blue-600 text-white rounded-xl shadow-sm shrink-0">
+            <Gauge className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase font-bold tracking-wider text-blue-800 dark:text-blue-300">
+                KM Atual
+              </span>
+              {moto.km_atualizado_em && (
+                <span className="text-[11px] text-muted-foreground">
+                  (atualizado em {new Date(moto.km_atualizado_em).toLocaleDateString('pt-BR')})
+                </span>
+              )}
+            </div>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className="text-2xl font-black text-slate-900 dark:text-white">
+                {moto.km_atual !== undefined
+                  ? `${moto.km_atual.toLocaleString('pt-BR')} km`
+                  : 'Não informado'}
+              </span>
+              {moto.km_ultimo_oleo !== undefined && (
+                <span className="text-xs text-muted-foreground">
+                  • Último óleo: {moto.km_ultimo_oleo.toLocaleString('pt-BR')} km
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Lembrete Óleo a cada 1000 km */}
+        <div className="flex items-center gap-3 border-t sm:border-t-0 sm:border-l border-blue-200 dark:border-blue-800 pt-3 sm:pt-0 sm:pl-4">
+          <div className="p-2.5 rounded-xl shrink-0 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+            <Droplet className="w-5 h-5" />
+          </div>
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-900 dark:text-white">
+                Troca de Óleo a cada 1.000 km
+              </span>
+              {precisaTrocaOleo ? (
+                <Badge variant="destructive" className="text-[10px] animate-pulse">
+                  Troca Necessária!
+                </Badge>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] text-emerald-700 border-emerald-300 bg-emerald-50 dark:bg-emerald-950"
+                >
+                  Em dia
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {moto.km_ultimo_oleo !== undefined
+                ? `Próxima troca recomendada: ${kmProximaTrocaOleo.toLocaleString('pt-BR')} km (${Math.max(0, kmProximaTrocaOleo - kmAtualVal)} km restantes)`
+                : 'Defina o KM da última troca de óleo para acompanhar os 1.000 km'}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={openKmModal}
+            className="h-8 text-xs shrink-0"
+          >
+            Ajustar
           </Button>
         </div>
       </div>
@@ -262,12 +392,13 @@ export default function MotoDetails() {
         </Card>
       </div>
 
-      {/* Tabs: Mapa de Ocupação, Contratos, Caixa da Moto */}
+      {/* Tabs: Mapa de Ocupação, Contratos, Caixa da Moto e Custos da Moto */}
       <Tabs defaultValue="ocupacao" className="space-y-4">
-        <TabsList className="grid grid-cols-3 max-w-md">
-          <TabsTrigger value="ocupacao">Mapa de Ocupação</TabsTrigger>
+        <TabsList className="grid grid-cols-4 max-w-lg">
+          <TabsTrigger value="ocupacao">Mapa Ocupação</TabsTrigger>
+          <TabsTrigger value="custos">Custos da Moto ({pagamentos.length})</TabsTrigger>
           <TabsTrigger value="contratos">Contratos ({contratos.length})</TabsTrigger>
-          <TabsTrigger value="caixa">Caixa & Custos</TabsTrigger>
+          <TabsTrigger value="caixa">Caixa Individual</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Mapa de Ocupação Anual */}
@@ -339,7 +470,95 @@ export default function MotoDetails() {
           </Card>
         </TabsContent>
 
-        {/* Tab 2: Contratos */}
+        {/* Tab Nova: Custos da Moto (pagamentos/avisos vinculados à moto: revisão, pneu, seguro, IPVA...) */}
+        <TabsContent value="custos" className="space-y-4">
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold">Custos & Despesas da Moto</CardTitle>
+                <CardDescription>
+                  Pagamentos e avisos de custos específicos deste veículo (manutenção, seguro, IPVA,
+                  pneus, oficina...)
+                </CardDescription>
+              </div>
+              <Button asChild size="sm">
+                <Link to="/contas-a-pagar">
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  Lançar Custo
+                </Link>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {pagamentos.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground space-y-1">
+                  <Wrench className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                  <p className="font-semibold text-sm">Nenhum custo lançado para esta moto.</p>
+                  <p className="text-xs">
+                    Você pode lançar despesas de manutenção, seguro ou IPVA em Avisos de Custos.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Totais de custos da moto */}
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg flex items-center justify-between text-xs">
+                    <span>
+                      Total acumulado de custos cadastrados:{' '}
+                      <strong>{pagamentos.length} item(ns)</strong>
+                    </span>
+                    <span className="font-bold text-red-600 dark:text-red-400 text-sm">
+                      R${' '}
+                      {pagamentos
+                        .reduce((acc, p) => acc + p.valor, 0)
+                        .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {pagamentos.map((pag) => (
+                      <div
+                        key={pag.id}
+                        className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-sm text-slate-900 dark:text-white">
+                              {pag.descricao}
+                            </span>
+                            <Badge variant="outline" className="text-[10px]">
+                              {pag.categoria_nome || pag.categoria}
+                            </Badge>
+                            <Badge
+                              className={`text-[10px] ${
+                                pag.status === 'pago'
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                              }`}
+                            >
+                              {pag.status.toUpperCase()}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Vencimento: {new Date(pag.data_vencimento).toLocaleDateString('pt-BR')}
+                            {pag.data_pagamento &&
+                              ` • Pago em: ${new Date(pag.data_pagamento).toLocaleDateString('pt-BR')}`}
+                            {pag.observacoes && ` • "${pag.observacoes}"`}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="font-bold text-sm text-red-600 dark:text-red-400">
+                            R$ {pag.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 3: Contratos */}
         <TabsContent value="contratos" className="space-y-4">
           <Card className="shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
@@ -465,6 +684,69 @@ export default function MotoDetails() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Quick KM Modal */}
+      <Dialog open={kmModalOpen} onOpenChange={setKmModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Gauge className="w-5 h-5 text-blue-600" />
+              <span>Atualizar Quilometragem e Óleo</span>
+            </DialogTitle>
+            <DialogDescription>
+              Mantenha o KM atualizado para monitorar o ciclo de troca de óleo a cada 1.000 km.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveKm} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="dlgKmAtual">KM Atual da Moto</Label>
+              <Input
+                id="dlgKmAtual"
+                type="number"
+                min={0}
+                placeholder="Ex: 14482"
+                value={inputKmAtual}
+                onChange={(e) => setInputKmAtual(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="dlgKmOleo">KM da Última Troca de Óleo</Label>
+              <Input
+                id="dlgKmOleo"
+                type="number"
+                min={0}
+                placeholder="Ex: 14000"
+                value={inputKmOleo}
+                onChange={(e) => setInputKmOleo(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                A próxima troca de óleo será calculada automaticamente somando 1.000 km.
+              </p>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setKmModalOpen(false)}
+                disabled={kmUpdating}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={kmUpdating}
+                className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Save className="w-4 h-4" />
+                {kmUpdating ? 'Salvando...' : 'Salvar KM'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

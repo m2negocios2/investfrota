@@ -24,7 +24,8 @@ import { contratosService } from '@/services/contratos'
 import { recebimentosService } from '@/services/recebimentos'
 import { pagamentosService } from '@/services/pagamentos'
 import { caixaService } from '@/services/caixa'
-import { Moto, Contrato, Recebimento, Pagamento, CaixaLancamento } from '@/types/database'
+import { infracoesService } from '@/services/infracoes'
+import { Moto, Contrato, Recebimento, Pagamento, CaixaLancamento, Infracao } from '@/types/database'
 
 export default function Dashboard() {
   const { isProprietario } = useAuth()
@@ -33,22 +34,25 @@ export default function Dashboard() {
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
   const [caixa, setCaixa] = useState<CaixaLancamento[]>([])
+  const [infracoes, setInfracoes] = useState<Infracao[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadData = async () => {
     try {
-      const [m, c, r, p, cx] = await Promise.all([
+      const [m, c, r, p, cx, inf] = await Promise.all([
         motosService.getAll(),
         contratosService.getAll(),
         recebimentosService.getAll(),
         pagamentosService.getAll(),
         caixaService.getAll(),
+        infracoesService.getAll(),
       ])
       setMotos(m)
       setContratos(c)
       setRecebimentos(r)
       setPagamentos(p)
       setCaixa(cx)
+      setInfracoes(inf)
     } catch (err) {
       console.error('Erro ao carregar dados do painel:', err)
     } finally {
@@ -87,6 +91,10 @@ export default function Dashboard() {
   // Pending Bills
   const contasPendentes = pagamentos.filter((p) => p.status === 'pendente')
   const totalContasPendentes = contasPendentes.reduce((acc, p) => acc + p.valor, 0)
+
+  // Pending Infracoes (Multas)
+  const infracoesPendentes = infracoes.filter((i) => i.status_pagamento === 'pendente')
+  const totalInfracoesPendentes = infracoesPendentes.reduce((acc, i) => acc + (i.valor || 0), 0)
 
   // Caixa Month Balance
   const totalEntradas = caixa
@@ -131,8 +139,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Cards Grid: 5 cards responsivos */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Motos Status */}
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -225,6 +233,29 @@ export default function Dashboard() {
               <span>{contasPendentes.length} pendentes</span>
               <Link to="/contas-a-pagar" className="text-xs text-primary hover:underline">
                 Aprovar &rarr;
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Card Novo VERSÃO 2: Infrações / Multas Pendentes */}
+        <Card className="shadow-sm border-amber-200 dark:border-amber-900/50">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Infrações Pendentes
+            </CardTitle>
+            <div className="p-2 bg-red-50 dark:bg-red-950 text-red-600 rounded-lg">
+              <AlertTriangle className="w-4 h-4 text-red-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+              R$ {totalInfracoesPendentes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+            <div className="mt-2 text-xs flex items-center justify-between text-muted-foreground">
+              <span>{infracoesPendentes.length} multa(s)</span>
+              <Link to="/infracoes" className="text-xs text-primary hover:underline">
+                Ver multas &rarr;
               </Link>
             </div>
           </CardContent>

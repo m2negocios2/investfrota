@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { motosService } from '@/services/motos'
-import { MotoStatus, TipoLocacao } from '@/types/database'
+import { Moto, MotoStatus, TipoLocacao } from '@/types/database'
 
 export default function MotoForm() {
   const { id } = useParams<{ id?: string }>()
@@ -41,6 +41,8 @@ export default function MotoForm() {
   const [valorDiario, setValorDiario] = useState<number>(35)
   const [tipoLocacaoPadrao, setTipoLocacaoPadrao] = useState<TipoLocacao>('normal')
   const [status, setStatus] = useState<MotoStatus>('disponivel')
+  const [kmAtual, setKmAtual] = useState<string>('')
+  const [kmUltimoOleo, setKmUltimoOleo] = useState<string>('')
   const [observacoes, setObservacoes] = useState('')
 
   useEffect(() => {
@@ -56,6 +58,8 @@ export default function MotoForm() {
           setValorDiario(moto.valor_diario)
           setTipoLocacaoPadrao(moto.tipo_locacao_padrao)
           setStatus(moto.status)
+          setKmAtual(moto.km_atual !== undefined ? String(moto.km_atual) : '')
+          setKmUltimoOleo(moto.km_ultimo_oleo !== undefined ? String(moto.km_ultimo_oleo) : '')
           setObservacoes(moto.observacoes || '')
         })
         .catch((err) => {
@@ -80,7 +84,7 @@ export default function MotoForm() {
     // Se a dona não informou um nome específico, usamos o modelo ou modelo + cor como padrão
     const finalNome = nome.trim() || modelo.trim()
 
-    const payload = {
+    const payload: Omit<Moto, 'id' | 'created' | 'updated'> = {
       nome: finalNome,
       placa: placa.trim().toUpperCase(),
       modelo: modelo.trim(),
@@ -89,6 +93,9 @@ export default function MotoForm() {
       valor_diario: Number(valorDiario),
       tipo_locacao_padrao: tipoLocacaoPadrao,
       status: status,
+      km_atual: kmAtual !== '' ? Number(kmAtual) : undefined,
+      km_atualizado_em: kmAtual !== '' ? new Date().toISOString() : undefined,
+      km_ultimo_oleo: kmUltimoOleo !== '' ? Number(kmUltimoOleo) : undefined,
       observacoes: observacoes.trim(),
     }
 
@@ -276,6 +283,42 @@ export default function MotoForm() {
                     <SelectItem value="manutencao">Em Manutenção / Oficina</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            {/* Controle de Quilometragem (KM) e Óleo */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+              <div>
+                <Label className="text-sm font-bold text-slate-900 dark:text-white">
+                  Quilometragem (KM) & Controle de Óleo
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Troca recomendada de óleo a cada 1.000 km rodados
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="kmAtual">KM Atual da Moto</Label>
+                  <Input
+                    id="kmAtual"
+                    type="number"
+                    min={0}
+                    placeholder="Ex: 14482"
+                    value={kmAtual}
+                    onChange={(e) => setKmAtual(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="kmOleo">KM da Última Troca de Óleo</Label>
+                  <Input
+                    id="kmOleo"
+                    type="number"
+                    min={0}
+                    placeholder="Ex: 14000"
+                    value={kmUltimoOleo}
+                    onChange={(e) => setKmUltimoOleo(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 

@@ -22,6 +22,9 @@ import ExpenseCategories from './pages/ExpenseCategories'
 import Reports from './pages/Reports'
 import Caucoes from './pages/Caucoes'
 import Semana from './pages/Semana'
+import Infracoes from './pages/Infracoes'
+import Atrasos from './pages/Atrasos'
+import Pendencias from './pages/Pendencias'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -45,6 +48,9 @@ const App = () => (
             }
           >
             <Route path="/" element={<Dashboard />} />
+            <Route path="/infracoes" element={<Infracoes />} />
+            <Route path="/atrasos" element={<Atrasos />} />
+            <Route path="/pendencias" element={<Pendencias />} />
             <Route path="/semana" element={<Semana />} />
             <Route path="/caucoes" element={<Caucoes />} />
             <Route path="/motos" element={<MotosList />} />

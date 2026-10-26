@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T18:36:49.453Z",
+  "generatedAt": "2026-10-26T18:52:44.910Z",
   "collections": [
     {
       "name": "users",
@@ -129,6 +129,24 @@
         {
           "name": "nome",
           "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "km_atual",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "km_atualizado_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "km_ultimo_oleo",
+          "type": "number",
           "required": false,
           "system": false
         }
@@ -663,6 +681,163 @@
         "CREATE INDEX idx_caucoes_moto ON caucoes (moto)",
         "CREATE INDEX idx_caucoes_posse ON caucoes (posse)"
       ]
+    },
+    {
+      "name": "infracoes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "moto",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "motos"
+        },
+        {
+          "name": "numero",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "codigo_multa",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valor",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cliente",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_pagamento",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pendente", "paga"]
+        },
+        {
+          "name": "data_pagamento",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "deu_entrada_detran",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_entrada_detran",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prazo",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_infracoes_moto ON infracoes (moto)",
+        "CREATE INDEX idx_infracoes_status ON infracoes (status_pagamento)"
+      ]
+    },
+    {
+      "name": "pendencias",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "titulo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "feito",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_pendencias_feito ON pendencias (feito)"]
     }
   ]
 }
