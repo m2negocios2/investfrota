@@ -6,14 +6,11 @@ import {
   KeyRound,
   Wallet,
   Receipt,
-  FileText,
   Menu,
   X,
   LogOut,
   Bell,
-  CheckCircle2,
   AlertTriangle,
-  UserCheck,
   TrendingUp,
   ShieldCheck,
   ShieldAlert,
@@ -37,14 +34,8 @@ export default function Layout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [pendingBills, setPendingBills] = useState<Pagamento[]>([])
   const [pendingInfracoes, setPendingInfracoes] = useState<Infracao[]>([])
-  const [showMondayBanner, setShowMondayBanner] = useState(false)
 
-  // Check if today is Monday (1) or if user wants to see bills
   useEffect(() => {
-    const today = new Date()
-    const isMonday = today.getDay() === 1
-    setShowMondayBanner(isMonday)
-
     if (isAuthenticated) {
       pagamentosService
         .getPendentes()
@@ -309,30 +300,6 @@ export default function Layout() {
                 </Link>
               )
             })}
-          </div>
-        )}
-
-        {/* Monday / Pending Bills Notification Bar */}
-        {location.pathname !== '/' && (showMondayBanner || pendingBills.length > 0) && (
-          <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2.5 text-xs sm:text-sm text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-              <span>
-                <strong>Avisos de Custos:</strong> Existem{' '}
-                <span className="font-bold text-amber-800 dark:text-amber-100">
-                  {pendingBills.length} aviso(s)
-                </span>{' '}
-                {isProprietario
-                  ? 'aguardando quitação no caixa pela proprietária.'
-                  : 'registrados no sistema.'}
-              </span>
-            </div>
-            <Link
-              to="/contas-a-pagar"
-              className="text-xs font-semibold text-amber-700 dark:text-amber-300 hover:underline flex items-center gap-1 shrink-0"
-            >
-              Ver Avisos & Pagar no Caixa &rarr;
-            </Link>
           </div>
         )}
 
