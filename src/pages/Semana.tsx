@@ -182,21 +182,27 @@ export default function Semana() {
   ]
 
   // Helper para identificar o Mês e qual Semana do Mês (1 a 5) a semana ISO pertence.
-  // Regra padrão de calendário: a quinta-feira (midweek) define o mês da semana.
-  // Contamos quantas semanas iniciadas em segunda-feira já ocorreram naquele mês até ela.
+  // Regra de negócio (base segunda-feira):
+  // A semana começa na SEGUNDA-FEIRA. O mês da semana é o mês da sua SEGUNDA-FEIRA inicial.
+  // A "semana 1" de um mês é a semana que começa (segunda-feira) dentro daquele mês.
+  // Dias do mês que caem antes da primeira segunda-feira pertencem à última semana do mês anterior.
+  // Semana do mês = índice da segunda-feira que inicia a semana contando apenas as segundas-feiras do próprio mês.
   const getWeekMonthInfo = (year: number, week: number) => {
     const weekDates = getWeekDates(year, week)
-    // Quinta-feira (midweek) determina o mês oficial da semana
-    const thursdayDate = weekDates['QUI'].date
-    const monthIndex = thursdayDate.getUTCMonth()
-    const monthYear = thursdayDate.getUTCFullYear()
+    // A segunda-feira inicia a semana e define o mês de referência
+    const mondayDate = weekDates['SEG'].date
+    const mondayDay = mondayDate.getUTCDate()
+    const monthIndex = mondayDate.getUTCMonth()
+    const monthYear = mondayDate.getUTCFullYear()
     const monthName = NOMES_MESES[monthIndex]
 
-    // Determinar a semana do mês (1 a 5):
-    // Descobrimos quantas semanas completas ou parciais do mês já ocorreram até esta quinta-feira
-    const dayOfThursday = thursdayDate.getUTCDate()
-    // A quinta-feira dia 1..7 é SEMANA 1; 8..14 é SEMANA 2; 15..21 é SEMANA 3; 22..28 é SEMANA 4; 29..31 é SEMANA 5
-    let weekOfMonth = Math.min(5, Math.max(1, Math.floor((dayOfThursday - 1) / 7) + 1))
+    // Índice da segunda-feira no mês:
+    // Dias 1 a 7: 1ª segunda -> SEMANA 1
+    // Dias 8 a 14: 2ª segunda -> SEMANA 2
+    // Dias 15 a 21: 3ª segunda -> SEMANA 3
+    // Dias 22 a 28: 4ª segunda -> SEMANA 4
+    // Dias 29 a 31: 5ª segunda -> SEMANA 5
+    const weekOfMonth = Math.floor((mondayDay - 1) / 7) + 1
 
     return {
       monthName,
