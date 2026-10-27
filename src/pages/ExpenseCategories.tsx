@@ -116,8 +116,8 @@ export default function ExpenseCategories() {
             Categorias de Gastos
           </h1>
           <p className="text-sm text-muted-foreground">
-            Cadastre e organize as categorias de despesas utilizadas nos avisos de custos e
-            lançamentos de caixa.
+            Cadastre e organize as categorias de despesas utilizadas nos lançamentos rápidos e no
+            Fluxo de Caixa.
           </p>
         </div>
         <Button onClick={handleOpenCreate} className="gap-2">
@@ -132,9 +132,9 @@ export default function ExpenseCategories() {
           <div className="text-xs text-blue-900 dark:text-blue-200 space-y-1">
             <p className="font-semibold">Como as categorias são usadas no M2:</p>
             <p>
-              Ao cadastrar avisos de custos ou lançar saídas no Caixa, as opções de categoria virão
-              desta lista (ex.: Manutenção, Combustível, Documentação/IPVA, Seguro, Peças, etc.).
-              Você pode criar novas conforme a necessidade da sua operação.
+              Ao realizar lançamentos rápidos ou registrar saídas no Caixa, as opções de categoria
+              virão desta lista (ex.: Manutenção, Combustível, Documentação/IPVA, Seguro, Peças,
+              etc.). Você pode criar novas conforme a necessidade da sua operação.
             </p>
           </div>
         </CardContent>

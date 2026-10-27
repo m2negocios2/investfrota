@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   KeyRound,
   Wallet,
-  Receipt,
   Menu,
   X,
   LogOut,
@@ -24,27 +23,18 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { pagamentosService } from '@/services/pagamentos'
 import { infracoesService } from '@/services/infracoes'
-import { Pagamento, Infracao } from '@/types/database'
+import { Infracao } from '@/types/database'
 
 export default function Layout() {
   const { user, role, isProprietario, logout, isAuthenticated } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [pendingBills, setPendingBills] = useState<Pagamento[]>([])
   const [pendingInfracoes, setPendingInfracoes] = useState<Infracao[]>([])
 
   useEffect(() => {
     if (isAuthenticated) {
-      pagamentosService
-        .getPendentes()
-        .then((bills) => {
-          setPendingBills(bills)
-        })
-        .catch(console.error)
-
       infracoesService
         .getPendentes()
         .then((infs) => {
@@ -62,12 +52,6 @@ export default function Layout() {
     { name: 'FLUXO DE CAIXA', href: '/caixa', icon: Wallet },
     { name: 'SEMANA', href: '/semana', icon: CalendarDays },
     { name: 'CAUÇÕES', href: '/caucoes', icon: Shield },
-    {
-      name: 'AVISOS DE CUSTOS',
-      href: '/contas-a-pagar',
-      icon: Receipt,
-      badge: pendingBills.length > 0 ? pendingBills.length : undefined,
-    },
     {
       name: 'CATEGORIAS DE GASTOS',
       href: '/categorias-gastos',
@@ -239,11 +223,12 @@ export default function Layout() {
           {/* Right Header Utilities */}
           <div className="flex items-center gap-3">
             <Link
-              to="/contas-a-pagar"
+              to="/infracoes"
+              title="Infrações e multas"
               className="relative p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
             >
               <Bell className="w-5 h-5" />
-              {pendingBills.length > 0 && (
+              {pendingInfracoes.length > 0 && (
                 <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-slate-900" />
               )}
             </Link>

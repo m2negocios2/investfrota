@@ -31,15 +31,13 @@ import {
 import { motosService } from '@/services/motos'
 import { contratosService } from '@/services/contratos'
 import { caixaService } from '@/services/caixa'
-import { pagamentosService } from '@/services/pagamentos'
 import { recebimentosService } from '@/services/recebimentos'
-import { Moto, Contrato, CaixaLancamento, Pagamento, Recebimento } from '@/types/database'
+import { Moto, Contrato, CaixaLancamento, Recebimento } from '@/types/database'
 
 export default function Reports() {
   const [motos, setMotos] = useState<Moto[]>([])
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [caixa, setCaixa] = useState<CaixaLancamento[]>([])
-  const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -52,17 +50,15 @@ export default function Reports() {
 
   const loadData = async () => {
     try {
-      const [m, c, cx, p, r] = await Promise.all([
+      const [m, c, cx, r] = await Promise.all([
         motosService.getAll(),
         contratosService.getAll(),
         caixaService.getAll(),
-        pagamentosService.getAll(),
         recebimentosService.getAll(),
       ])
       setMotos(m)
       setContratos(c)
       setCaixa(cx)
-      setPagamentos(p)
       setRecebimentos(r)
     } catch (err) {
       console.error(err)
@@ -108,11 +104,6 @@ export default function Reports() {
     contasAReceber + totalEntradasGerais > 0
       ? (recebimentosAtrasados / (contasAReceber + totalEntradasGerais)) * 100
       : 0
-
-  // Obrigações / Contas a Pagar (Avisos de custos pendentes)
-  const contasAPagarPendentes = pagamentos
-    .filter((p) => p.status === 'pendente')
-    .reduce((acc, p) => acc + p.valor, 0)
 
   // ----------------------------------------------------------------------
   // DRE MENSAL (competência / caixa no mês selecionado)
@@ -206,8 +197,8 @@ export default function Reports() {
   const ativoNaoCirculante = ativoFrotaTotal
   const totalAtivo = ativoCirculante + ativoNaoCirculante
 
-  // Passivo Circulante: Avisos de despesas/manutenções pendentes
-  const passivoCirculante = contasAPagarPendentes
+  // Passivo Circulante: Obrigações a pagar
+  const passivoCirculante = 0
   // Patrimônio Líquido: Ativo Total - Passivo
   const patrimonioLiquido = totalAtivo - passivoCirculante
 
@@ -601,13 +592,13 @@ export default function Reports() {
                     </span>
 
                     <div className="flex justify-between items-center text-sm border-b pb-2">
-                      <span>Contas a Pagar / Avisos Pendentes:</span>
-                      <span className="font-bold text-red-600">
+                      <span>Obrigações Pendentes:</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
                         R$ {passivoCirculante.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Despesas operacionais e manutenções ainda não liquidadas no caixa.
+                      Despesas operacionais quitadas diretamente no Fluxo de Caixa.
                     </p>
                   </div>
 

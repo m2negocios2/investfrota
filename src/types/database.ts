@@ -112,40 +112,6 @@ export interface Caucao {
   }
 }
 
-export type PagamentoCategoria =
-  | 'manutencao'
-  | 'ipva_seguro'
-  | 'combustivel'
-  | 'rastreador'
-  | 'outros'
-  | string
-
-export type PagamentoStatus = 'pendente' | 'aprovado' | 'rejeitado' | 'pago'
-
-export interface Pagamento {
-  id: string
-  moto: string
-  descricao: string
-  categoria: string
-  categoria_nome?: string
-  data_vencimento: string
-  data_pagamento?: string
-  valor: number
-  status: PagamentoStatus
-  lancado_por?: string
-  lancado_por_nome?: string
-  aprovado_por?: string
-  data_aprovacao?: string
-  observacoes?: string
-  created: string
-  updated: string
-  expand?: {
-    moto?: Moto
-    lancado_por?: User
-    aprovado_por?: User
-  }
-}
-
 export type CaixaTipo = 'entrada' | 'saida'
 
 export interface CaixaLancamento {

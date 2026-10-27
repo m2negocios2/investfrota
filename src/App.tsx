@@ -18,7 +18,6 @@ import MotoDetails from './pages/MotoDetails'
 import Rentals from './pages/Rentals'
 import CashFlow from './pages/CashFlow'
 import LancamentosRapidos from './pages/LancamentosRapidos'
-import BillsToPay from './pages/BillsToPay'
 import ExpenseCategories from './pages/ExpenseCategories'
 import Reports from './pages/Reports'
 import Caucoes from './pages/Caucoes'
@@ -59,7 +58,6 @@ const App = () => (
             <Route path="/alugueis" element={<Rentals />} />
             <Route path="/caixa" element={<CashFlow />} />
             <Route path="/lancamentos-rapidos" element={<LancamentosRapidos />} />
-            <Route path="/contas-a-pagar" element={<BillsToPay />} />
             <Route path="/categorias-gastos" element={<ExpenseCategories />} />
             <Route path="/relatorios" element={<Reports />} />
           </Route>

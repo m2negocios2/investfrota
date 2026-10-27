@@ -175,7 +175,7 @@ export default function MotoForm() {
                   Nome / Apelido da Moto <span className="text-primary">*</span>
                 </Label>
                 <span className="text-[11px] text-blue-700 dark:text-blue-300 font-medium">
-                  Identificação principal nos relatórios e avisos
+                  Identificação principal nos relatórios e listagens
                 </span>
               </div>
               <Input

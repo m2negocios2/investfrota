@@ -4,7 +4,6 @@ import {
   Bike,
   KeyRound,
   TrendingUp,
-  Receipt,
   Wallet,
   AlertTriangle,
   CheckCircle2,
@@ -22,10 +21,9 @@ import { useAuth } from '@/contexts/AuthContext'
 import { motosService } from '@/services/motos'
 import { contratosService } from '@/services/contratos'
 import { recebimentosService } from '@/services/recebimentos'
-import { pagamentosService } from '@/services/pagamentos'
 import { caixaService } from '@/services/caixa'
 import { infracoesService } from '@/services/infracoes'
-import { Moto, Contrato, Recebimento, Pagamento, CaixaLancamento, Infracao } from '@/types/database'
+import { Moto, Contrato, Recebimento, CaixaLancamento, Infracao } from '@/types/database'
 import { formatDateDisplay } from '@/lib/dateUtils'
 
 export default function Dashboard() {
@@ -33,25 +31,22 @@ export default function Dashboard() {
   const [motos, setMotos] = useState<Moto[]>([])
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
-  const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
   const [caixa, setCaixa] = useState<CaixaLancamento[]>([])
   const [infracoes, setInfracoes] = useState<Infracao[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadData = async () => {
     try {
-      const [m, c, r, p, cx, inf] = await Promise.all([
+      const [m, c, r, cx, inf] = await Promise.all([
         motosService.getAll(),
         contratosService.getAll(),
         recebimentosService.getAll(),
-        pagamentosService.getAll(),
         caixaService.getAll(),
         infracoesService.getAll(),
       ])
       setMotos(m)
       setContratos(c)
       setRecebimentos(r)
-      setPagamentos(p)
       setCaixa(cx)
       setInfracoes(inf)
     } catch (err) {
@@ -90,10 +85,6 @@ export default function Dashboard() {
   const emDia = recebimentos.filter((r) => r.status === 'em_dia').length
   const emAtraso = recebimentos.filter((r) => r.status === 'em_atraso')
   const totalAtrasoValor = emAtraso.reduce((acc, r) => acc + r.valor, 0)
-
-  // Pending Bills
-  const contasPendentes = pagamentos.filter((p) => p.status === 'pendente')
-  const totalContasPendentes = contasPendentes.reduce((acc, p) => acc + p.valor, 0)
 
   // Pending Infracoes (Multas)
   const infracoesPendentes = infracoes.filter((i) => i.status_pagamento === 'pendente')
@@ -142,8 +133,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* KPI Cards Grid: 5 cards responsivos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* KPI Cards Grid: 4 cards responsivos */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Motos Status */}
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -221,29 +212,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Contas a Pagar Pendentes */}
-        <Card className="shadow-sm border-red-100 dark:border-red-950/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Contas a Pagar
-            </CardTitle>
-            <div className="p-2 bg-red-50 dark:bg-red-950 text-red-600 rounded-lg">
-              <Receipt className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-              R$ {totalContasPendentes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </div>
-            <div className="mt-2 text-xs flex items-center justify-between text-muted-foreground">
-              <span>{contasPendentes.length} pendentes</span>
-              <Link to="/contas-a-pagar" className="text-xs text-primary hover:underline">
-                Aprovar &rarr;
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Card Novo VERSÃO 2: Infrações / Multas Pendentes */}
         <Card className="shadow-sm border-amber-200 dark:border-amber-900/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -268,7 +236,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Main Grid: Atividades e Avisos */}
+      {/* Main Grid: Frota e Alertas */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column (2/3): Frota e Contratos Ativos */}
         <div className="lg:col-span-2 space-y-6">
@@ -365,7 +333,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Avisos de Atrasos */}
+          {/* Alertas de Atrasos */}
           {emAtraso.length > 0 && (
             <Card className="shadow-sm border-amber-200 dark:border-amber-900/50 bg-amber-50/20 dark:bg-amber-950/10">
               <CardHeader className="flex flex-row items-center justify-between">
@@ -416,64 +384,8 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Right Column (1/3): Contas Pendentes & Saldo de Caixa */}
+        {/* Right Column (1/3): Resumo Financeiro & Saldo de Caixa */}
         <div className="space-y-6">
-          {/* Contas a Pagar Aguardando */}
-          <Card className="shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div>
-                <CardTitle className="text-base font-bold">Contas da Semana</CardTitle>
-                <CardDescription>Avisos de despesas pendentes</CardDescription>
-              </div>
-              <Button asChild variant="ghost" size="sm">
-                <Link to="/contas-a-pagar" className="text-xs">
-                  Ver todas
-                </Link>
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {contasPendentes.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground">
-                  <CheckCircle2 className="w-8 h-8 mx-auto text-emerald-500 mb-2" />
-                  <p className="text-xs font-medium">Nenhuma conta pendente no momento!</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {contasPendentes.slice(0, 4).map((conta) => (
-                    <div
-                      key={conta.id}
-                      className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/60 flex items-center justify-between"
-                    >
-                      <div className="min-w-0 pr-2">
-                        <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
-                          {conta.descricao}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
-                          Venc: {formatDateDisplay(conta.data_vencimento)} • Categoria:{' '}
-                          {conta.categoria_nome || conta.categoria}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-xs font-bold text-red-600 dark:text-red-400 block">
-                          R$ {conta.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] text-amber-600 border-amber-300"
-                        >
-                          {conta.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                  <Button asChild variant="default" size="sm" className="w-full mt-2">
-                    <Link to="/contas-a-pagar">Ver Avisos e Pagar no Caixa</Link>
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
           {/* Resumo Rápido de Caixa */}
           <Card className="shadow-sm">
             <CardHeader className="pb-2">

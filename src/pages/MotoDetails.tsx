@@ -39,17 +39,9 @@ import { toast } from 'sonner'
 import { motosService } from '@/services/motos'
 import { contratosService } from '@/services/contratos'
 import { caixaService } from '@/services/caixa'
-import { pagamentosService } from '@/services/pagamentos'
 import { FinalizeContractModal } from '@/components/FinalizeContractModal'
 import { formatDateDisplay, getTodayLocalDate } from '@/lib/dateUtils'
-import {
-  Moto,
-  Contrato,
-  CaixaLancamento,
-  Pagamento,
-  TipoLocacao,
-  DiaSemana,
-} from '@/types/database'
+import { Moto, Contrato, CaixaLancamento, TipoLocacao, DiaSemana } from '@/types/database'
 import {
   Select,
   SelectContent,
@@ -64,7 +56,6 @@ export default function MotoDetails() {
   const [moto, setMoto] = useState<Moto | null>(null)
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [caixa, setCaixa] = useState<CaixaLancamento[]>([])
-  const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
 
@@ -102,16 +93,14 @@ export default function MotoDetails() {
   const loadData = async () => {
     if (!id) return
     try {
-      const [m, c, cx, p] = await Promise.all([
+      const [m, c, cx] = await Promise.all([
         motosService.getById(id),
         contratosService.getByMoto(id),
         caixaService.getByMoto(id),
-        pagamentosService.getByMoto(id),
       ])
       setMoto(m)
       setContratos(c)
       setCaixa(cx)
-      setPagamentos(p)
     } catch (err) {
       console.error(err)
       toast.error('Erro ao carregar dados da moto')
@@ -528,11 +517,10 @@ export default function MotoDetails() {
         </Card>
       </div>
 
-      {/* Tabs: Mapa de Locação, Contratos, Caixa da Moto e Custos da Moto */}
+      {/* Tabs: Mapa de Locação, Contratos e Caixa da Moto */}
       <Tabs defaultValue="ocupacao" className="space-y-4">
-        <TabsList className="grid grid-cols-4 max-w-lg">
+        <TabsList className="grid grid-cols-3 max-w-md">
           <TabsTrigger value="ocupacao">Mapa Locação</TabsTrigger>
-          <TabsTrigger value="custos">Custos da Moto ({pagamentos.length})</TabsTrigger>
           <TabsTrigger value="contratos">Contratos ({contratos.length})</TabsTrigger>
           <TabsTrigger value="caixa">Caixa Individual</TabsTrigger>
         </TabsList>
@@ -602,94 +590,6 @@ export default function MotoDetails() {
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab Nova: Custos da Moto (pagamentos/avisos vinculados à moto: revisão, pneu, seguro, IPVA...) */}
-        <TabsContent value="custos" className="space-y-4">
-          <Card className="shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-bold">Custos & Despesas da Moto</CardTitle>
-                <CardDescription>
-                  Pagamentos e avisos de custos específicos deste veículo (manutenção, seguro, IPVA,
-                  pneus, oficina...)
-                </CardDescription>
-              </div>
-              <Button asChild size="sm">
-                <Link to="/contas-a-pagar">
-                  <Plus className="w-4 h-4 mr-1.5" />
-                  Lançar Custo
-                </Link>
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {pagamentos.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground space-y-1">
-                  <Wrench className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-                  <p className="font-semibold text-sm">Nenhum custo lançado para esta moto.</p>
-                  <p className="text-xs">
-                    Você pode lançar despesas de manutenção, seguro ou IPVA em Avisos de Custos.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {/* Totais de custos da moto */}
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg flex items-center justify-between text-xs">
-                    <span>
-                      Total acumulado de custos cadastrados:{' '}
-                      <strong>{pagamentos.length} item(ns)</strong>
-                    </span>
-                    <span className="font-bold text-red-600 dark:text-red-400 text-sm">
-                      R${' '}
-                      {pagamentos
-                        .reduce((acc, p) => acc + p.valor, 0)
-                        .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {pagamentos.map((pag) => (
-                      <div
-                        key={pag.id}
-                        className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-sm text-slate-900 dark:text-white">
-                              {pag.descricao}
-                            </span>
-                            <Badge variant="outline" className="text-[10px]">
-                              {pag.categoria_nome || pag.categoria}
-                            </Badge>
-                            <Badge
-                              className={`text-[10px] ${
-                                pag.status === 'pago'
-                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                              }`}
-                            >
-                              {pag.status.toUpperCase()}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            Vencimento: {formatDateDisplay(pag.data_vencimento)}
-                            {pag.data_pagamento &&
-                              ` • Pago em: ${formatDateDisplay(pag.data_pagamento)}`}
-                            {pag.observacoes && ` • "${pag.observacoes}"`}
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <span className="font-bold text-sm text-red-600 dark:text-red-400">
-                            R$ {pag.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
         </TabsContent>
