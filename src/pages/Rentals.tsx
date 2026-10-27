@@ -412,6 +412,7 @@ export default function Rentals() {
         selectedRecebimento.locatario_nome,
         formaPagamento,
         todayStr,
+        selectedRecebimento.contrato,
       )
       toast.success('Recebimento registrado e lançado no caixa!')
       setPaymentDialogOpen(false)

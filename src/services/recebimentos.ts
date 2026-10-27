@@ -46,6 +46,7 @@ export const recebimentosService = {
     locatarioNome: string,
     formaPagamento: 'pix' | 'dinheiro' | 'cartao' | 'transferencia' = 'pix',
     dataPagamento?: string,
+    contratoIdParam?: string,
   ): Promise<Recebimento> {
     const today = dataPagamento || getTodayLocalDate()
     const cleanDate = today.split('T')[0].split(' ')[0]
@@ -57,53 +58,49 @@ export const recebimentosService = {
       forma_pagamento: formaPagamento,
     })
 
-    // Also register in Caixa (com proteção contra duplicidade imediata)
+    // Registrar entrada (receita) no Caixa com proteção precisa de idempotência por ID do recebimento
     try {
-      const existing = await pb.collection('caixa_lancamentos').getList(1, 1, {
-        filter: `moto = "${motoId}" && tipo = "entrada" && data ~ "${cleanDate}" && valor >= ${valor - 0.01} && valor <= ${valor + 0.01} && recebimento = "${id}"`,
+      // 1. Checa se já existe um lançamento de receita para este recebimento específico
+      const existingByRec = await pb.collection('caixa_lancamentos').getList(1, 1, {
+        filter: `recebimento = "${id}" && tipo = "entrada"`,
       })
 
-      if (existing.totalItems === 0) {
-        // Verificar também sem o filtro de recebimento por retrocompatibilidade
-        const existingLegacy = await pb.collection('caixa_lancamentos').getList(1, 1, {
-          filter: `moto = "${motoId}" && tipo = "entrada" && data ~ "${cleanDate}" && valor >= ${valor - 0.01} && valor <= ${valor + 0.01}`,
+      if (existingByRec.totalItems === 0) {
+        await pb.collection('caixa_lancamentos').create({
+          moto: motoId,
+          tipo: 'entrada',
+          descricao: `Recebimento de aluguel - ${locatarioNome}`,
+          categoria: 'Aluguel',
+          valor: valor,
+          data: safeApiDate,
+          forma_pagamento: formaPagamento,
+          recebimento: id,
         })
-        if (existingLegacy.totalItems === 0) {
-          await pb.collection('caixa_lancamentos').create({
-            moto: motoId,
-            tipo: 'entrada',
-            descricao: `Recebimento de aluguel - ${locatarioNome}`,
-            categoria: 'aluguel',
-            valor: valor,
-            data: safeApiDate,
-            forma_pagamento: formaPagamento,
-            recebimento: id,
-          })
-        }
       }
     } catch (errCaixa) {
-      console.warn('Aviso ao registrar no caixa:', errCaixa)
+      console.error('Erro ao registrar receita no caixa ao marcar como pago:', errCaixa)
+      // Tenta fallback direto sem o filtro prévio em caso de erro no getList
       try {
         await pb.collection('caixa_lancamentos').create({
           moto: motoId,
           tipo: 'entrada',
           descricao: `Recebimento de aluguel - ${locatarioNome}`,
-          categoria: 'aluguel',
+          categoria: 'Aluguel',
           valor: valor,
           data: safeApiDate,
           forma_pagamento: formaPagamento,
           recebimento: id,
         })
       } catch (errFallback) {
-        console.warn('Falha no fallback de lançamento no caixa:', errFallback)
+        console.error('Falha crítica no fallback de lançamento no caixa:', errFallback)
       }
     }
 
     // Registrar comissão automática caso o contrato deste recebimento possua comissão configurada
     try {
-      let contratoId = updated.contrato
+      let contratoId = contratoIdParam || updated.contrato
       if (!contratoId) {
-        // Se não estava no payload do update, busca no banco
+        // Se não estava no payload do update nem recebido por parâmetro, busca no banco
         const fullRec = await pb.collection('recebimentos').getOne<Recebimento>(id)
         contratoId = fullRec.contrato
       }
@@ -135,6 +132,23 @@ export const recebimentosService = {
       data_pagamento: '',
       forma_pagamento: '' as any,
     })
+
+    // Ao estornar recebimento, remove lançamentos associados no Caixa (receita e eventual comissão vinculada ao recebimento)
+    try {
+      const lancamentosVinculados = await pb.collection('caixa_lancamentos').getFullList({
+        filter: `recebimento = "${id}"`,
+      })
+      for (const item of lancamentosVinculados) {
+        try {
+          await pb.collection('caixa_lancamentos').delete(item.id)
+        } catch (delErr) {
+          console.warn('Aviso ao remover lançamento de caixa no estorno:', delErr)
+        }
+      }
+    } catch (errEstornoCaixa) {
+      console.warn('Aviso ao buscar lançamentos vinculados para estorno:', errEstornoCaixa)
+    }
+
     return updated
   },
 }

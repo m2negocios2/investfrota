@@ -392,6 +392,7 @@ export default function Semana() {
           cellTarget.contrato.locatario_nome,
           formaPagamento,
           todayStr,
+          cellTarget.contrato.id,
         )
       } else {
         // Create new paid recebimento with semana_ano and register in caixa
@@ -413,6 +414,7 @@ export default function Semana() {
           cellTarget.contrato.locatario_nome,
           formaPagamento,
           todayStr,
+          cellTarget.contrato.id,
         )
       }
 
