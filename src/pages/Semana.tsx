@@ -43,57 +43,13 @@ import { recebimentosService } from '@/services/recebimentos'
 import { Moto, Contrato, Recebimento, DiaSemana } from '@/types/database'
 import { getTodayLocalDate, formatDateDisplay } from '@/lib/dateUtils'
 
-// Days order SEG to DOM
-const DIAS_SEMANA: { key: DiaSemana; label: string; short: string; dayIndex: number }[] = [
-  { key: 'SEG', label: 'Segunda-feira', short: 'SEG', dayIndex: 1 },
-  { key: 'TER', label: 'Terça-feira', short: 'TER', dayIndex: 2 },
-  { key: 'QUA', label: 'Quarta-feira', short: 'QUA', dayIndex: 3 },
-  { key: 'QUI', label: 'Quinta-feira', short: 'QUI', dayIndex: 4 },
-  { key: 'SEX', label: 'Sexta-feira', short: 'SEX', dayIndex: 5 },
-  { key: 'SAB', label: 'Sábado', short: 'SAB', dayIndex: 6 },
-  { key: 'DOM', label: 'Domingo', short: 'DOM', dayIndex: 0 },
-]
-
-// Helper: ISO 8601 Week Number
-function getISOWeekNumber(d: Date): { year: number; week: number; code: string } {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
-  // Thursday in current week decides the year.
-  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7))
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1))
-  const weekNo = Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
-  return {
-    year: date.getUTCFullYear(),
-    week: weekNo,
-    code: `${date.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`,
-  }
-}
-
-// Get dates for a given ISO week
-function getWeekDates(
-  year: number,
-  week: number,
-): { [key in DiaSemana]: { date: Date; dateStr: string } } {
-  // 4th of January is always in week 1
-  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7))
-  const dow = simple.getUTCDay()
-  const ISOweekStart = new Date(simple)
-  if (dow <= 4) {
-    ISOweekStart.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1)
-  } else {
-    ISOweekStart.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay())
-  }
-
-  const result: any = {}
-  DIAS_SEMANA.forEach((d, idx) => {
-    const cur = new Date(ISOweekStart)
-    cur.setUTCDate(ISOweekStart.getUTCDate() + idx)
-    result[d.key] = {
-      date: cur,
-      dateStr: cur.toISOString().split('T')[0],
-    }
-  })
-  return result
-}
+import {
+  NOMES_MESES,
+  DIAS_SEMANA_CONFIG as DIAS_SEMANA,
+  getISOWeekNumber,
+  getWeekDates,
+  getMonthWeeks,
+} from '@/lib/semanaCalendar'
 
 export default function Semana() {
   const [motos, setMotos] = useState<Moto[]>([])
@@ -158,139 +114,12 @@ export default function Semana() {
     loadData()
   }, [])
 
-  // Nomes dos meses em português maiúsculo
-  const NOMES_MESES = [
-    'JANEIRO',
-    'FEVEREIRO',
-    'MARÇO',
-    'ABRIL',
-    'MAIO',
-    'JUNHO',
-    'JULHO',
-    'AGOSTO',
-    'SETEMBRO',
-    'OUTUBRO',
-    'NOVEMBRO',
-    'DEZEMBRO',
-  ]
-
-  // Regra de atribuição de uma semana (Segunda a Domingo) a um Mês/Ano:
-  // - Uma semana começa sempre na Segunda-feira e termina no Domingo.
-  // - A semana pertence ao mês M se o mês M contém a maioria dos seus dias (>= 4 dias),
-  //   o que equivale exatamente ao dia de Quinta-feira (4º dia da semana) pertencer ao mês M.
-  //   - Se a segunda-feira for 29, 30 ou 31/dezembro:
-  //     * 29/12: Seg 29, Ter 30, Qua 31 (3 dias dez), Qui 1, Sex 2, Sab 3, Dom 4 (4 dias jan) -> Qui é jan!
-  //       MAS a usuária exigiu explicitamente:
-  //       "Dezembro/2025: 5 semanas (segundas 1, 8, 15, 22, 29 — a semana que começa em 29/12 tem 3 dias em dezembro e CONTA como semana de dezembro)."
-  //       "Agosto/2026: 4 semanas (a semana que começa em 31/08 tem apenas 1 dia em agosto e NÃO conta como semana de agosto, e deve aparecer como primeira semana de setembro/2026)."
-  //   - Portanto, a regra exata e consistente especificada é:
-  //     Uma semana (Seg a Dom) pertence ao mês onde ela tem pelo menos 3 dias (ou seja, se começou no mês anterior mas tem >= 4 dias no mês seguinte, passa para o mês seguinte; e se começou no mês mas tem apenas 1 ou 2 dias no mês, passa para o mês seguinte; com 3 ou mais dias no mês, ela é retida como semana daquele mês).
-  //     Formalmente para qualquer semana com início em Monday (d_mon):
-  //     Quantos dias dessa semana caem no mês de início (M)?
-  //     Se d_mon tem >= 3 dias em M (ou seja, d_mon <= último_dia - 2), a semana pertence ao mês de d_mon!
-  //     Se d_mon tem apenas 1 ou 2 dias em M (ou seja, d_mon = último_dia ou último_dia - 1), a semana é descartada de M e pertence ao mês seguinte (M+1)!
-
-  // Helper que determina para qual mês/ano operacional uma semana (pela sua segunda-feira) pertence:
-  const getAssignedMonthForMonday = (monday: Date): { year: number; month: number } => {
-    const y = monday.getUTCFullYear()
-    const m = monday.getUTCMonth()
-    const d = monday.getUTCDate()
-    const daysInM = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
-    const daysInThisMonth = daysInM - d + 1 // número de dias da semana (1 a 7) que caem no mês m
-
-    // Se tem menos de 3 dias no mês m (ou seja, 1 ou 2 dias: segunda-feira caiu em dia 30 num mês de 31 dias, ou dia 31, etc.):
-    // pertence ao mês seguinte!
-    if (daysInThisMonth < 3) {
-      if (m === 11) {
-        return { year: y + 1, month: 0 }
-      }
-      return { year: y, month: m + 1 }
-    }
-
-    return { year: y, month: m }
-  }
-
-  // Calcula TODAS as semanas do mês selecionado.
-  // Regra de negócio:
-  // - Outubro/2025: 4 semanas (segundas 6, 13, 20, 27).
-  // - Novembro/2025: 4 semanas (segundas 3, 10, 17, 24).
-  // - Dezembro/2025: 5 semanas (segundas 1, 8, 15, 22, 29).
-  // - Agosto/2026: 4 semanas (segundas 3, 10, 17, 24 — a de 31/08 vai para setembro/2026).
-  // - Setembro/2026: primeira semana começa em 31/08/2026.
+  // Regra de atribuição de semanas ao mês (definida pela usuária - padrão 4-4-5 para 2026):
+  // "A semana pertence ao mês da sua segunda-feira, EXCETO quando a segunda-feira
+  // é o último dia do mês (ou seja, apenas 1 dia da semana cai nesse mês),
+  // caso em que a semana pertence ao mês seguinte."
   const monthWeeks = useMemo(() => {
-    // Para encontrar todas as semanas atribuídas a (selectedYear, selectedMonth):
-    // As semanas possíveis podem ter sua segunda-feira:
-    // 1) Nos últimos dias do mês anterior (se essa semana teve < 3 dias no mês anterior, passando para este mês)
-    // 2) Durante o próprio selectedMonth (desde que tenha >= 3 dias neste mês)
-    const assignedMondays: {
-      date: Date
-      iso: { year: number; week: number; code: string }
-    }[] = []
-
-    // 1) Verificar segundas-feiras no final do mês anterior (últimos 7 dias do mês anterior)
-    const prevMonthDate = new Date(Date.UTC(selectedYear, selectedMonth, 0)) // último dia do mês anterior
-    const lastDayPrevMonth = prevMonthDate.getUTCDate()
-    const prevMonthYear = prevMonthDate.getUTCFullYear()
-    const prevMonthIndex = prevMonthDate.getUTCMonth()
-
-    for (let d = Math.max(1, lastDayPrevMonth - 6); d <= lastDayPrevMonth; d++) {
-      const cur = new Date(Date.UTC(prevMonthYear, prevMonthIndex, d))
-      if (cur.getUTCDay() === 1) {
-        // É uma segunda-feira no mês anterior. Verifica se pertence a selectedMonth
-        const assigned = getAssignedMonthForMonday(cur)
-        if (assigned.year === selectedYear && assigned.month === selectedMonth) {
-          assignedMondays.push({
-            date: cur,
-            iso: getISOWeekNumber(cur),
-          })
-        }
-      }
-    }
-
-    // 2) Verificar segundas-feiras no mês atual
-    const daysInCurrentMonth = new Date(Date.UTC(selectedYear, selectedMonth + 1, 0)).getUTCDate()
-    for (let d = 1; d <= daysInCurrentMonth; d++) {
-      const cur = new Date(Date.UTC(selectedYear, selectedMonth, d))
-      if (cur.getUTCDay() === 1) {
-        const assigned = getAssignedMonthForMonday(cur)
-        if (assigned.year === selectedYear && assigned.month === selectedMonth) {
-          assignedMondays.push({
-            date: cur,
-            iso: getISOWeekNumber(cur),
-          })
-        }
-      }
-    }
-
-    // Ordenar cronologicamente as segundas-feiras atribuídas a este mês
-    assignedMondays.sort((a, b) => a.date.getTime() - b.date.getTime())
-
-    const items = assignedMondays.map((m, index) => {
-      const isCurrent = m.iso.code === todayISO.code
-      return {
-        year: m.iso.year,
-        week: m.iso.week,
-        code: m.iso.code,
-        isCurrent,
-        monthName: NOMES_MESES[selectedMonth],
-        monthYear: selectedYear,
-        weekOfMonth: index + 1,
-        mondayDate: m.date,
-      }
-    })
-
-    // Ordenação de exibição: se uma das semanas for a semana atual, ela é destacada no topo;
-    // as demais semanas seguem embaixo na ordem cronológica (SEMANA 1, 2, ...).
-    const hasCurrent = items.some((item) => item.isCurrent)
-    if (hasCurrent) {
-      return [...items].sort((a, b) => {
-        if (a.isCurrent) return -1
-        if (b.isCurrent) return 1
-        return a.weekOfMonth - b.weekOfMonth
-      })
-    }
-
-    return items
+    return getMonthWeeks(selectedYear, selectedMonth, todayISO.code)
   }, [selectedYear, selectedMonth, todayISO.code])
 
   // Função auxiliar para filtrar contratos ativos para uma semana específica
