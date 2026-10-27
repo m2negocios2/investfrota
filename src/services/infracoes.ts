@@ -1,5 +1,6 @@
 import pb from '@/lib/pocketbase/client'
 import { Infracao } from '@/types/database'
+import { dateToApiMidday } from '@/lib/dateUtils'
 
 export const infracoesService = {
   async getAll(): Promise<Infracao[]> {
@@ -26,13 +27,30 @@ export const infracoesService = {
   },
 
   async create(data: Partial<Infracao>): Promise<Infracao> {
-    return await pb.collection('infracoes').create<Infracao>(data, {
+    const payload = { ...data }
+    if (payload.data) payload.data = dateToApiMidday(payload.data)
+    if (payload.data_pagamento) payload.data_pagamento = dateToApiMidday(payload.data_pagamento)
+    if (payload.data_entrada_detran)
+      payload.data_entrada_detran = dateToApiMidday(payload.data_entrada_detran)
+    if (payload.prazo) payload.prazo = dateToApiMidday(payload.prazo)
+
+    return await pb.collection('infracoes').create<Infracao>(payload, {
       expand: 'moto',
     })
   },
 
   async update(id: string, data: Partial<Infracao>): Promise<Infracao> {
-    return await pb.collection('infracoes').update<Infracao>(id, data, {
+    const payload = { ...data }
+    if (data.data !== undefined) payload.data = data.data ? dateToApiMidday(data.data) : ''
+    if (data.data_pagamento !== undefined)
+      payload.data_pagamento = data.data_pagamento ? dateToApiMidday(data.data_pagamento) : ''
+    if (data.data_entrada_detran !== undefined)
+      payload.data_entrada_detran = data.data_entrada_detran
+        ? dateToApiMidday(data.data_entrada_detran)
+        : ''
+    if (data.prazo !== undefined) payload.prazo = data.prazo ? dateToApiMidday(data.prazo) : ''
+
+    return await pb.collection('infracoes').update<Infracao>(id, payload, {
       expand: 'moto',
     })
   },

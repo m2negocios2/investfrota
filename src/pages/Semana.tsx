@@ -41,6 +41,7 @@ import { motosService } from '@/services/motos'
 import { contratosService } from '@/services/contratos'
 import { recebimentosService } from '@/services/recebimentos'
 import { Moto, Contrato, Recebimento, DiaSemana } from '@/types/database'
+import { getTodayLocalDate, formatDateDisplay } from '@/lib/dateUtils'
 
 // Days order SEG to DOM
 const DIAS_SEMANA: { key: DiaSemana; label: string; short: string; dayIndex: number }[] = [
@@ -316,7 +317,7 @@ export default function Semana() {
         return { status: 'atraso', recebimento: found }
       }
       // em_dia: check if overdue compared to today
-      const todayStr = new Date().toISOString().split('T')[0]
+      const todayStr = getTodayLocalDate()
       if (cellDateStr < todayStr) {
         return { status: 'atraso', recebimento: found }
       }
@@ -324,7 +325,7 @@ export default function Semana() {
     }
 
     // No recebimento record: if cell date is in the past, consider overdue; otherwise neutral/pending
-    const todayStr = new Date().toISOString().split('T')[0]
+    const todayStr = getTodayLocalDate()
     if (cellDateStr < todayStr) {
       return { status: 'atraso' }
     }
@@ -379,7 +380,7 @@ export default function Semana() {
   const handleConfirmPayment = async () => {
     if (!cellTarget) return
     try {
-      const todayStr = new Date().toISOString().split('T')[0]
+      const todayStr = getTodayLocalDate()
       const weekCode = `${selectedYear}-W${String(selectedWeek).padStart(2, '0')}`
 
       if (cellTarget.recebimento) {
@@ -398,8 +399,8 @@ export default function Semana() {
           moto: cellTarget.moto.id,
           contrato: cellTarget.contrato.id,
           locatario_nome: cellTarget.contrato.locatario_nome,
-          data_vencimento: `${cellTarget.dateStr} 00:00:00.000Z`,
-          data_pagamento: `${todayStr} 00:00:00.000Z`,
+          data_vencimento: cellTarget.dateStr,
+          data_pagamento: todayStr,
           valor: cellTarget.valor,
           status: 'pago',
           forma_pagamento: formaPagamento,
@@ -1058,9 +1059,7 @@ export default function Semana() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Data Prevista:</span>
                 <span className="font-bold">
-                  {cellTarget?.dateStr
-                    ? new Date(cellTarget.dateStr).toLocaleDateString('pt-BR')
-                    : '-'}
+                  {cellTarget?.dateStr ? formatDateDisplay(cellTarget.dateStr) : '-'}
                 </span>
               </div>
               <div className="flex justify-between pt-1 border-t">

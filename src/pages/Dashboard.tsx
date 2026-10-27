@@ -26,6 +26,7 @@ import { pagamentosService } from '@/services/pagamentos'
 import { caixaService } from '@/services/caixa'
 import { infracoesService } from '@/services/infracoes'
 import { Moto, Contrato, Recebimento, Pagamento, CaixaLancamento, Infracao } from '@/types/database'
+import { formatDateDisplay } from '@/lib/dateUtils'
 
 export default function Dashboard() {
   const { isProprietario } = useAuth()
@@ -390,7 +391,7 @@ export default function Dashboard() {
                           {rec.locatario_nome}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Vencimento: {new Date(rec.data_vencimento).toLocaleDateString('pt-BR')}
+                          Vencimento: {formatDateDisplay(rec.data_vencimento)}
                           {rec.observacoes ? ` • ${rec.observacoes}` : ''}
                         </p>
                       </div>
@@ -448,8 +449,8 @@ export default function Dashboard() {
                           {conta.descricao}
                         </p>
                         <p className="text-[11px] text-muted-foreground">
-                          Venc: {new Date(conta.data_vencimento).toLocaleDateString('pt-BR')} •
-                          Categoria: {conta.categoria_nome || conta.categoria}
+                          Venc: {formatDateDisplay(conta.data_vencimento)} • Categoria:{' '}
+                          {conta.categoria_nome || conta.categoria}
                         </p>
                       </div>
                       <div className="text-right shrink-0">

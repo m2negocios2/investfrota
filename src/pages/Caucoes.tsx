@@ -37,6 +37,7 @@ import {
 import { toast } from 'sonner'
 import { caucoesService } from '@/services/caucoes'
 import { motosService } from '@/services/motos'
+import { getTodayLocalDate, dateToApiMidday, formatDateDisplay } from '@/lib/dateUtils'
 import { Caucao, Moto, CaucaoPosse, CaucaoStatus } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -56,7 +57,7 @@ export default function Caucoes() {
   const [editingCaucao, setEditingCaucao] = useState<Caucao | null>(null)
   const [motoId, setMotoId] = useState('')
   const [valor, setValor] = useState<string>('')
-  const [data, setData] = useState(new Date().toISOString().split('T')[0])
+  const [data, setData] = useState(getTodayLocalDate())
   const [posse, setPosse] = useState<CaucaoPosse>('proprietario')
   const [status, setStatus] = useState<CaucaoStatus>('retida')
   const [dataDevolucao, setDataDevolucao] = useState('')
@@ -88,7 +89,7 @@ export default function Caucoes() {
     setEditingCaucao(null)
     setMotoId(motos[0]?.id || '')
     setValor('')
-    setData(new Date().toISOString().split('T')[0])
+    setData(getTodayLocalDate())
     setPosse(isProprietario ? 'proprietario' : 'adm')
     setStatus('retida')
     setDataDevolucao('')
@@ -129,7 +130,7 @@ export default function Caucoes() {
       const payload: any = {
         moto: motoId,
         valor: numValor,
-        data: data ? `${data} 00:00:00.000Z` : new Date().toISOString(),
+        data: data ? dateToApiMidday(data) : dateToApiMidday(getTodayLocalDate()),
         posse,
         status,
         observacao: observacao.trim(),
@@ -137,8 +138,8 @@ export default function Caucoes() {
 
       if (status === 'devolvida') {
         payload.data_devolucao = dataDevolucao
-          ? `${dataDevolucao} 00:00:00.000Z`
-          : new Date().toISOString()
+          ? dateToApiMidday(dataDevolucao)
+          : dateToApiMidday(getTodayLocalDate())
       } else {
         payload.data_devolucao = ''
       }
@@ -194,13 +195,12 @@ export default function Caucoes() {
   // Quick action to toggle devolución
   const handleToggleDevolucao = async (c: Caucao) => {
     const novoStatus: CaucaoStatus = c.status === 'devolvida' ? 'retida' : 'devolvida'
-    const today = new Date().toISOString()
+    const today = dateToApiMidday(getTodayLocalDate())
     try {
       await caucoesService.update(c.id, {
-        status: novoStatus,
-        data_devolucao: novoStatus === 'devolvida' ? today : '',
-      })
-      toast.success(
+        status: 'devolvida',
+        data_devolucao: today,
+      })      toast.success(
         novoStatus === 'devolvida'
           ? 'Caução marcada como devolvida ao locatário.'
           : 'Caução marcada como retida.',
@@ -495,12 +495,12 @@ export default function Caucoes() {
                         <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3.5 h-3.5" />
-                            Data: {c.data ? new Date(c.data).toLocaleDateString('pt-BR') : '-'}
+                            Data: {c.data ? formatDateDisplay(c.data) : '-'}
                           </span>
                           {c.data_devolucao && (
                             <span className="flex items-center gap-1 text-slate-500">
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              Devolvida em: {new Date(c.data_devolucao).toLocaleDateString('pt-BR')}
+                              Devolvida em: {formatDateDisplay(c.data_devolucao)}
                             </span>
                           )}
                           {c.observacao && (

@@ -35,6 +35,7 @@ import { toast } from 'sonner'
 import { caixaService } from '@/services/caixa'
 import { motosService } from '@/services/motos'
 import { categoriasService } from '@/services/categorias'
+import { getTodayLocalDate, normalizeDateInput, formatDateDisplay } from '@/lib/dateUtils'
 import { CaixaLancamento, Moto, CaixaTipo, FormaPagamento, CategoriaGasto } from '@/types/database'
 
 export default function CashFlow() {
@@ -55,7 +56,7 @@ export default function CashFlow() {
   const [descricao, setDescricao] = useState('')
   const [categoria, setCategoria] = useState('')
   const [valor, setValor] = useState<number>(0)
-  const [data, setData] = useState(new Date().toISOString().split('T')[0])
+  const [data, setData] = useState(getTodayLocalDate())
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('pix')
   const [submitting, setSubmitting] = useState(false)
 
@@ -67,7 +68,7 @@ export default function CashFlow() {
   const [editDescricao, setEditDescricao] = useState('')
   const [editCategoria, setEditCategoria] = useState('')
   const [editValor, setEditValor] = useState<number>(0)
-  const [editData, setEditData] = useState('')
+  const [editData, setEditData] = useState(getTodayLocalDate())
   const [editFormaPagamento, setEditFormaPagamento] = useState<FormaPagamento>('pix')
   const [editSubmitting, setEditSubmitting] = useState(false)
 
@@ -132,11 +133,7 @@ export default function CashFlow() {
     setEditDescricao(item.descricao || '')
     setEditCategoria(item.categoria || '')
     setEditValor(item.valor || 0)
-    // Extrai apenas a parte da data YYYY-MM-DD caso venha com timestamp
-    const dateFormatted = item.data
-      ? item.data.split('T')[0]
-      : new Date().toISOString().split('T')[0]
-    setEditData(dateFormatted)
+    setEditData(normalizeDateInput(item.data))
     setEditFormaPagamento(item.forma_pagamento || 'pix')
     setEditModalOpen(true)
   }
@@ -371,7 +368,7 @@ export default function CashFlow() {
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {new Date(item.data).toLocaleDateString('pt-BR')} •{' '}
+                          {formatDateDisplay(item.data)} •{' '}
                           <span className="font-semibold text-slate-800 dark:text-slate-200">
                             {moto?.nome || moto?.modelo || 'Moto'}
                           </span>

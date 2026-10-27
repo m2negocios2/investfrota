@@ -40,6 +40,7 @@ import { contratosService } from '@/services/contratos'
 import { caixaService } from '@/services/caixa'
 import { pagamentosService } from '@/services/pagamentos'
 import { FinalizeContractModal } from '@/components/FinalizeContractModal'
+import { formatDateDisplay } from '@/lib/dateUtils'
 import { Moto, Contrato, CaixaLancamento, Pagamento } from '@/types/database'
 
 export default function MotoDetails() {
@@ -274,9 +275,7 @@ export default function MotoDetails() {
                 ? moto.valor_semanal
                 : (moto.valor_diario || 0) * 7
               ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              {moto.data_compra && (
-                <> • Compra/Honda: {new Date(moto.data_compra).toLocaleDateString('pt-BR')}</>
-              )}
+              {moto.data_compra && <> • Compra/Honda: {formatDateDisplay(moto.data_compra)}</>}
               {moto.valor_compra !== undefined && moto.valor_compra > 0 && (
                 <>
                   {' '}
@@ -396,22 +395,22 @@ export default function MotoDetails() {
         </Card>
       </div>
 
-      {/* Tabs: Mapa de Ocupação, Contratos, Caixa da Moto e Custos da Moto */}
+      {/* Tabs: Mapa de Locação, Contratos, Caixa da Moto e Custos da Moto */}
       <Tabs defaultValue="ocupacao" className="space-y-4">
         <TabsList className="grid grid-cols-4 max-w-lg">
-          <TabsTrigger value="ocupacao">Mapa Ocupação</TabsTrigger>
+          <TabsTrigger value="ocupacao">Mapa Locação</TabsTrigger>
           <TabsTrigger value="custos">Custos da Moto ({pagamentos.length})</TabsTrigger>
           <TabsTrigger value="contratos">Contratos ({contratos.length})</TabsTrigger>
           <TabsTrigger value="caixa">Caixa Individual</TabsTrigger>
         </TabsList>
 
-        {/* Tab 1: Mapa de Ocupação Anual */}
+        {/* Tab 1: Mapa de Locação Anual */}
         <TabsContent value="ocupacao" className="space-y-4">
           <Card className="shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-base font-bold">
-                  Mapa de Ocupação Anual — {selectedYear}
+                  Mapa de Locação Anual — {selectedYear}
                 </CardTitle>
                 <CardDescription>
                   Acompanhamento mês a mês dos dias em que a moto esteve alugada
@@ -542,9 +541,9 @@ export default function MotoDetails() {
                             </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Vencimento: {new Date(pag.data_vencimento).toLocaleDateString('pt-BR')}
+                            Vencimento: {formatDateDisplay(pag.data_vencimento)}
                             {pag.data_pagamento &&
-                              ` • Pago em: ${new Date(pag.data_pagamento).toLocaleDateString('pt-BR')}`}
+                              ` • Pago em: ${formatDateDisplay(pag.data_pagamento)}`}
                             {pag.observacoes && ` • "${pag.observacoes}"`}
                           </p>
                         </div>
@@ -612,13 +611,13 @@ export default function MotoDetails() {
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Início: {new Date(contrato.data_inicio).toLocaleDateString('pt-BR')}
+                          Início: {formatDateDisplay(contrato.data_inicio)}
                           {contrato.prazo_meses ? ` • Prazo: ${contrato.prazo_meses} meses` : ''}
                           {contrato.data_entrega ? (
                             <span className="font-semibold text-slate-800 dark:text-slate-200">
                               {contrato.tipo === 'plano_conquista'
-                                ? ` • Fim / Quitação: ${new Date(contrato.data_entrega).toLocaleDateString('pt-BR')}`
-                                : ` • Fim do contrato: ${new Date(contrato.data_entrega).toLocaleDateString('pt-BR')}`}
+                                ? ` • Fim / Quitação: ${formatDateDisplay(contrato.data_entrega)}`
+                                : ` • Fim do contrato: ${formatDateDisplay(contrato.data_entrega)}`}
                             </span>
                           ) : (
                             contrato.tipo === 'normal' && (
@@ -697,8 +696,8 @@ export default function MotoDetails() {
                           {item.descricao}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(item.data).toLocaleDateString('pt-BR')} •{' '}
-                          {item.categoria || 'Geral'} • Forma: {item.forma_pagamento || 'PIX'}
+                          {formatDateDisplay(item.data)} • {item.categoria || 'Geral'} • Forma:{' '}
+                          {item.forma_pagamento || 'PIX'}
                         </p>
                       </div>
                       <div className="text-right">
@@ -766,14 +765,14 @@ export default function MotoDetails() {
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-muted-foreground">Data Início:</span>
                   <span className="font-medium text-slate-800 dark:text-slate-200">
-                    {new Date(contractToDelete.data_inicio).toLocaleDateString('pt-BR')}
+                    {formatDateDisplay(contractToDelete.data_inicio)}
                   </span>
                 </div>
                 {contractToDelete.data_entrega && (
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-muted-foreground">Data Fim / Término:</span>
                     <span className="font-medium text-slate-800 dark:text-slate-200">
-                      {new Date(contractToDelete.data_entrega).toLocaleDateString('pt-BR')}
+                      {formatDateDisplay(contractToDelete.data_entrega)}
                     </span>
                   </div>
                 )}

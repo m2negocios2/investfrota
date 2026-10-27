@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Contrato, Moto } from '@/types/database'
+import { getTodayLocalDate, formatDateDisplay, toLocalDateString } from '@/lib/dateUtils'
 
 interface FinalizeContractModalProps {
   open: boolean
@@ -23,15 +24,11 @@ interface FinalizeContractModalProps {
 
 // Extrai YYYY-MM-DD com segurança a partir de string de data (ISO ou simples)
 function toDateInputValue(dateStr?: string): string {
-  if (!dateStr) return new Date().toISOString().split('T')[0]
+  if (!dateStr) return getTodayLocalDate()
   try {
-    const d = new Date(dateStr)
-    if (isNaN(d.getTime())) {
-      return dateStr.split('T')[0]
-    }
-    return d.toISOString().split('T')[0]
+    return toLocalDateString(dateStr)
   } catch {
-    return dateStr.split('T')[0] || ''
+    return getTodayLocalDate()
   }
 }
 
@@ -53,7 +50,7 @@ export function FinalizeContractModal({
       // Pré-preenche com a data_entrega existente se houver, ou a data de hoje como fallback inicial editável
       const initialDate = contrato.data_entrega
         ? toDateInputValue(contrato.data_entrega)
-        : new Date().toISOString().split('T')[0]
+        : getTodayLocalDate()
       setDataFim(initialDate)
       setErrorMessage(null)
       setLoading(false)
@@ -66,9 +63,9 @@ export function FinalizeContractModal({
     setDataFim(val)
     if (dataInicioStr && val && val < dataInicioStr) {
       setErrorMessage(
-        `A data de término não pode ser anterior à data de início do contrato (${new Date(
+        `A data de término não pode ser anterior à data de início do contrato (${formatDateDisplay(
           contrato.data_inicio,
-        ).toLocaleDateString('pt-BR')}).`,
+        )}).`,
       )
     } else {
       setErrorMessage(null)
@@ -84,9 +81,9 @@ export function FinalizeContractModal({
 
     if (dataInicioStr && dataFim < dataInicioStr) {
       setErrorMessage(
-        `A data de término não pode ser anterior à data de início (${new Date(
+        `A data de término não pode ser anterior à data de início (${formatDateDisplay(
           contrato.data_inicio,
-        ).toLocaleDateString('pt-BR')}).`,
+        )}).`,
       )
       return
     }
@@ -136,7 +133,7 @@ export function FinalizeContractModal({
             <div className="flex justify-between">
               <span className="text-muted-foreground">Início da locação:</span>
               <span className="font-semibold text-slate-800 dark:text-slate-100">
-                {new Date(contrato.data_inicio).toLocaleDateString('pt-BR')}
+                {formatDateDisplay(contrato.data_inicio)}
               </span>
             </div>
             {contrato.valor_semanal && (

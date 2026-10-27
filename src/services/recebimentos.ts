@@ -1,5 +1,6 @@
 import pb from '@/lib/pocketbase/client'
 import { Recebimento } from '@/types/database'
+import { getTodayLocalDate, dateToApiMidday } from '@/lib/dateUtils'
 
 export const recebimentosService = {
   async getAll(): Promise<Recebimento[]> {
@@ -18,11 +19,23 @@ export const recebimentosService = {
   },
 
   async create(data: Omit<Recebimento, 'id' | 'created' | 'updated'>): Promise<Recebimento> {
-    return await pb.collection('recebimentos').create<Recebimento>(data)
+    const payload = {
+      ...data,
+      data_vencimento: dateToApiMidday(data.data_vencimento),
+      data_pagamento: data.data_pagamento ? dateToApiMidday(data.data_pagamento) : undefined,
+    }
+    return await pb.collection('recebimentos').create<Recebimento>(payload)
   },
 
   async update(id: string, data: Partial<Recebimento>): Promise<Recebimento> {
-    return await pb.collection('recebimentos').update<Recebimento>(id, data)
+    const payload: Partial<Recebimento> = { ...data }
+    if (data.data_vencimento !== undefined) {
+      payload.data_vencimento = dateToApiMidday(data.data_vencimento)
+    }
+    if (data.data_pagamento !== undefined && data.data_pagamento) {
+      payload.data_pagamento = dateToApiMidday(data.data_pagamento)
+    }
+    return await pb.collection('recebimentos').update<Recebimento>(id, payload)
   },
 
   async marcarComoPago(
@@ -33,16 +46,18 @@ export const recebimentosService = {
     formaPagamento: 'pix' | 'dinheiro' | 'cartao' | 'transferencia' = 'pix',
     dataPagamento?: string,
   ): Promise<Recebimento> {
-    const today = dataPagamento || new Date().toISOString().split('T')[0]
+    const today = dataPagamento || getTodayLocalDate()
+    const cleanDate = today.split('T')[0].split(' ')[0]
+    const safeApiDate = dateToApiMidday(cleanDate)
+
     const updated = await pb.collection('recebimentos').update<Recebimento>(id, {
       status: 'pago',
-      data_pagamento: today,
+      data_pagamento: safeApiDate,
       forma_pagamento: formaPagamento,
     })
 
     // Also register in Caixa (com proteção contra duplicidade imediata)
     try {
-      const cleanDate = today.split('T')[0]
       const existing = await pb.collection('caixa_lancamentos').getList(1, 1, {
         filter: `moto = "${motoId}" && tipo = "entrada" && data ~ "${cleanDate}" && valor >= ${valor - 0.01} && valor <= ${valor + 0.01}`,
       })
@@ -54,7 +69,7 @@ export const recebimentosService = {
           descricao: `Recebimento de aluguel - ${locatarioNome}`,
           categoria: 'aluguel',
           valor: valor,
-          data: cleanDate,
+          data: safeApiDate,
           forma_pagamento: formaPagamento,
         })
       }
@@ -67,7 +82,7 @@ export const recebimentosService = {
         descricao: `Recebimento de aluguel - ${locatarioNome}`,
         categoria: 'aluguel',
         valor: valor,
-        data: today.split('T')[0],
+        data: safeApiDate,
         forma_pagamento: formaPagamento,
       })
     }

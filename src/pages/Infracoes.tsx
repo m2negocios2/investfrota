@@ -43,6 +43,7 @@ import { toast } from 'sonner'
 import { infracoesService } from '@/services/infracoes'
 import { motosService } from '@/services/motos'
 import { caixaService } from '@/services/caixa'
+import { getTodayLocalDate, dateToApiMidday } from '@/lib/dateUtils'
 import { Infracao, Moto, InfracaoStatusPagamento } from '@/types/database'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -79,7 +80,7 @@ export default function Infracoes() {
   // Mark as paid dialog (with Caixa register option)
   const [markPaidModalOpen, setMarkPaidModalOpen] = useState(false)
   const [targetInfracao, setTargetInfracao] = useState<Infracao | null>(null)
-  const [paidDate, setPaidDate] = useState(new Date().toISOString().split('T')[0])
+  const [paidDate, setPaidDate] = useState(getTodayLocalDate())
   const [registrarCaixa, setRegistrarCaixa] = useState(false)
   const [caixaSubmitting, setCaixaSubmitting] = useState(false)
 
@@ -115,7 +116,7 @@ export default function Infracoes() {
     const maxNum = motoInfs.reduce((max, i) => Math.max(max, i.numero || 0), 0)
     setNumero(String(maxNum + 1))
 
-    setData(new Date().toISOString().split('T')[0])
+    setData(getTodayLocalDate())
     setCodigoMulta('')
     setValor('')
     setCliente('')
@@ -172,17 +173,17 @@ export default function Infracoes() {
       const payload: Partial<Infracao> = {
         moto: motoId,
         numero: numero ? parseInt(numero, 10) : undefined,
-        data: data ? `${data} 00:00:00.000Z` : '',
-        codigo_multa: codigoMulta.trim().toUpperCase(),
-        valor: numValor,
+        data: data ? dateToApiMidday(data) : '',
+        codigo_multa: codigoMulta.trim(),
+        valor: Number(valor),
         cliente: cliente.trim(),
         status_pagamento: statusPagamento,
         data_pagamento:
-          statusPagamento === 'paga' && dataPagamento ? `${dataPagamento} 00:00:00.000Z` : '',
+          statusPagamento === 'paga' && dataPagamento ? dateToApiMidday(dataPagamento) : '',
         deu_entrada_detran: deuEntradaDetran,
         data_entrada_detran:
-          deuEntradaDetran && dataEntradaDetran ? `${dataEntradaDetran} 00:00:00.000Z` : '',
-        prazo: prazo ? `${prazo} 00:00:00.000Z` : '',
+          deuEntradaDetran && dataEntradaDetran ? dateToApiMidday(dataEntradaDetran) : '',
+        prazo: prazo ? dateToApiMidday(prazo) : '',
         observacao: observacao.trim(),
       }
 
@@ -222,7 +223,7 @@ export default function Infracoes() {
   // Open mark as paid dialog
   const openMarkPaidDialog = (inf: Infracao) => {
     setTargetInfracao(inf)
-    setPaidDate(new Date().toISOString().split('T')[0])
+    setPaidDate(getTodayLocalDate())
     setRegistrarCaixa(true)
     setMarkPaidModalOpen(true)
   }
@@ -231,7 +232,8 @@ export default function Infracoes() {
     if (!targetInfracao) return
     setCaixaSubmitting(true)
     try {
-      const formattedPaidDate = paidDate ? `${paidDate} 00:00:00.000Z` : new Date().toISOString()
+      const rawPaidDate = paidDate || getTodayLocalDate()
+      const formattedPaidDate = dateToApiMidday(rawPaidDate)
 
       // 1. Update infracao status to paga
       await infracoesService.update(targetInfracao.id, {
@@ -273,7 +275,7 @@ export default function Infracoes() {
   // Quick toggle DETRAN entry
   const handleToggleDetran = async (inf: Infracao) => {
     const novoStatus = !inf.deu_entrada_detran
-    const today = new Date().toISOString()
+    const today = dateToApiMidday(getTodayLocalDate())
     try {
       await infracoesService.update(inf.id, {
         deu_entrada_detran: novoStatus,

@@ -40,6 +40,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { pagamentosService } from '@/services/pagamentos'
 import { motosService } from '@/services/motos'
 import { categoriasService } from '@/services/categorias'
+import { getTodayLocalDate, formatDateDisplay } from '@/lib/dateUtils'
 import { Pagamento, Moto, CategoriaGasto, FormaPagamento } from '@/types/database'
 
 export default function BillsToPay() {
@@ -55,14 +56,14 @@ export default function BillsToPay() {
   const [descricao, setDescricao] = useState('')
   const [categoria, setCategoria] = useState('Manutenção')
   const [valor, setValor] = useState<number>(0)
-  const [dataVencimento, setDataVencimento] = useState(new Date().toISOString().split('T')[0])
+  const [dataVencimento, setDataVencimento] = useState(getTodayLocalDate())
   const [observacoes, setObservacoes] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   // Registro Direto no Caixa pela Dona (modal de quitação)
   const [payModalOpen, setPayModalOpen] = useState(false)
   const [selectedNotice, setSelectedNotice] = useState<Pagamento | null>(null)
-  const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0])
+  const [payDate, setPayDate] = useState(getTodayLocalDate())
   const [payForma, setPayForma] = useState<FormaPagamento>('pix')
   const [payCategory, setPayCategory] = useState('')
   const [payValor, setPayValor] = useState<number>(0)
@@ -123,6 +124,7 @@ export default function BillsToPay() {
       setNewNoticeOpen(false)
       setDescricao('')
       setValor(0)
+      setDataVencimento(getTodayLocalDate())
       setObservacoes('')
       loadData()
     } catch (err) {
@@ -138,7 +140,7 @@ export default function BillsToPay() {
     const moto = motos.find((m) => m.id === item.moto)
     const motoNome = moto?.nome || moto?.modelo || 'Moto'
     setSelectedNotice(item)
-    setPayDate(new Date().toISOString().split('T')[0])
+    setPayDate(getTodayLocalDate())
     setPayForma('pix')
     setPayCategory(item.categoria_nome || item.categoria || 'Manutenção')
     setPayValor(item.valor)
@@ -349,9 +351,7 @@ export default function BillsToPay() {
                           <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                             <span>
                               Data prevista:{' '}
-                              <strong>
-                                {new Date(item.data_vencimento).toLocaleDateString('pt-BR')}
-                              </strong>
+                              <strong>{formatDateDisplay(item.data_vencimento)}</strong>
                             </span>
                             {item.lancado_por_nome && (
                               <span>• Lançado por: {item.lancado_por_nome}</span>
@@ -442,7 +442,7 @@ export default function BillsToPay() {
                           <p className="text-xs text-muted-foreground mt-0.5">
                             Categoria: {item.categoria_nome || item.categoria} • Pago em:{' '}
                             {item.data_pagamento
-                              ? new Date(item.data_pagamento).toLocaleDateString('pt-BR')
+                              ? formatDateDisplay(item.data_pagamento)
                               : 'Concluído'}
                           </p>
                         </div>

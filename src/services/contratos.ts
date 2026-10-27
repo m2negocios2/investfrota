@@ -1,5 +1,6 @@
 import pb from '@/lib/pocketbase/client'
 import { Contrato } from '@/types/database'
+import { dateToApiMidday } from '@/lib/dateUtils'
 
 export const contratosService = {
   async getAll(): Promise<Contrato[]> {
@@ -33,6 +34,12 @@ export const contratosService = {
       ]
       payload.dia_pagamento_semana = daysMap[dt.getUTCDay()] || 'SEG'
     }
+    if (payload.data_inicio) {
+      payload.data_inicio = dateToApiMidday(payload.data_inicio)
+    }
+    if (payload.data_entrega) {
+      payload.data_entrega = dateToApiMidday(payload.data_entrega)
+    }
     const record = await pb.collection('contratos').create<Contrato>(payload)
     // If contract is active, update moto status to locada
     if (data.status === 'ativo') {
@@ -49,7 +56,14 @@ export const contratosService = {
   },
 
   async update(id: string, data: Partial<Contrato>): Promise<Contrato> {
-    return await pb.collection('contratos').update<Contrato>(id, data)
+    const payload: Partial<Contrato> = { ...data }
+    if (data.data_inicio !== undefined && data.data_inicio) {
+      payload.data_inicio = dateToApiMidday(data.data_inicio)
+    }
+    if (data.data_entrega !== undefined && data.data_entrega) {
+      payload.data_entrega = dateToApiMidday(data.data_entrega)
+    }
+    return await pb.collection('contratos').update<Contrato>(id, payload)
   },
 
   async finalizar(id: string, motoId: string, dataFim?: string): Promise<Contrato> {
@@ -57,7 +71,7 @@ export const contratosService = {
       status: 'finalizado',
     }
     if (dataFim) {
-      updatePayload.data_entrega = dataFim
+      updatePayload.data_entrega = dateToApiMidday(dataFim)
     }
     const updated = await pb.collection('contratos').update<Contrato>(id, updatePayload)
     // If no other active contracts for this moto, set status to disponivel

@@ -41,6 +41,7 @@ import { contratosService } from '@/services/contratos'
 import { motosService } from '@/services/motos'
 import { recebimentosService } from '@/services/recebimentos'
 import { FinalizeContractModal } from '@/components/FinalizeContractModal'
+import { getTodayLocalDate, formatDateDisplay } from '@/lib/dateUtils'
 import { Contrato, Moto, TipoLocacao, Recebimento } from '@/types/database'
 
 export default function Rentals() {
@@ -59,7 +60,7 @@ export default function Rentals() {
   const [locatarioDoc, setLocatarioDoc] = useState('')
   const [locatarioTel, setLocatarioTel] = useState('')
   const [tipoContrato, setTipoContrato] = useState<TipoLocacao>('normal')
-  const [dataInicio, setDataInicio] = useState(new Date().toISOString().split('T')[0])
+  const [dataInicio, setDataInicio] = useState(getTodayLocalDate())
   const [diaSemana, setDiaSemana] = useState<'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'>(
     'SEG',
   )
@@ -279,7 +280,7 @@ export default function Rentals() {
   const handleConfirmRecebimento = async () => {
     if (!selectedRecebimento) return
     try {
-      const todayStr = new Date().toISOString().split('T')[0]
+      const todayStr = getTodayLocalDate()
       await recebimentosService.marcarComoPago(
         selectedRecebimento.id,
         selectedRecebimento.moto,
@@ -379,7 +380,7 @@ export default function Rentals() {
                         <div>
                           <span className="text-muted-foreground block">Início da Locação:</span>
                           <span className="font-medium">
-                            {new Date(contrato.data_inicio).toLocaleDateString('pt-BR')}
+                            {formatDateDisplay(contrato.data_inicio)}
                           </span>
                         </div>
                         <div>
@@ -391,7 +392,7 @@ export default function Rentals() {
                           <span className="font-medium">
                             {contrato.data_entrega ? (
                               <span className="text-slate-900 dark:text-white font-semibold">
-                                {new Date(contrato.data_entrega).toLocaleDateString('pt-BR')}
+                                {formatDateDisplay(contrato.data_entrega)}
                                 {contrato.prazo_meses ? ` (${contrato.prazo_meses} meses)` : ''}
                               </span>
                             ) : contrato.prazo_meses ? (
@@ -575,9 +576,9 @@ export default function Rentals() {
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Vencimento: {new Date(r.data_vencimento).toLocaleDateString('pt-BR')}
+                            Vencimento: {formatDateDisplay(r.data_vencimento)}
                             {r.data_pagamento
-                              ? ` • Pago em: ${new Date(r.data_pagamento).toLocaleDateString('pt-BR')}`
+                              ? ` • Pago em: ${formatDateDisplay(r.data_pagamento)}`
                               : ''}
                             {r.forma_pagamento ? ` (${r.forma_pagamento.toUpperCase()})` : ''}
                           </p>
@@ -894,14 +895,14 @@ export default function Rentals() {
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-muted-foreground">Data Início:</span>
                   <span className="font-medium text-slate-800 dark:text-slate-200">
-                    {new Date(contractToDelete.data_inicio).toLocaleDateString('pt-BR')}
+                    {formatDateDisplay(contractToDelete.data_inicio)}
                   </span>
                 </div>
                 {contractToDelete.data_entrega && (
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-muted-foreground">Data Fim / Término:</span>
                     <span className="font-medium text-slate-800 dark:text-slate-200">
-                      {new Date(contractToDelete.data_entrega).toLocaleDateString('pt-BR')}
+                      {formatDateDisplay(contractToDelete.data_entrega)}
                     </span>
                   </div>
                 )}

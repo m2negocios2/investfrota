@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { pendenciasService } from '@/services/pendencias'
+import { getTodayLocalDate, dateToApiMidday, formatDateDisplay } from '@/lib/dateUtils'
 import { Pendencia } from '@/types/database'
 
 export default function Pendencias() {
@@ -76,7 +77,7 @@ export default function Pendencias() {
     try {
       await pendenciasService.create({
         titulo: quickTitle.trim(),
-        data: quickDate ? `${quickDate} 00:00:00.000Z` : '',
+        data: quickDate ? dateToApiMidday(quickDate) : '',
         feito: false,
       })
       toast.success('Pendência adicionada!')
@@ -128,7 +129,7 @@ export default function Pendencias() {
     try {
       const payload: Partial<Pendencia> = {
         titulo: formTitulo.trim(),
-        data: formData ? `${formData} 00:00:00.000Z` : '',
+        data: formData ? dateToApiMidday(formData) : '',
         observacao: formObservacao.trim(),
       }
 
@@ -351,7 +352,7 @@ export default function Pendencias() {
                               }`}
                             >
                               <Calendar className="w-3.5 h-3.5" />
-                              Data: {new Date(item.data).toLocaleDateString('pt-BR')}
+                              Data: {formatDateDisplay(item.data)}
                               {isOverdue && ' (Atrasada)'}
                             </span>
                           )}
