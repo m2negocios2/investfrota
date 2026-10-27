@@ -164,7 +164,7 @@ export default function LancamentosRapidos() {
     }
 
     if (valorNumerico <= 0) {
-      toast.error('Informe o PREÇO abaixo dos botões antes de lançar!')
+      toast.error('Informe o PREÇO antes de lançar!')
       return
     }
 
@@ -307,11 +307,48 @@ export default function LancamentosRapidos() {
             )}
           </div>
 
-          {/* Os 4 Botões */}
-          <div className="space-y-2 pt-2">
+          {/* 2. Campo de PREÇO */}
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between">
+              <Label
+                htmlFor="precoInput"
+                className="text-sm font-semibold text-slate-700 dark:text-slate-200"
+              >
+                2. Preço (R$) *
+              </Label>
+              {valorNumerico > 0 && (
+                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                  R$ {valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              )}
+            </div>
+
+            <div className="relative">
+              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg pointer-events-none">
+                R$
+              </div>
+              <Input
+                id="precoInput"
+                type="text"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={precoInput}
+                onChange={(e) => setPrecoInput(e.target.value)}
+                className="pl-12 h-14 text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+              />
+            </div>
+            {valorNumerico <= 0 && (
+              <p className="text-xs text-muted-foreground">
+                Digite o valor antes de tocar no botão desejado.
+              </p>
+            )}
+          </div>
+
+          {/* 3. Os Botões Rápidos */}
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                2. Botões Rápidos
+                3. Botões de Lançamento
               </Label>
               <span className="text-xs text-muted-foreground">Toque para lançar</span>
             </div>
@@ -363,40 +400,8 @@ export default function LancamentosRapidos() {
             </div>
           </div>
 
-          {/* Campo de PREÇO e OBSERVAÇÃO */}
+          {/* 4. Data do Lançamento e 5. Observação */}
           <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
-            {/* 3. Preço */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label
-                  htmlFor="precoInput"
-                  className="text-sm font-semibold text-slate-700 dark:text-slate-200"
-                >
-                  3. Preço (R$) *
-                </Label>
-                {valorNumerico > 0 && (
-                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                    R$ {valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                )}
-              </div>
-
-              <div className="relative">
-                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg pointer-events-none">
-                  R$
-                </div>
-                <Input
-                  id="precoInput"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  value={precoInput}
-                  onChange={(e) => setPrecoInput(e.target.value)}
-                  className="pl-12 h-14 text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
-                />
-              </div>
-            </div>
-
             {/* 4. Data do Lançamento */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -454,8 +459,8 @@ export default function LancamentosRapidos() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Padrão é <strong>Hoje</strong> já selecionado. Se precisar lançar com outra data,
-                toque no calendário acima e escolha.
+                Padrão é <strong>Hoje</strong> já selecionado. Se precisar lançar com outra data
+                retroativa ou futura, escolha no campo acima.
               </p>
             </div>
 
@@ -494,8 +499,9 @@ export default function LancamentosRapidos() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Digite o valor, confirme a data e observação se desejar, e toque no botão desejado
-              acima. Os campos são limpos e voltam para hoje após cada lançamento.
+              Escolha a moto, informe o preço e toque no botão do serviço desejado. A data padrão é
+              Hoje. Após cada lançamento, os campos de preço e observação são limpos e a data é
+              redefinida para hoje.
             </p>
           </div>
 
