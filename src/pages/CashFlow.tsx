@@ -325,8 +325,7 @@ export default function CashFlow() {
                     Fluxo Individual por Moto
                   </span>
                   <p className="text-xs text-muted-foreground">
-                    Selecione uma moto para visualizar a tabela de fluxo cronológico e saldo
-                    acumulado
+                    Selecione uma moto para visualizar a tabela de fluxo e saldo acumulado
                   </p>
                 </div>
               </div>
@@ -378,6 +377,7 @@ export default function CashFlow() {
         (() => {
           const motoSelecionada = motos.find((m) => m.id === motoFilter)
           // Movimentações da moto selecionada em ordem cronológica crescente (mais antiga para mais recente)
+          // para apuração correta do saldo acumulado linha a linha
           const motoLancamentosAsc = lancamentos
             .filter((l) => l.moto === motoFilter)
             .sort((a, b) => {
@@ -387,9 +387,9 @@ export default function CashFlow() {
               return (a.created || '').localeCompare(b.created || '')
             })
 
-          // Calcular saldo acumulado (running balance)
+          // Calcular saldo acumulado histórico (running balance da mais antiga até a data da linha)
           let running = 0
-          const rowsWithBalance = motoLancamentosAsc.map((item) => {
+          const rowsWithBalanceAsc = motoLancamentosAsc.map((item) => {
             if (item.tipo === 'entrada') {
               running += item.valor
             } else {
@@ -401,7 +401,11 @@ export default function CashFlow() {
             }
           })
 
-          // Totalizadores da moto
+          // Inverter para exibição com a data MAIS RECENTE no topo (descendo para a mais antiga).
+          // Para lançamentos do mesmo dia, mantém o mais recente primeiro (ordem decrescente de criação).
+          const rowsWithBalance = [...rowsWithBalanceAsc].reverse()
+
+          // Totalizadores da moto (permanecem o total consolidado do período)
           const motoEntradasTotal = motoLancamentosAsc
             .filter((l) => l.tipo === 'entrada')
             .reduce((sum, l) => sum + l.valor, 0)
@@ -431,7 +435,7 @@ export default function CashFlow() {
                       )}
                     </div>
                     <CardDescription className="mt-1">
-                      Histórico cronológico de movimentações e saldo acumulado da moto
+                      Histórico de movimentações (mais recentes primeiro) e saldo acumulado da moto
                     </CardDescription>
                   </div>
 
