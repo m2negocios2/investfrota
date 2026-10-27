@@ -58,10 +58,10 @@ export default function Layout() {
     { name: 'PAINEL GERAL', href: '/', icon: LayoutDashboard },
     { name: 'MOTOS', href: '/motos', icon: Bike },
     { name: 'ALUGUÉIS & CONTRATOS', href: '/alugueis', icon: KeyRound },
+    { name: 'LANÇAMENTOS RÁPIDOS', href: '/lancamentos-rapidos', icon: Zap },
     { name: 'FLUXO DE CAIXA', href: '/caixa', icon: Wallet },
     { name: 'SEMANA', href: '/semana', icon: CalendarDays },
     { name: 'CAUÇÕES', href: '/caucoes', icon: Shield },
-    { name: 'LANÇAMENTOS RÁPIDOS', href: '/lancamentos-rapidos', icon: Zap },
     {
       name: 'AVISOS DE CUSTOS',
       href: '/contas-a-pagar',

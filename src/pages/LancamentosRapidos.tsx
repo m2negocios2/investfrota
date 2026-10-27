@@ -22,39 +22,52 @@ import { Moto, CaixaLancamento, CategoriaGasto } from '@/types/database'
 interface QuickButtonConfig {
   id: string
   label: string
+  emoji: string
   categoriaNome: string
   descricaoPrefix: string
-  bgHoverColor: string
+  colorClasses: string
 }
 
 const QUICK_BUTTONS: QuickButtonConfig[] = [
   {
     id: 'oleo',
     label: 'ÓLEO',
+    emoji: '🛢️',
     categoriaNome: 'Manutenção',
     descricaoPrefix: 'Óleo',
-    bgHoverColor: 'hover:border-amber-500 hover:bg-amber-50/50 dark:hover:bg-amber-950/20',
+    // Tom Âmbar / Dourado intenso
+    colorClasses:
+      'bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white border-amber-600 shadow-amber-500/30',
   },
   {
     id: 'freio',
     label: 'FREIO',
+    emoji: '🛑',
     categoriaNome: 'Manutenção',
     descricaoPrefix: 'Freio',
-    bgHoverColor: 'hover:border-rose-500 hover:bg-rose-50/50 dark:hover:bg-rose-950/20',
+    // Tom Vermelho vibrante
+    colorClasses:
+      'bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white border-rose-700 shadow-rose-600/30',
   },
   {
     id: 'kit_relacao',
     label: 'KIT RELAÇÃO',
+    emoji: '⛓️',
     categoriaNome: 'Manutenção',
     descricaoPrefix: 'Kit Relação',
-    bgHoverColor: 'hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20',
+    // Tom Azul / Índigo marcante
+    colorClasses:
+      'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border-blue-700 shadow-blue-600/30',
   },
   {
     id: 'seguro',
     label: 'SEGURO',
+    emoji: '🛡️',
     categoriaNome: 'Seguro',
     descricaoPrefix: 'Seguro',
-    bgHoverColor: 'hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20',
+    // Tom Verde Esmeralda distinto
+    colorClasses:
+      'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border-emerald-700 shadow-emerald-600/30',
   },
 ]
 
@@ -288,34 +301,44 @@ export default function LancamentosRapidos() {
               {QUICK_BUTTONS.map((btn) => {
                 const isThisLoading = submittingButton === btn.id
                 return (
-                  <Button
+                  <button
                     key={btn.id}
                     type="button"
-                    variant="outline"
                     disabled={!isFormReady || submittingButton !== null}
                     onClick={() => handleQuickLaunch(btn)}
-                    className={`h-20 sm:h-24 flex flex-col items-center justify-center gap-1.5 text-base sm:text-lg font-black tracking-wide border-2 transition-all active:scale-95 shadow-sm ${btn.bgHoverColor} ${
+                    className={`h-24 sm:h-28 rounded-2xl flex flex-col items-center justify-center gap-1 p-3 border-2 transition-all select-none ${
                       !isFormReady
-                        ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-900 text-slate-400'
-                        : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:shadow-md'
+                        ? 'opacity-35 cursor-not-allowed bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-400'
+                        : `${btn.colorClasses} shadow-md hover:shadow-lg active:scale-95 cursor-pointer`
                     }`}
                   >
                     {isThisLoading ? (
                       <div className="flex items-center gap-2">
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" />
-                        <span className="text-sm">Lançando...</span>
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                        <span className="text-sm font-bold text-white">Lançando...</span>
                       </div>
                     ) : (
                       <>
-                        <span className="text-lg sm:text-xl font-extrabold uppercase">
+                        <span
+                          className="text-2xl sm:text-3xl filter drop-shadow-sm leading-none"
+                          role="img"
+                          aria-label={btn.label}
+                        >
+                          {btn.emoji}
+                        </span>
+                        <span className="text-base sm:text-lg font-black uppercase tracking-wide leading-tight">
                           {btn.label}
                         </span>
-                        <span className="text-[11px] font-normal text-muted-foreground">
+                        <span
+                          className={`text-[11px] font-medium leading-none ${
+                            !isFormReady ? 'text-slate-400' : 'text-white/85'
+                          }`}
+                        >
                           {btn.categoriaNome}
                         </span>
                       </>
                     )}
-                  </Button>
+                  </button>
                 )
               })}
             </div>
@@ -359,9 +382,6 @@ export default function LancamentosRapidos() {
 
           {/* Status / Orientações */}
           <div className="p-3 bg-slate-100 dark:bg-slate-800/60 rounded-xl text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between">
-            <span>
-              <strong>Forma padrão:</strong> PIX
-            </span>
             <span>
               <strong>Data:</strong> Hoje ({formatDateDisplay(getTodayLocalDate())})
             </span>
