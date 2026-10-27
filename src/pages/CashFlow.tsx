@@ -477,7 +477,7 @@ export default function CashFlow() {
                           <th className="py-2 px-2 sm:px-3 text-right font-bold text-red-700 dark:text-red-400 whitespace-nowrap">
                             SAÍDAS
                           </th>
-                          <th className="py-2 px-2 sm:px-3 text-right font-extrabold bg-blue-100/50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 whitespace-nowrap">
+                          <th className="py-2 px-2 sm:px-3 text-right font-bold whitespace-nowrap">
                             SALDO
                           </th>
                           <th className="py-2 px-2 sm:px-3 text-left font-bold min-w-[130px]">
@@ -513,26 +513,20 @@ export default function CashFlow() {
                                   : '-'}
                               </td>
 
-                              {/* SALDO (em destaque visual) */}
+                              {/* SALDO */}
                               <td
-                                className={`py-2 px-2 sm:px-3 text-right font-extrabold whitespace-nowrap bg-blue-50/50 dark:bg-blue-950/30 ${
-                                  isPositivo
-                                    ? 'text-blue-700 dark:text-blue-300'
-                                    : 'text-red-700 dark:text-red-300'
+                                className={`py-2 px-2 sm:px-3 text-right font-bold whitespace-nowrap text-xs ${
+                                  row.runningBalance > 0
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : row.runningBalance < 0
+                                      ? 'text-red-600 dark:text-red-400'
+                                      : 'text-slate-600 dark:text-slate-400'
                                 }`}
                               >
-                                <span
-                                  className={`inline-block px-1.5 py-0.5 sm:px-2 rounded text-xs font-black ${
-                                    isPositivo
-                                      ? 'bg-blue-100/80 text-blue-800 dark:bg-blue-900/60 dark:text-blue-100'
-                                      : 'bg-red-100/80 text-red-800 dark:bg-red-900/60 dark:text-red-100'
-                                  }`}
-                                >
-                                  R${' '}
-                                  {row.runningBalance.toLocaleString('pt-BR', {
-                                    minimumFractionDigits: 2,
-                                  })}
-                                </span>
+                                R${' '}
+                                {row.runningBalance.toLocaleString('pt-BR', {
+                                  minimumFractionDigits: 2,
+                                })}
                               </td>
 
                               {/* DESCRIÇÃO */}
@@ -571,10 +565,12 @@ export default function CashFlow() {
                             {motoSaidasTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </td>
                           <td
-                            className={`py-2 px-2 sm:px-3 text-right font-black whitespace-nowrap bg-blue-100/60 dark:bg-blue-950/60 ${
-                              motoSaldoTotal >= 0
-                                ? 'text-blue-800 dark:text-blue-200'
-                                : 'text-red-800 dark:text-red-200'
+                            className={`py-2 px-2 sm:px-3 text-right font-black whitespace-nowrap ${
+                              motoSaldoTotal > 0
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : motoSaldoTotal < 0
+                                  ? 'text-red-600 dark:text-red-400'
+                                  : 'text-slate-600 dark:text-slate-400'
                             }`}
                           >
                             R${' '}
