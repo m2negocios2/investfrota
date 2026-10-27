@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Zap, Bike, CheckCircle2, History, AlertCircle } from 'lucide-react'
+import { Zap, Bike, CheckCircle2, History, AlertCircle, Calendar } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -85,6 +85,7 @@ export default function LancamentosRapidos() {
   const [motos, setMotos] = useState<Moto[]>([])
   const [selectedMotoId, setSelectedMotoId] = useState<string>('')
   const [precoInput, setPrecoInput] = useState<string>('')
+  const [dataInput, setDataInput] = useState<string>(getTodayLocalDate())
   const [observacaoInput, setObservacaoInput] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(true)
   const [submittingButton, setSubmittingButton] = useState<string | null>(null)
@@ -181,8 +182,8 @@ export default function LancamentosRapidos() {
         ? `${btn.descricaoPrefix} — ${motoNomeDisplay} — ${obsTrimmed}`
         : `${btn.descricaoPrefix} — ${motoNomeDisplay}`
 
-      // 3. Data de hoje com padrão seguro de meio-dia já aplicado em caixaService.create
-      const hojeLocal = getTodayLocalDate()
+      // 3. Data selecionada (padrão hoje ou outra escolhida)
+      const dataLancamento = dataInput || getTodayLocalDate()
 
       const createdEntry = await caixaService.create({
         moto: selectedMotoId,
@@ -190,7 +191,7 @@ export default function LancamentosRapidos() {
         descricao: descricaoLancamento,
         categoria: categoriaFinal,
         valor: valorNumerico,
-        data: hojeLocal,
+        data: dataLancamento,
         forma_pagamento: 'pix',
         observacoes: obsTrimmed
           ? `Lançado via Lançamentos Rápidos: ${obsTrimmed}`
@@ -207,8 +208,9 @@ export default function LancamentosRapidos() {
         duration: 4000,
       })
 
-      // 5. Limpar campos de preço e observação prontos para o próximo lançamento
+      // 5. Limpar campos de preço e observação e redefinir data para 'hoje' prontos para o próximo lançamento
       setPrecoInput('')
+      setDataInput(getTodayLocalDate())
       setObservacaoInput('')
 
       // 6. Atualizar lista rápida de recentes
@@ -395,14 +397,76 @@ export default function LancamentosRapidos() {
               </div>
             </div>
 
-            {/* 4. Campo de OBSERVAÇÃO */}
+            {/* 4. Data do Lançamento */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="dataInput"
+                  className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5"
+                >
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  4. Data do Lançamento
+                </Label>
+                <div className="flex items-center gap-1.5">
+                  {dataInput === getTodayLocalDate() ? (
+                    <Badge
+                      variant="outline"
+                      className="text-[11px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800"
+                    >
+                      Hoje ({formatDateDisplay(getTodayLocalDate())})
+                    </Badge>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDataInput(getTodayLocalDate())}
+                      className="h-6 px-2 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                    >
+                      Voltar para Hoje
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-2 items-center">
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant={dataInput === getTodayLocalDate() ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setDataInput(getTodayLocalDate())}
+                    className={`h-11 px-4 font-bold text-sm ${
+                      dataInput === getTodayLocalDate()
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                        : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    Hoje
+                  </Button>
+                </div>
+                <Input
+                  id="dataInput"
+                  type="date"
+                  value={dataInput}
+                  onChange={(e) => setDataInput(e.target.value || getTodayLocalDate())}
+                  className="h-11 text-base font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Padrão é <strong>Hoje</strong> já selecionado. Se precisar lançar com outra data,
+                toque no calendário acima e escolha.
+              </p>
+            </div>
+
+            {/* 5. Campo de OBSERVAÇÃO */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label
                   htmlFor="observacaoInput"
                   className="text-sm font-semibold text-slate-700 dark:text-slate-200"
                 >
-                  4. Observação{' '}
+                  5. Observação{' '}
                   <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
                 </Label>
                 {observacaoInput.trim() && (
@@ -430,15 +494,17 @@ export default function LancamentosRapidos() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Digite o valor, adicione observação se desejar, e toque no botão desejado acima. Os
-              campos são limpos automaticamente após cada lançamento.
+              Digite o valor, confirme a data e observação se desejar, e toque no botão desejado
+              acima. Os campos são limpos e voltam para hoje após cada lançamento.
             </p>
           </div>
 
           {/* Status / Orientações */}
           <div className="p-3 bg-slate-100 dark:bg-slate-800/60 rounded-xl text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between">
             <span>
-              <strong>Data:</strong> Hoje ({formatDateDisplay(getTodayLocalDate())})
+              <strong>Data do lançamento:</strong>{' '}
+              {formatDateDisplay(dataInput || getTodayLocalDate())}
+              {dataInput === getTodayLocalDate() ? ' (Hoje)' : ''}
             </span>
             <span>
               <strong>Tipo:</strong> Saída
