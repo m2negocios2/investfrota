@@ -14,8 +14,9 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { caixaService } from '@/services/caixa'
+import { motosService } from '@/services/motos'
 import { formatDateDisplay } from '@/lib/dateUtils'
-import { CaixaLancamento } from '@/types/database'
+import { CaixaLancamento, Moto } from '@/types/database'
 import { toast } from 'sonner'
 
 interface MonthGroup {
@@ -48,14 +49,26 @@ const MONTH_NAMES = [
 
 export default function Mes() {
   const [lancamentos, setLancamentos] = useState<CaixaLancamento[]>([])
+  const [motosMap, setMotosMap] = useState<Record<string, Moto>>({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const data = await caixaService.getAll()
-      setLancamentos(data)
+      const [caixaData, motosData] = await Promise.all([
+        caixaService.getAll(),
+        motosService.getAll().catch((err) => {
+          console.warn('Erro ao carregar motos no relatório Mes:', err)
+          return [] as Moto[]
+        }),
+      ])
+      setLancamentos(caixaData)
+      const map: Record<string, Moto> = {}
+      motosData.forEach((m) => {
+        map[m.id] = m
+      })
+      setMotosMap(map)
     } catch (err) {
       console.error(err)
       toast.error('Erro ao carregar dados mensais')
@@ -81,12 +94,14 @@ export default function Mes() {
       const yearMonth = datePart ? datePart.slice(0, 7) : ''
       if (!yearMonth || yearMonth.length < 7) return
 
-      // Filtro de busca opcional (descrição ou categoria)
+      // Filtro de busca opcional (descrição, categoria ou nome da moto)
       if (search.trim()) {
         const query = search.toLowerCase()
         const desc = (item.descricao || '').toLowerCase()
         const cat = (item.categoria || '').toLowerCase()
-        if (!desc.includes(query) && !cat.includes(query)) {
+        const motoObj = item.expand?.moto || motosMap[item.moto]
+        const motoNome = (motoObj?.nome || motoObj?.modelo || '').toLowerCase()
+        if (!desc.includes(query) && !cat.includes(query) && !motoNome.includes(query)) {
           return
         }
       }
@@ -158,7 +173,14 @@ export default function Mes() {
         percentualMargem,
       } as MonthGroup
     })
-  }, [lancamentos, search])
+  }, [lancamentos, motosMap, search])
+
+  // Helper para obter o nome da moto vinculada ao lançamento
+  const getMotoNome = (item: CaixaLancamento) => {
+    const motoObj = item.expand?.moto || motosMap[item.moto]
+    const nome = motoObj?.nome?.trim() || motoObj?.modelo?.trim()
+    return nome || '—'
+  }
 
   // Totalizadores gerais (todos os meses visíveis)
   const totalGeralReceitas = monthGroups.reduce((acc, m) => acc + m.totalRecebimentos, 0)
@@ -267,7 +289,7 @@ export default function Mes() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Filtrar lançamentos por descrição ou categoria..."
+            placeholder="Filtrar lançamentos por descrição, moto ou categoria..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 bg-white dark:bg-slate-900"
@@ -397,7 +419,7 @@ export default function Mes() {
                       </div>
                     </div>
 
-                    {/* Tabela de Recebimentos: VALOR, DATA, DESCRIÇÃO */}
+                    {/* Tabela de Recebimentos: VALOR, DATA, MOTO, DESCRIÇÃO */}
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
@@ -406,6 +428,9 @@ export default function Mes() {
                               VALOR
                             </th>
                             <th className="py-2.5 px-3 text-left font-bold w-24">DATA</th>
+                            <th className="py-2.5 px-3 text-left font-bold w-24 text-slate-700 dark:text-slate-300">
+                              MOTO
+                            </th>
                             <th className="py-2.5 px-3 text-left font-bold">DESCRIÇÃO</th>
                           </tr>
                         </thead>
@@ -413,42 +438,58 @@ export default function Mes() {
                           {month.recebimentos.length === 0 ? (
                             <tr>
                               <td
-                                colSpan={3}
+                                colSpan={4}
                                 className="py-8 text-center text-xs text-muted-foreground"
                               >
                                 Nenhum recebimento neste mês
                               </td>
                             </tr>
                           ) : (
-                            month.recebimentos.map((item) => (
-                              <tr
-                                key={item.id}
-                                className="hover:bg-emerald-50/30 dark:hover:bg-emerald-950/10 transition-colors"
-                              >
-                                {/* VALOR */}
-                                <td className="py-2.5 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
-                                  R${' '}
-                                  {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                </td>
+                            month.recebimentos.map((item) => {
+                              const motoNome = getMotoNome(item)
+                              return (
+                                <tr
+                                  key={item.id}
+                                  className="hover:bg-emerald-50/30 dark:hover:bg-emerald-950/10 transition-colors"
+                                >
+                                  {/* VALOR */}
+                                  <td className="py-2.5 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                                    R${' '}
+                                    {item.valor.toLocaleString('pt-BR', {
+                                      minimumFractionDigits: 2,
+                                    })}
+                                  </td>
 
-                                {/* DATA */}
-                                <td className="py-2.5 px-3 font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap text-xs">
-                                  {formatDateDisplay(item.data)}
-                                </td>
+                                  {/* DATA */}
+                                  <td className="py-2.5 px-3 font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap text-xs">
+                                    {formatDateDisplay(item.data)}
+                                  </td>
 
-                                {/* DESCRIÇÃO */}
-                                <td className="py-2.5 px-3">
-                                  <div className="font-semibold text-slate-800 dark:text-slate-200 text-xs sm:text-sm">
-                                    {item.descricao}
-                                  </div>
-                                  {item.categoria && item.categoria !== 'Aluguel' && (
-                                    <span className="text-[10px] text-muted-foreground">
-                                      {item.categoria}
-                                    </span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))
+                                  {/* MOTO (3ª coluna) */}
+                                  <td className="py-2.5 px-3 whitespace-nowrap">
+                                    {motoNome !== '—' ? (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                                        {motoNome}
+                                      </span>
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">—</span>
+                                    )}
+                                  </td>
+
+                                  {/* DESCRIÇÃO */}
+                                  <td className="py-2.5 px-3">
+                                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-xs sm:text-sm">
+                                      {item.descricao}
+                                    </div>
+                                    {item.categoria && item.categoria !== 'Aluguel' && (
+                                      <span className="text-[10px] text-muted-foreground">
+                                        {item.categoria}
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })
                           )}
                         </tbody>
                       </table>
@@ -487,7 +528,7 @@ export default function Mes() {
                       </div>
                     </div>
 
-                    {/* Tabela de Despesas: VALOR, DATA, DESCRIÇÃO */}
+                    {/* Tabela de Despesas: VALOR, DATA, MOTO, DESCRIÇÃO */}
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
@@ -496,6 +537,9 @@ export default function Mes() {
                               VALOR
                             </th>
                             <th className="py-2.5 px-3 text-left font-bold w-24">DATA</th>
+                            <th className="py-2.5 px-3 text-left font-bold w-24 text-slate-700 dark:text-slate-300">
+                              MOTO
+                            </th>
                             <th className="py-2.5 px-3 text-left font-bold">DESCRIÇÃO</th>
                           </tr>
                         </thead>
@@ -503,42 +547,58 @@ export default function Mes() {
                           {month.despesas.length === 0 ? (
                             <tr>
                               <td
-                                colSpan={3}
+                                colSpan={4}
                                 className="py-8 text-center text-xs text-muted-foreground"
                               >
                                 Nenhuma despesa neste mês
                               </td>
                             </tr>
                           ) : (
-                            month.despesas.map((item) => (
-                              <tr
-                                key={item.id}
-                                className="hover:bg-red-50/30 dark:hover:bg-red-950/10 transition-colors"
-                              >
-                                {/* VALOR */}
-                                <td className="py-2.5 px-3 text-right font-bold text-red-600 dark:text-red-400 whitespace-nowrap">
-                                  R${' '}
-                                  {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                </td>
+                            month.despesas.map((item) => {
+                              const motoNome = getMotoNome(item)
+                              return (
+                                <tr
+                                  key={item.id}
+                                  className="hover:bg-red-50/30 dark:hover:bg-red-950/10 transition-colors"
+                                >
+                                  {/* VALOR */}
+                                  <td className="py-2.5 px-3 text-right font-bold text-red-600 dark:text-red-400 whitespace-nowrap">
+                                    R${' '}
+                                    {item.valor.toLocaleString('pt-BR', {
+                                      minimumFractionDigits: 2,
+                                    })}
+                                  </td>
 
-                                {/* DATA */}
-                                <td className="py-2.5 px-3 font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap text-xs">
-                                  {formatDateDisplay(item.data)}
-                                </td>
+                                  {/* DATA */}
+                                  <td className="py-2.5 px-3 font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap text-xs">
+                                    {formatDateDisplay(item.data)}
+                                  </td>
 
-                                {/* DESCRIÇÃO */}
-                                <td className="py-2.5 px-3">
-                                  <div className="font-semibold text-slate-800 dark:text-slate-200 text-xs sm:text-sm">
-                                    {item.descricao}
-                                  </div>
-                                  {item.categoria && (
-                                    <span className="text-[10px] text-muted-foreground">
-                                      {item.categoria}
-                                    </span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))
+                                  {/* MOTO (3ª coluna) */}
+                                  <td className="py-2.5 px-3 whitespace-nowrap">
+                                    {motoNome !== '—' ? (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                                        {motoNome}
+                                      </span>
+                                    ) : (
+                                      <span className="text-muted-foreground text-xs">—</span>
+                                    )}
+                                  </td>
+
+                                  {/* DESCRIÇÃO */}
+                                  <td className="py-2.5 px-3">
+                                    <div className="font-semibold text-slate-800 dark:text-slate-200 text-xs sm:text-sm">
+                                      {item.descricao}
+                                    </div>
+                                    {item.categoria && (
+                                      <span className="text-[10px] text-muted-foreground">
+                                        {item.categoria}
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })
                           )}
                         </tbody>
                       </table>
