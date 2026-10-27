@@ -477,7 +477,7 @@ export default function CashFlow() {
                           <th className="py-2 px-2 sm:px-3 text-right font-bold text-red-700 dark:text-red-400 whitespace-nowrap">
                             SAÍDAS
                           </th>
-                          <th className="py-2 px-2 sm:px-3 text-right font-bold whitespace-nowrap">
+                          <th className="py-2 px-2 sm:px-3 text-right font-bold whitespace-nowrap bg-blue-100/60 dark:bg-blue-950/50 text-blue-900 dark:text-blue-200">
                             SALDO
                           </th>
                           <th className="py-2 px-2 sm:px-3 text-left font-bold min-w-[130px]">
@@ -515,7 +515,7 @@ export default function CashFlow() {
 
                               {/* SALDO */}
                               <td
-                                className={`py-2 px-2 sm:px-3 text-right font-bold whitespace-nowrap text-xs ${
+                                className={`py-2 px-2 sm:px-3 text-right font-bold whitespace-nowrap text-xs bg-blue-50/70 dark:bg-blue-950/30 ${
                                   row.runningBalance > 0
                                     ? 'text-emerald-600 dark:text-emerald-400'
                                     : row.runningBalance < 0
@@ -565,7 +565,7 @@ export default function CashFlow() {
                             {motoSaidasTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </td>
                           <td
-                            className={`py-2 px-2 sm:px-3 text-right font-black whitespace-nowrap ${
+                            className={`py-2 px-2 sm:px-3 text-right font-black whitespace-nowrap bg-blue-100/60 dark:bg-blue-950/50 ${
                               motoSaldoTotal > 0
                                 ? 'text-emerald-600 dark:text-emerald-400'
                                 : motoSaldoTotal < 0
