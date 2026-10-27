@@ -17,6 +17,7 @@ import MotoForm from './pages/MotoForm'
 import MotoDetails from './pages/MotoDetails'
 import Rentals from './pages/Rentals'
 import CashFlow from './pages/CashFlow'
+import Mes from './pages/Mes'
 import LancamentosRapidos from './pages/LancamentosRapidos'
 import ExpenseCategories from './pages/ExpenseCategories'
 import Reports from './pages/Reports'
@@ -57,6 +58,7 @@ const App = () => (
             <Route path="/motos/:id/editar" element={<MotoForm />} />
             <Route path="/alugueis" element={<Rentals />} />
             <Route path="/caixa" element={<CashFlow />} />
+            <Route path="/mes" element={<Mes />} />
             <Route path="/lancamentos-rapidos" element={<LancamentosRapidos />} />
             <Route path="/categorias-gastos" element={<ExpenseCategories />} />
             <Route path="/relatorios" element={<Reports />} />

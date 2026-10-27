@@ -316,44 +316,282 @@ export default function CashFlow() {
       {/* Filters */}
       <Card className="shadow-sm">
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar descrição ou categoria..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Bike className="w-5 h-5 text-blue-600" />
+                <div>
+                  <span className="text-sm font-bold text-slate-900 dark:text-white">
+                    Fluxo Individual por Moto
+                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    Selecione uma moto para visualizar a tabela de fluxo cronológico e saldo
+                    acumulado
+                  </p>
+                </div>
+              </div>
+              <div className="w-full sm:w-72">
+                <Select value={motoFilter} onValueChange={setMotoFilter}>
+                  <SelectTrigger className="font-medium bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
+                    <SelectValue placeholder="Selecione uma moto..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas as Motos (Visão Geral)</SelectItem>
+                    {motos.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.nome ? m.nome : m.modelo} {m.placa ? `(${m.placa})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <Select value={tipoFilter} onValueChange={setTipoFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Tipo de Movimentação" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todas as Movimentações</SelectItem>
-                <SelectItem value="entrada">Apenas Entradas (Receitas)</SelectItem>
-                <SelectItem value="saida">Apenas Saídas (Despesas)</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar descrição ou categoria..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
 
-            <Select value={motoFilter} onValueChange={setMotoFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filtrar por Moto" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas as Motos</SelectItem>
-                {motos.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.nome || m.modelo} — {m.placa}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select value={tipoFilter} onValueChange={setTipoFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tipo de Movimentação" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas as Movimentações</SelectItem>
+                  <SelectItem value="entrada">Apenas Entradas (Receitas)</SelectItem>
+                  <SelectItem value="saida">Apenas Saídas (Despesas)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Tabela de Fluxo da Moto (exibida quando uma moto específica está selecionada) */}
+      {motoFilter !== 'todas' &&
+        (() => {
+          const motoSelecionada = motos.find((m) => m.id === motoFilter)
+          // Movimentações da moto selecionada em ordem cronológica crescente (mais antiga para mais recente)
+          const motoLancamentosAsc = lancamentos
+            .filter((l) => l.moto === motoFilter)
+            .sort((a, b) => {
+              const dateA = a.data ? a.data.slice(0, 10) : ''
+              const dateB = b.data ? b.data.slice(0, 10) : ''
+              if (dateA !== dateB) return dateA.localeCompare(dateB)
+              return (a.created || '').localeCompare(b.created || '')
+            })
+
+          // Calcular saldo acumulado (running balance)
+          let running = 0
+          const rowsWithBalance = motoLancamentosAsc.map((item) => {
+            if (item.tipo === 'entrada') {
+              running += item.valor
+            } else {
+              running -= item.valor
+            }
+            return {
+              ...item,
+              runningBalance: running,
+            }
+          })
+
+          // Totalizadores da moto
+          const motoEntradasTotal = motoLancamentosAsc
+            .filter((l) => l.tipo === 'entrada')
+            .reduce((sum, l) => sum + l.valor, 0)
+          const motoSaidasTotal = motoLancamentosAsc
+            .filter((l) => l.tipo === 'saida')
+            .reduce((sum, l) => sum + l.valor, 0)
+          const motoSaldoTotal = motoEntradasTotal - motoSaidasTotal
+
+          return (
+            <Card className="border-blue-200 dark:border-blue-900 shadow-md">
+              <CardHeader className="bg-blue-50/60 dark:bg-blue-950/30 border-b border-blue-100 dark:border-blue-900/60">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Bike className="w-5 h-5 text-blue-600" />
+                      <CardTitle className="text-lg font-bold text-slate-900 dark:text-white">
+                        Fluxo de Caixa da Moto:{' '}
+                        {motoSelecionada?.nome || motoSelecionada?.modelo || 'Moto'}
+                      </CardTitle>
+                      {motoSelecionada?.placa && (
+                        <Badge
+                          variant="outline"
+                          className="bg-white dark:bg-slate-900 font-mono text-xs"
+                        >
+                          {motoSelecionada.placa}
+                        </Badge>
+                      )}
+                    </div>
+                    <CardDescription className="mt-1">
+                      Histórico cronológico de movimentações e saldo acumulado da moto
+                    </CardDescription>
+                  </div>
+
+                  {/* Resumo rápido da moto */}
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="text-[11px] uppercase tracking-wider text-muted-foreground block font-semibold">
+                        Saldo Acumulado da Moto
+                      </span>
+                      <span
+                        className={`text-lg font-extrabold ${
+                          motoSaldoTotal >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600'
+                        }`}
+                      >
+                        R$ {motoSaldoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {rowsWithBalance.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground p-6">
+                    <Bike className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                    <p className="font-semibold text-slate-700 dark:text-slate-300">
+                      Nenhum lançamento registrado para esta moto
+                    </p>
+                    <p className="text-xs">
+                      Lançamentos de entrada e despesa vinculados a esta moto aparecerão aqui.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300">
+                          <th className="py-3 px-4 text-left font-bold w-28">1ª DATA</th>
+                          <th className="py-3 px-4 text-right font-bold w-32 text-emerald-700 dark:text-emerald-400">
+                            2ª ENTRADAS
+                          </th>
+                          <th className="py-3 px-4 text-right font-bold w-32 text-red-700 dark:text-red-400">
+                            3ª SAÍDAS
+                          </th>
+                          <th className="py-3 px-4 text-right font-extrabold w-36 bg-blue-100/50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200">
+                            4ª SALDO
+                          </th>
+                          <th className="py-3 px-4 text-left font-bold">DESCRIÇÃO</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {rowsWithBalance.map((row) => {
+                          const isEntrada = row.tipo === 'entrada'
+                          const isPositivo = row.runningBalance >= 0
+                          return (
+                            <tr
+                              key={row.id}
+                              className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
+                            >
+                              {/* 1ª DATA */}
+                              <td className="py-3 px-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                                {formatDateDisplay(row.data)}
+                              </td>
+
+                              {/* 2ª ENTRADAS */}
+                              <td className="py-3 px-4 text-right font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                                {isEntrada
+                                  ? `R$ ${row.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                  : '-'}
+                              </td>
+
+                              {/* 3ª SAÍDAS */}
+                              <td className="py-3 px-4 text-right font-semibold text-red-600 dark:text-red-400 whitespace-nowrap">
+                                {!isEntrada
+                                  ? `R$ ${row.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                  : '-'}
+                              </td>
+
+                              {/* 4ª SALDO (em destaque visual) */}
+                              <td
+                                className={`py-3 px-4 text-right font-extrabold text-base whitespace-nowrap bg-blue-50/50 dark:bg-blue-950/30 ${
+                                  isPositivo
+                                    ? 'text-blue-700 dark:text-blue-300'
+                                    : 'text-red-700 dark:text-red-300'
+                                }`}
+                              >
+                                <span
+                                  className={`inline-block px-2.5 py-1 rounded-md font-black shadow-xs ${
+                                    isPositivo
+                                      ? 'bg-blue-100/80 text-blue-800 dark:bg-blue-900/60 dark:text-blue-100'
+                                      : 'bg-red-100/80 text-red-800 dark:bg-red-900/60 dark:text-red-100'
+                                  }`}
+                                >
+                                  R${' '}
+                                  {row.runningBalance.toLocaleString('pt-BR', {
+                                    minimumFractionDigits: 2,
+                                  })}
+                                </span>
+                              </td>
+
+                              {/* DESCRIÇÃO */}
+                              <td className="py-3 px-4">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                    {row.descricao}
+                                  </span>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {row.categoria && (
+                                      <Badge variant="outline" className="text-[10px] py-0">
+                                        {row.categoria}
+                                      </Badge>
+                                    )}
+                                    {row.forma_pagamento && (
+                                      <span className="text-[10px] text-muted-foreground uppercase">
+                                        {row.forma_pagamento}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                      <tfoot className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-bold">
+                        <tr>
+                          <td className="py-3 px-4 text-left uppercase text-xs text-muted-foreground">
+                            Total da Moto
+                          </td>
+                          <td className="py-3 px-4 text-right text-emerald-600 dark:text-emerald-400 font-extrabold whitespace-nowrap">
+                            R${' '}
+                            {motoEntradasTotal.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                            })}
+                          </td>
+                          <td className="py-3 px-4 text-right text-red-600 dark:text-red-400 font-extrabold whitespace-nowrap">
+                            R${' '}
+                            {motoSaidasTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td
+                            className={`py-3 px-4 text-right font-black text-base whitespace-nowrap bg-blue-100/60 dark:bg-blue-950/60 ${
+                              motoSaldoTotal >= 0
+                                ? 'text-blue-800 dark:text-blue-200'
+                                : 'text-red-800 dark:text-red-200'
+                            }`}
+                          >
+                            R${' '}
+                            {motoSaldoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-3 px-4 text-xs text-muted-foreground">
+                            {rowsWithBalance.length} movimentação(ões) acumulada(s)
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )
+        })()}
 
       {/* Transactions List */}
       <Card className="shadow-sm">
