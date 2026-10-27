@@ -28,6 +28,126 @@ export const caixaService = {
     return await pb.collection('caixa_lancamentos').create<CaixaLancamento>(payload)
   },
 
+  /**
+   * Registra despesa automática de comissão se o contrato possuir comissão definida (> 0).
+   * Evita duplicações verificando o identificador do recebimento ou critérios de idempotência.
+   */
+  async registrarComissaoSeAplicavel(params: {
+    contratoId?: string
+    recebimentoId?: string
+    motoId: string
+    valorReceita: number
+    dataReceita: string
+    locatarioNome?: string
+    motoIdentificacao?: string
+    formaPagamento?: CaixaLancamento['forma_pagamento']
+  }): Promise<CaixaLancamento | null> {
+    const {
+      contratoId,
+      recebimentoId,
+      motoId,
+      valorReceita,
+      dataReceita,
+      locatarioNome,
+      motoIdentificacao,
+      formaPagamento = 'pix',
+    } = params
+
+    if (!contratoId || !valorReceita || valorReceita <= 0) {
+      return null
+    }
+
+    try {
+      // 1. Buscar o contrato para obter o percentual de comissão
+      const contrato = await pb.collection('contratos').getOne<any>(contratoId)
+      const percentual = Number(contrato.comissao_percentual ?? contrato.percentual_comissao ?? 0)
+
+      if (!percentual || percentual <= 0) {
+        return null
+      }
+
+      // 2. Calcular valor da comissão: receita * (percentual / 100)
+      const valorComissao = Number(((valorReceita * percentual) / 100).toFixed(2))
+      if (valorComissao <= 0) {
+        return null
+      }
+
+      const safeDate = dateToApiMidday(dataReceita)
+      const cleanDate = (dataReceita || '').split('T')[0].split(' ')[0]
+
+      // 3. Montar descrição clara
+      // Descrição tipo: "Comissão — {nome do locatário} ({moto})"
+      const nomeFinal = (locatarioNome || contrato.locatario_nome || 'Locatário').trim()
+      let identificadorMoto = motoIdentificacao?.trim()
+      if (!identificadorMoto && motoId) {
+        try {
+          const motoRecord = await pb.collection('motos').getOne<any>(motoId)
+          identificadorMoto = motoRecord.nome || motoRecord.modelo || motoRecord.placa || 'Moto'
+        } catch (_) {
+          identificadorMoto = 'Moto'
+        }
+      }
+      const descricaoComissao = `Comissão — ${nomeFinal}${identificadorMoto ? ` (${identificadorMoto})` : ''}`
+
+      // 4. Verificação de idempotência / proteção contra duplicidade
+      if (recebimentoId) {
+        const existingByRec = await pb
+          .collection('caixa_lancamentos')
+          .getList<CaixaLancamento>(1, 1, {
+            filter: `recebimento = "${recebimentoId}" && tipo = "saida" && categoria = "Comissão"`,
+          })
+        if (existingByRec.totalItems > 0) {
+          return existingByRec.items[0]
+        }
+      }
+
+      // Verificação de segurança adicional por contrato, moto, data e valor aproximado
+      const existingFilter = [
+        `moto = "${motoId}"`,
+        `tipo = "saida"`,
+        `categoria = "Comissão"`,
+        `comissao_de = "${contratoId}"`,
+        cleanDate ? `data ~ "${cleanDate}"` : '',
+        `valor >= ${valorComissao - 0.05} && valor <= ${valorComissao + 0.05}`,
+      ]
+        .filter(Boolean)
+        .join(' && ')
+
+      try {
+        const existingApprox = await pb
+          .collection('caixa_lancamentos')
+          .getList<CaixaLancamento>(1, 1, {
+            filter: existingFilter,
+          })
+        if (existingApprox.totalItems > 0) {
+          return existingApprox.items[0]
+        }
+      } catch (errCheck) {
+        console.warn('Aviso ao checar comissão existente:', errCheck)
+      }
+
+      // 5. Criar lançamento de despesa de comissão no Caixa
+      const payload: any = {
+        moto: motoId,
+        tipo: 'saida',
+        descricao: descricaoComissao,
+        categoria: 'Comissão',
+        valor: valorComissao,
+        data: safeDate,
+        forma_pagamento: formaPagamento,
+        comissao_de: contratoId,
+        recebimento: recebimentoId || '',
+        observacoes: `Comissão automática de ${percentual}% sobre receita de R$ ${valorReceita.toFixed(2)}`,
+      }
+
+      const created = await pb.collection('caixa_lancamentos').create<CaixaLancamento>(payload)
+      return created
+    } catch (err) {
+      console.warn('Aviso ao registrar despesa de comissão automática:', err)
+      return null
+    }
+  },
+
   async update(
     id: string,
     data: Partial<Omit<CaixaLancamento, 'id' | 'created' | 'updated'>>,

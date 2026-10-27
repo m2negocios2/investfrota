@@ -1,6 +1,7 @@
 import pb from '@/lib/pocketbase/client'
 import { Recebimento } from '@/types/database'
 import { getTodayLocalDate, dateToApiMidday } from '@/lib/dateUtils'
+import { caixaService } from '@/services/caixa'
 
 export const recebimentosService = {
   async getAll(): Promise<Recebimento[]> {
@@ -59,10 +60,30 @@ export const recebimentosService = {
     // Also register in Caixa (com proteção contra duplicidade imediata)
     try {
       const existing = await pb.collection('caixa_lancamentos').getList(1, 1, {
-        filter: `moto = "${motoId}" && tipo = "entrada" && data ~ "${cleanDate}" && valor >= ${valor - 0.01} && valor <= ${valor + 0.01}`,
+        filter: `moto = "${motoId}" && tipo = "entrada" && data ~ "${cleanDate}" && valor >= ${valor - 0.01} && valor <= ${valor + 0.01} && recebimento = "${id}"`,
       })
 
       if (existing.totalItems === 0) {
+        // Verificar também sem o filtro de recebimento por retrocompatibilidade
+        const existingLegacy = await pb.collection('caixa_lancamentos').getList(1, 1, {
+          filter: `moto = "${motoId}" && tipo = "entrada" && data ~ "${cleanDate}" && valor >= ${valor - 0.01} && valor <= ${valor + 0.01}`,
+        })
+        if (existingLegacy.totalItems === 0) {
+          await pb.collection('caixa_lancamentos').create({
+            moto: motoId,
+            tipo: 'entrada',
+            descricao: `Recebimento de aluguel - ${locatarioNome}`,
+            categoria: 'aluguel',
+            valor: valor,
+            data: safeApiDate,
+            forma_pagamento: formaPagamento,
+            recebimento: id,
+          })
+        }
+      }
+    } catch (errCaixa) {
+      console.warn('Aviso ao registrar no caixa:', errCaixa)
+      try {
         await pb.collection('caixa_lancamentos').create({
           moto: motoId,
           tipo: 'entrada',
@@ -71,20 +92,35 @@ export const recebimentosService = {
           valor: valor,
           data: safeApiDate,
           forma_pagamento: formaPagamento,
+          recebimento: id,
+        })
+      } catch (errFallback) {
+        console.warn('Falha no fallback de lançamento no caixa:', errFallback)
+      }
+    }
+
+    // Registrar comissão automática caso o contrato deste recebimento possua comissão configurada
+    try {
+      let contratoId = updated.contrato
+      if (!contratoId) {
+        // Se não estava no payload do update, busca no banco
+        const fullRec = await pb.collection('recebimentos').getOne<Recebimento>(id)
+        contratoId = fullRec.contrato
+      }
+
+      if (contratoId) {
+        await caixaService.registrarComissaoSeAplicavel({
+          contratoId,
+          recebimentoId: id,
+          motoId,
+          valorReceita: valor,
+          dataReceita: cleanDate,
+          locatarioNome,
+          formaPagamento,
         })
       }
-    } catch (errCaixa) {
-      console.warn('Aviso ao registrar no caixa:', errCaixa)
-      // Tenta fallback sem o filtro caso dê erro de sintaxe
-      await pb.collection('caixa_lancamentos').create({
-        moto: motoId,
-        tipo: 'entrada',
-        descricao: `Recebimento de aluguel - ${locatarioNome}`,
-        categoria: 'aluguel',
-        valor: valor,
-        data: safeApiDate,
-        forma_pagamento: formaPagamento,
-      })
+    } catch (errComissao) {
+      console.warn('Aviso ao disparar comissão automática do recebimento:', errComissao)
     }
 
     return updated

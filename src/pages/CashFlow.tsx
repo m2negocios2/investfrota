@@ -35,8 +35,16 @@ import { toast } from 'sonner'
 import { caixaService } from '@/services/caixa'
 import { motosService } from '@/services/motos'
 import { categoriasService } from '@/services/categorias'
+import pb from '@/lib/pocketbase/client'
 import { getTodayLocalDate, normalizeDateInput, formatDateDisplay } from '@/lib/dateUtils'
-import { CaixaLancamento, Moto, CaixaTipo, FormaPagamento, CategoriaGasto } from '@/types/database'
+import {
+  CaixaLancamento,
+  Moto,
+  CaixaTipo,
+  FormaPagamento,
+  CategoriaGasto,
+  Contrato,
+} from '@/types/database'
 
 export default function CashFlow() {
   const [lancamentos, setLancamentos] = useState<CaixaLancamento[]>([])
@@ -103,7 +111,7 @@ export default function CashFlow() {
 
     setSubmitting(true)
     try {
-      await caixaService.create({
+      const createdEntry = await caixaService.create({
         moto: motoId,
         tipo,
         descricao: descricao.trim(),
@@ -112,6 +120,37 @@ export default function CashFlow() {
         data,
         forma_pagamento: formaPagamento,
       })
+
+      // Se for lançamento de receita (entrada), verificar se a moto possui contrato ativo com comissão cadastrada
+      if (tipo === 'entrada') {
+        try {
+          const activeContracts = await pb.collection('contratos').getList<Contrato>(1, 1, {
+            filter: `moto = "${motoId}" && status = "ativo"`,
+            sort: '-created',
+          })
+          if (activeContracts.totalItems > 0) {
+            const activeContrato = activeContracts.items[0]
+            const pct = Number(
+              activeContrato.comissao_percentual ?? activeContrato.percentual_comissao ?? 0,
+            )
+            if (pct > 0) {
+              const motoObj = motos.find((m) => m.id === motoId)
+              const motoNome = motoObj?.nome || motoObj?.modelo || motoObj?.placa || 'Moto'
+              await caixaService.registrarComissaoSeAplicavel({
+                contratoId: activeContrato.id,
+                motoId,
+                valorReceita: Number(valor),
+                dataReceita: data,
+                locatarioNome: activeContrato.locatario_nome,
+                motoIdentificacao: motoNome,
+                formaPagamento,
+              })
+            }
+          }
+        } catch (errComissao) {
+          console.warn('Aviso ao disparar comissão de receita manual no caixa:', errComissao)
+        }
+      }
 
       toast.success('Lançamento registrado com sucesso no caixa!')
       setNewModalOpen(false)

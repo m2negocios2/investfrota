@@ -95,6 +95,7 @@ export default function MotoDetails() {
   const [editPrazoMeses, setEditPrazoMeses] = useState<number>(12)
   const [editDataEntrega, setEditDataEntrega] = useState('')
   const [editValorSemanal, setEditValorSemanal] = useState<number>(245)
+  const [editComissaoPercentual, setEditComissaoPercentual] = useState<string>('')
   const [editObservacoes, setEditObservacoes] = useState('')
   const [savingEditContract, setSavingEditContract] = useState(false)
 
@@ -172,6 +173,11 @@ export default function MotoDetails() {
       : ''
     setEditDataEntrega(cleanEntrega)
 
+    const comVal = contrato.comissao_percentual ?? contrato.percentual_comissao
+    setEditComissaoPercentual(
+      comVal !== undefined && comVal !== null && comVal > 0 ? String(comVal) : '',
+    )
+
     setEditTipoContrato(contrato.tipo || 'normal')
     setEditPrazoMeses(contrato.prazo_meses || 12)
 
@@ -213,6 +219,10 @@ export default function MotoDetails() {
 
     setSavingEditContract(true)
     try {
+      const parsedComissao = editComissaoPercentual.trim()
+        ? Number(editComissaoPercentual.replace(',', '.'))
+        : 0
+
       const payload: any = {
         locatario_nome: editLocatarioNome.trim(),
         locatario_documento: editLocatarioDoc.trim(),
@@ -222,6 +232,8 @@ export default function MotoDetails() {
         valor_semanal: Number(editValorSemanal),
         valor_diario: Number((Number(editValorSemanal) / 7).toFixed(2)),
         dia_pagamento_semana: editDiaSemana,
+        comissao_percentual: parsedComissao > 0 ? parsedComissao : 0,
+        percentual_comissao: parsedComissao > 0 ? parsedComissao : 0,
         observacoes: editObservacoes.trim(),
       }
 
@@ -1001,6 +1013,33 @@ export default function MotoDetails() {
                   onChange={(e) => setEditValorSemanal(Number(e.target.value))}
                   required
                 />
+              </div>
+
+              <div className="space-y-1.5 p-3 bg-purple-50/60 dark:bg-purple-950/30 rounded-lg border border-purple-200/80 dark:border-purple-900/50">
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="editComissaoPercentual"
+                    className="text-purple-950 dark:text-purple-200 font-semibold"
+                  >
+                    Comissão (%) — opcional
+                  </Label>
+                  <span className="text-[10px] text-purple-700 dark:text-purple-300 font-medium bg-purple-100 dark:bg-purple-900/60 px-2 py-0.5 rounded">
+                    Opcional
+                  </span>
+                </div>
+                <Input
+                  id="editComissaoPercentual"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Ex: 10 ou 10,5"
+                  value={editComissaoPercentual}
+                  onChange={(e) => setEditComissaoPercentual(e.target.value)}
+                  className="bg-white dark:bg-slate-900"
+                />
+                <p className="text-[11px] text-purple-900/80 dark:text-purple-300/80">
+                  Se preenchido, toda receita deste contrato gerará automaticamente uma despesa de
+                  comissão no caixa com este percentual. Se vazio, nada é gerado.
+                </p>
               </div>
 
               <DialogFooter className="pt-2">

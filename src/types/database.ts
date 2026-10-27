@@ -59,6 +59,8 @@ export interface Contrato {
   valor_diario: number
   valor_semanal?: number
   dia_pagamento_semana?: DiaSemana
+  percentual_comissao?: number
+  comissao_percentual?: number
   status: ContratoStatus
   observacoes?: string
   created: string
@@ -156,6 +158,8 @@ export interface CaixaLancamento {
   data: string
   forma_pagamento?: FormaPagamento
   observacoes?: string
+  comissao_de?: string
+  recebimento?: string
   created: string
   updated: string
   expand?: {

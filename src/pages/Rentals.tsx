@@ -69,6 +69,7 @@ export default function Rentals() {
   const [prazoMeses, setPrazoMeses] = useState<number>(12)
   const [dataEntrega, setDataEntrega] = useState('')
   const [dataFimContratoManual, setDataFimContratoManual] = useState(false)
+  const [comissaoPercentual, setComissaoPercentual] = useState<string>('')
   const [valorDiario, setValorDiario] = useState<number>(35)
   const [observacoes, setObservacoes] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -137,6 +138,7 @@ export default function Rentals() {
     setLocatarioNome('')
     setLocatarioDoc('')
     setLocatarioTel('')
+    setComissaoPercentual('')
     setObservacoes('')
     const today = getTodayLocalDate()
     setDataInicio(today)
@@ -178,6 +180,10 @@ export default function Rentals() {
     setLocatarioNome(contrato.locatario_nome || '')
     setLocatarioDoc(contrato.locatario_documento || '')
     setLocatarioTel(contrato.locatario_telefone || '')
+    const comVal = contrato.comissao_percentual ?? contrato.percentual_comissao
+    setComissaoPercentual(
+      comVal !== undefined && comVal !== null && comVal > 0 ? String(comVal) : '',
+    )
     setObservacoes(contrato.observacoes || '')
 
     const cleanInicio = contrato.data_inicio
@@ -280,6 +286,10 @@ export default function Rentals() {
 
     setSubmitting(true)
     try {
+      const parsedComissao = comissaoPercentual.trim()
+        ? Number(comissaoPercentual.replace(',', '.'))
+        : 0
+
       const payload: any = {
         moto: motoSelected,
         locatario_nome: locatarioNome.trim(),
@@ -290,6 +300,8 @@ export default function Rentals() {
         valor_semanal: Number(valorSemanalContrato),
         valor_diario: Number((Number(valorSemanalContrato) / 7).toFixed(2)),
         dia_pagamento_semana: diaSemana,
+        comissao_percentual: parsedComissao > 0 ? parsedComissao : 0,
+        percentual_comissao: parsedComissao > 0 ? parsedComissao : 0,
         observacoes: observacoes.trim(),
       }
 
@@ -336,6 +348,7 @@ export default function Rentals() {
       setLocatarioNome('')
       setLocatarioDoc('')
       setLocatarioTel('')
+      setComissaoPercentual('')
       setDataEntrega('')
       setDataFimContratoManual(false)
       loadData()
@@ -523,6 +536,14 @@ export default function Rentals() {
                           <span className="text-muted-foreground block">Contato:</span>
                           <span className="font-medium">
                             {contrato.locatario_telefone || 'Não informado'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block">Comissão:</span>
+                          <span className="font-medium text-purple-700 dark:text-purple-300">
+                            {(contrato.comissao_percentual ?? contrato.percentual_comissao)
+                              ? `${contrato.comissao_percentual ?? contrato.percentual_comissao}% sobre receitas`
+                              : 'Sem comissão'}
                           </span>
                         </div>
                       </div>
@@ -971,6 +992,34 @@ export default function Rentals() {
                 Valor pago semanalmente (equivale a ~R$ {(valorSemanalContrato / 7).toFixed(2)}
                 /dia).
               </span>
+            </div>
+
+            <div className="space-y-1.5 p-3 bg-purple-50/60 dark:bg-purple-950/30 rounded-lg border border-purple-200/80 dark:border-purple-900/50">
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="comissaoPercentual"
+                  className="text-purple-950 dark:text-purple-200 font-semibold"
+                >
+                  Comissão (%) — opcional
+                </Label>
+                <span className="text-[10px] text-purple-700 dark:text-purple-300 font-medium bg-purple-100 dark:bg-purple-900/60 px-2 py-0.5 rounded">
+                  Opcional
+                </span>
+              </div>
+              <Input
+                id="comissaoPercentual"
+                type="text"
+                inputMode="decimal"
+                placeholder="Ex: 10 ou 10,5"
+                value={comissaoPercentual}
+                onChange={(e) => setComissaoPercentual(e.target.value)}
+                className="bg-white dark:bg-slate-900"
+              />
+              <p className="text-[11px] text-purple-900/80 dark:text-purple-300/80">
+                Se preenchido, todo recebimento/receita deste contrato gerará automaticamente uma
+                despesa de comissão no caixa com este percentual. Se em branco, nenhuma despesa de
+                comissão é lançada.
+              </p>
             </div>
 
             <DialogFooter className="pt-2">
