@@ -22,8 +22,7 @@ import { motosService } from '@/services/motos'
 import { contratosService } from '@/services/contratos'
 import { recebimentosService } from '@/services/recebimentos'
 import { caixaService } from '@/services/caixa'
-import { infracoesService } from '@/services/infracoes'
-import { Moto, Contrato, Recebimento, CaixaLancamento, Infracao } from '@/types/database'
+import { Moto, Contrato, Recebimento, CaixaLancamento } from '@/types/database'
 import { formatDateDisplay } from '@/lib/dateUtils'
 
 export default function Dashboard() {
@@ -32,23 +31,20 @@ export default function Dashboard() {
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
   const [caixa, setCaixa] = useState<CaixaLancamento[]>([])
-  const [infracoes, setInfracoes] = useState<Infracao[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadData = async () => {
     try {
-      const [m, c, r, cx, inf] = await Promise.all([
+      const [m, c, r, cx] = await Promise.all([
         motosService.getAll(),
         contratosService.getAll(),
         recebimentosService.getAll(),
         caixaService.getAll(),
-        infracoesService.getAll(),
       ])
       setMotos(m)
       setContratos(c)
       setRecebimentos(r)
       setCaixa(cx)
-      setInfracoes(inf)
     } catch (err) {
       console.error('Erro ao carregar dados do painel:', err)
     } finally {
@@ -85,10 +81,6 @@ export default function Dashboard() {
   const emDia = recebimentos.filter((r) => r.status === 'em_dia').length
   const emAtraso = recebimentos.filter((r) => r.status === 'em_atraso')
   const totalAtrasoValor = emAtraso.reduce((acc, r) => acc + r.valor, 0)
-
-  // Pending Infracoes (Multas)
-  const infracoesPendentes = infracoes.filter((i) => i.status_pagamento === 'pendente')
-  const totalInfracoesPendentes = infracoesPendentes.reduce((acc, i) => acc + (i.valor || 0), 0)
 
   // Caixa Month Balance
   const totalEntradas = caixa
@@ -133,8 +125,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* KPI Cards Grid: 4 cards responsivos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Cards Grid: 3 cards responsivos mantendo Frota, Previsão Semanal e Atrasos */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Motos Status */}
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -209,29 +201,6 @@ export default function Dashboard() {
                 ? `R$ ${totalAtrasoValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a receber`
                 : 'Nenhum atraso no momento'}
             </p>
-          </CardContent>
-        </Card>
-
-        {/* Card Novo VERSÃO 2: Infrações / Multas Pendentes */}
-        <Card className="shadow-sm border-amber-200 dark:border-amber-900/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Infrações Pendentes
-            </CardTitle>
-            <div className="p-2 bg-red-50 dark:bg-red-950 text-red-600 rounded-lg">
-              <AlertTriangle className="w-4 h-4 text-red-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-              R$ {totalInfracoesPendentes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </div>
-            <div className="mt-2 text-xs flex items-center justify-between text-muted-foreground">
-              <span>{infracoesPendentes.length} multa(s)</span>
-              <Link to="/infracoes" className="text-xs text-primary hover:underline">
-                Ver multas &rarr;
-              </Link>
-            </div>
           </CardContent>
         </Card>
       </div>

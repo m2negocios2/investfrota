@@ -64,7 +64,7 @@ export default function Layout() {
       icon: AlertTriangle,
       badge: pendingInfracoes.length > 0 ? pendingInfracoes.length : undefined,
     },
-    { name: 'PENDÊNCIAS', href: '/pendencias', icon: ListTodo },
+    { name: 'LEMBRETES', href: '/pendencias', icon: ListTodo },
   ]
 
   const handleLogout = () => {
