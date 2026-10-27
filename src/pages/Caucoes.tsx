@@ -198,9 +198,10 @@ export default function Caucoes() {
     const today = dateToApiMidday(getTodayLocalDate())
     try {
       await caucoesService.update(c.id, {
-        status: 'devolvida',
-        data_devolucao: today,
-      })      toast.success(
+        status: novoStatus,
+        data_devolucao: novoStatus === 'devolvida' ? today : '',
+      })
+      toast.success(
         novoStatus === 'devolvida'
           ? 'Caução marcada como devolvida ao locatário.'
           : 'Caução marcada como retida.',

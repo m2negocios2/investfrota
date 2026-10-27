@@ -24,6 +24,7 @@ import Caucoes from './pages/Caucoes'
 import Semana from './pages/Semana'
 import Infracoes from './pages/Infracoes'
 import Pendencias from './pages/Pendencias'
+import Importar from './pages/Importar'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -60,6 +61,7 @@ const App = () => (
             <Route path="/contas-a-pagar" element={<BillsToPay />} />
             <Route path="/categorias-gastos" element={<ExpenseCategories />} />
             <Route path="/relatorios" element={<Reports />} />
+            <Route path="/importar" element={<Importar />} />
           </Route>
 
           {/* 404 */}
