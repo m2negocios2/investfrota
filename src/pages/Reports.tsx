@@ -33,6 +33,7 @@ import { contratosService } from '@/services/contratos'
 import { caixaService } from '@/services/caixa'
 import { recebimentosService } from '@/services/recebimentos'
 import { Moto, Contrato, CaixaLancamento, Recebimento } from '@/types/database'
+import { PaybackTab } from '@/components/PaybackTab'
 
 export default function Reports() {
   const [motos, setMotos] = useState<Moto[]>([])
@@ -249,38 +250,42 @@ export default function Reports() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Seletores de Período */}
-          <Select
-            value={String(selectedMonth)}
-            onValueChange={(val) => setSelectedMonth(Number(val))}
-          >
-            <SelectTrigger className="w-[130px] bg-white dark:bg-slate-900">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {monthNames.map((name, idx) => (
-                <SelectItem key={idx + 1} value={String(idx + 1)}>
-                  {name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Seletores de Período (DRE e Balanço) */}
+          {activeReportTab !== 'payback' && (
+            <>
+              <Select
+                value={String(selectedMonth)}
+                onValueChange={(val) => setSelectedMonth(Number(val))}
+              >
+                <SelectTrigger className="w-[130px] bg-white dark:bg-slate-900">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthNames.map((name, idx) => (
+                    <SelectItem key={idx + 1} value={String(idx + 1)}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-          <Select
-            value={String(selectedYear)}
-            onValueChange={(val) => setSelectedYear(Number(val))}
-          >
-            <SelectTrigger className="w-[100px] bg-white dark:bg-slate-900">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[2024, 2025, 2026].map((y) => (
-                <SelectItem key={y} value={String(y)}>
-                  {y}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <Select
+                value={String(selectedYear)}
+                onValueChange={(val) => setSelectedYear(Number(val))}
+              >
+                <SelectTrigger className="w-[100px] bg-white dark:bg-slate-900">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[2024, 2025, 2026].map((y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
 
           <Button onClick={handlePrint} variant="outline" className="gap-2">
             <Printer className="w-4 h-4" />
@@ -291,7 +296,11 @@ export default function Reports() {
 
       {/* Main Tabs of Reports */}
       <Tabs value={activeReportTab} onValueChange={setActiveReportTab} className="space-y-4">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-4 max-w-2xl">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-5 max-w-3xl">
+          <TabsTrigger value="payback" className="gap-1.5 font-bold text-primary">
+            <TrendingUp className="w-3.5 h-3.5" />
+            Payback
+          </TabsTrigger>
           <TabsTrigger value="dre-mensal" className="gap-1.5">
             <FileSpreadsheet className="w-3.5 h-3.5" />
             DRE Mensal
@@ -309,6 +318,13 @@ export default function Reports() {
             Índices & Indicadores
           </TabsTrigger>
         </TabsList>
+
+        {/* ========================================================================= */}
+        {/* TAB: PAYBACK POR MOTO COM RÉGUA DE MESES/ANOS */}
+        {/* ========================================================================= */}
+        <TabsContent value="payback" className="space-y-4">
+          <PaybackTab motos={motos} contratos={contratos} caixa={caixa} />
+        </TabsContent>
 
         {/* ========================================================================= */}
         {/* TAB 1: DRE MENSAL */}
