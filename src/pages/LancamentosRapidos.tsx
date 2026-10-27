@@ -69,12 +69,23 @@ const QUICK_BUTTONS: QuickButtonConfig[] = [
     colorClasses:
       'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border-emerald-700 shadow-emerald-600/30',
   },
+  {
+    id: 'pneu',
+    label: 'PNEU',
+    emoji: '🛞',
+    categoriaNome: 'Manutenção',
+    descricaoPrefix: 'Pneu',
+    // Tom Roxo/Violeta marcante
+    colorClasses:
+      'bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white border-violet-700 shadow-violet-600/30',
+  },
 ]
 
 export default function LancamentosRapidos() {
   const [motos, setMotos] = useState<Moto[]>([])
   const [selectedMotoId, setSelectedMotoId] = useState<string>('')
   const [precoInput, setPrecoInput] = useState<string>('')
+  const [observacaoInput, setObservacaoInput] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(true)
   const [submittingButton, setSubmittingButton] = useState<string | null>(null)
   const [recentLancamentos, setRecentLancamentos] = useState<CaixaLancamento[]>([])
@@ -164,8 +175,11 @@ export default function LancamentosRapidos() {
       // 1. Categoria garantida
       const categoriaFinal = await ensureCategoriaExists(btn.categoriaNome)
 
-      // 2. Descrição no padrão pedido: "Óleo — {nome da moto}"
-      const descricaoLancamento = `${btn.descricaoPrefix} — ${motoNomeDisplay}`
+      // 2. Descrição no padrão pedido: "Óleo — {nome da moto}" ou "Óleo — {nome da moto} — {observação}"
+      const obsTrimmed = observacaoInput.trim()
+      const descricaoLancamento = obsTrimmed
+        ? `${btn.descricaoPrefix} — ${motoNomeDisplay} — ${obsTrimmed}`
+        : `${btn.descricaoPrefix} — ${motoNomeDisplay}`
 
       // 3. Data de hoje com padrão seguro de meio-dia já aplicado em caixaService.create
       const hojeLocal = getTodayLocalDate()
@@ -178,7 +192,9 @@ export default function LancamentosRapidos() {
         valor: valorNumerico,
         data: hojeLocal,
         forma_pagamento: 'pix',
-        observacoes: 'Lançado via Lançamentos Rápidos',
+        observacoes: obsTrimmed
+          ? `Lançado via Lançamentos Rápidos: ${obsTrimmed}`
+          : 'Lançado via Lançamentos Rápidos',
       })
 
       // 4. Feedback imediato ao usuário (toast claro e vibrante)
@@ -191,8 +207,9 @@ export default function LancamentosRapidos() {
         duration: 4000,
       })
 
-      // 5. Limpar campo de preço pronto para o próximo lançamento
+      // 5. Limpar campos de preço e observação prontos para o próximo lançamento
       setPrecoInput('')
+      setObservacaoInput('')
 
       // 6. Atualizar lista rápida de recentes
       setRecentLancamentos((prev) => [
@@ -297,7 +314,7 @@ export default function LancamentosRapidos() {
               <span className="text-xs text-muted-foreground">Toque para lançar</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
               {QUICK_BUTTONS.map((btn) => {
                 const isThisLoading = submittingButton === btn.id
                 return (
@@ -344,39 +361,77 @@ export default function LancamentosRapidos() {
             </div>
           </div>
 
-          {/* Campo de PREÇO - Posicionado ABAIXO dos 4 botões */}
-          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <Label
-                htmlFor="precoInput"
-                className="text-sm font-semibold text-slate-700 dark:text-slate-200"
-              >
-                3. Preço (R$) *
-              </Label>
-              {valorNumerico > 0 && (
-                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                  R$ {valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
-              )}
+          {/* Campo de PREÇO e OBSERVAÇÃO */}
+          <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+            {/* 3. Preço */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="precoInput"
+                  className="text-sm font-semibold text-slate-700 dark:text-slate-200"
+                >
+                  3. Preço (R$) *
+                </Label>
+                {valorNumerico > 0 && (
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                    R$ {valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                )}
+              </div>
+
+              <div className="relative">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg pointer-events-none">
+                  R$
+                </div>
+                <Input
+                  id="precoInput"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  value={precoInput}
+                  onChange={(e) => setPrecoInput(e.target.value)}
+                  className="pl-12 h-14 text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+                />
+              </div>
             </div>
 
-            <div className="relative">
-              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg pointer-events-none">
-                R$
+            {/* 4. Campo de OBSERVAÇÃO */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="observacaoInput"
+                  className="text-sm font-semibold text-slate-700 dark:text-slate-200"
+                >
+                  4. Observação{' '}
+                  <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+                </Label>
+                {observacaoInput.trim() && (
+                  <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                    Acrescenta após o nome
+                  </span>
+                )}
               </div>
+
               <Input
-                id="precoInput"
+                id="observacaoInput"
                 type="text"
-                inputMode="decimal"
-                placeholder="0,00"
-                value={precoInput}
-                onChange={(e) => setPrecoInput(e.target.value)}
-                className="pl-12 h-14 text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+                placeholder="Ex: troca com filtro, dianteiro, traseiro..."
+                value={observacaoInput}
+                onChange={(e) => setObservacaoInput(e.target.value)}
+                maxLength={100}
+                className="h-12 text-sm sm:text-base font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
               />
+              <p className="text-xs text-muted-foreground">
+                O que for escrito será acrescentado após o nome na descrição do lançamento (ex:
+                &quot;Óleo — {selectedMoto?.nome?.trim() || selectedMoto?.modelo?.trim() || 'Moto'}
+                {observacaoInput.trim() ? ` — ${observacaoInput.trim()}` : ' — troca com filtro'}
+                &quot;).
+              </p>
             </div>
+
             <p className="text-xs text-muted-foreground">
-              Digite o valor (ex: 45 ou 45,00) e toque no botão desejado acima. O campo é limpo
-              automaticamente após cada lançamento.
+              Digite o valor, adicione observação se desejar, e toque no botão desejado acima. Os
+              campos são limpos automaticamente após cada lançamento.
             </p>
           </div>
 
