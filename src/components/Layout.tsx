@@ -19,7 +19,6 @@ import {
   CalendarDays,
   Shield,
   ListTodo,
-  FileUp,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -80,15 +79,6 @@ export default function Layout() {
       badge: pendingInfracoes.length > 0 ? pendingInfracoes.length : undefined,
     },
     { name: 'PENDÊNCIAS', href: '/pendencias', icon: ListTodo },
-    ...(isProprietario
-      ? [
-          {
-            name: 'IMPORTAR PLANILHAS',
-            href: '/importar',
-            icon: FileUp,
-          },
-        ]
-      : []),
   ]
 
   const handleLogout = () => {
