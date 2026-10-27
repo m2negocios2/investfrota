@@ -61,7 +61,14 @@ const App = () => (
             <Route path="/contas-a-pagar" element={<BillsToPay />} />
             <Route path="/categorias-gastos" element={<ExpenseCategories />} />
             <Route path="/relatorios" element={<Reports />} />
-            <Route path="/importar" element={<Importar />} />
+            <Route
+              path="/importar"
+              element={
+                <ProtectedRoute requireProprietario>
+                  <Importar />
+                </ProtectedRoute>
+              }
+            />
           </Route>
 
           {/* 404 */}

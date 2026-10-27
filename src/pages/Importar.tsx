@@ -187,15 +187,21 @@ export default function Importar() {
               if (!cur.valor_compra && mItem.valor_compra) patch.valor_compra = mItem.valor_compra
               if (!cur.data_compra && mItem.data_compra) patch.data_compra = mItem.data_compra
               if (!cur.km_atual && mItem.km_atual) patch.km_atual = mItem.km_atual
+              if (!cur.valor_semanal && mItem.valor_semanal) {
+                patch.valor_semanal = mItem.valor_semanal
+                patch.valor_diario = Math.round((mItem.valor_semanal / 7) * 100) / 100
+              }
               if (Object.keys(patch).length > 0) {
                 await motosService.update(cur.id, patch)
                 motosAtualizadas++
               }
             }
             if (mItem.placa) mapMotoIdPorNomeOuPlaca[normalizePlaca(mItem.placa)] = mItem.existingId
-            if (mItem.nome) mapMotoIdPorNomeOuPlaca[normalizeMotoName(mItem.nome)] = mItem.existingId
+            if (mItem.nome)
+              mapMotoIdPorNomeOuPlaca[normalizeMotoName(mItem.nome)] = mItem.existingId
           } else {
             // Moto nova: criar no PocketBase
+            const valorSemanalFinal = mItem.valor_semanal || 250
             const created = await motosService.create({
               nome: mItem.nome,
               placa: mItem.placa || `SEM-PLACA-${Date.now().toString().slice(-4)}`,
@@ -204,6 +210,8 @@ export default function Importar() {
               cor: mItem.cor || 'PRETA',
               tipo_locacao_padrao: 'normal',
               status: 'disponivel',
+              valor_semanal: valorSemanalFinal,
+              valor_diario: Math.round((valorSemanalFinal / 7) * 100) / 100,
               valor_compra: mItem.valor_compra,
               data_compra: mItem.data_compra,
               km_atual: mItem.km_atual || 0,
@@ -228,7 +236,8 @@ export default function Importar() {
           continue
         }
 
-        const normId = normalizePlaca(cItem.motoIdentificador) || normalizeMotoName(cItem.motoIdentificador)
+        const normId =
+          normalizePlaca(cItem.motoIdentificador) || normalizeMotoName(cItem.motoIdentificador)
         const targetMotoId = mapMotoIdPorNomeOuPlaca[normId] || existingMotos[0]?.id
 
         if (targetMotoId) {
@@ -262,7 +271,8 @@ export default function Importar() {
           continue
         }
 
-        const normId = normalizePlaca(cxItem.motoIdentificador) || normalizeMotoName(cxItem.motoIdentificador)
+        const normId =
+          normalizePlaca(cxItem.motoIdentificador) || normalizeMotoName(cxItem.motoIdentificador)
         const targetMotoId = mapMotoIdPorNomeOuPlaca[normId] || existingMotos[0]?.id
 
         if (targetMotoId) {
@@ -317,15 +327,9 @@ export default function Importar() {
     setInfracoesSummary(null)
     try {
       const wb = await readExcelFile(infracoesFile)
-      const preview = parseControleInfracoesWorkbook(
-        wb,
-        existingMotos,
-        existingInfracoes,
-      )
+      const preview = parseControleInfracoesWorkbook(wb, existingMotos, existingInfracoes)
       setInfracoesPreview(preview)
-      toast.success(
-        `Análise concluída: ${preview.infracoes.length} infrações encontradas.`,
-      )
+      toast.success(`Análise concluída: ${preview.infracoes.length} infrações encontradas.`)
     } catch (err) {
       console.error(err)
       toast.error('Erro ao ler a planilha CONTROLE INFRAÇÕES.')
@@ -357,7 +361,8 @@ export default function Importar() {
           const mPlaca = normalizePlaca(m.placa)
           const mNome = normalizeMotoName(m.nome || m.modelo)
           if (mPlaca.endsWith(norm) || mPlaca === norm) return true
-          if (mNome === nameNorm || mNome.includes(nameNorm) || nameNorm.includes(mNome)) return true
+          if (mNome === nameNorm || mNome.includes(nameNorm) || nameNorm.includes(mNome))
+            return true
           return false
         })
         return found?.id || existingMotos[0]?.id || ''
@@ -424,7 +429,8 @@ export default function Importar() {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Puxe os dados de suas planilhas Excel (.xlsx) e preencha o sistema com proteção anti-duplicidade.
+            Puxe os dados de suas planilhas Excel (.xlsx) e preencha o sistema com proteção
+            anti-duplicidade.
           </p>
         </div>
 
@@ -446,11 +452,12 @@ export default function Importar() {
         <div className="text-sm text-blue-950 dark:text-blue-100">
           <p className="font-bold">Proteção Anti-Duplicidade e Preservação de Dados</p>
           <p className="text-xs text-blue-800 dark:text-blue-300 mt-1 leading-relaxed">
-            • <strong>Cuidado especial com a moto FAN e motos já cadastradas:</strong> se a moto já existir,
-            o sistema preenche apenas campos que estiverem vazios e <em>nunca sobrescreve</em> o que você já digitou.
-            <br />
-            • <strong>Idempotência:</strong> você pode analisar e importar o mesmo arquivo quantas vezes precisar;
-            itens repetidos (mesma moto, mesma multa ou mesmo lançamento) serão automaticamente detectados e pulados.
+            • <strong>Cuidado especial com a moto FAN e motos já cadastradas:</strong> se a moto já
+            existir, o sistema preenche apenas campos que estiverem vazios e{' '}
+            <em>nunca sobrescreve</em> o que você já digitou.
+            <br />• <strong>Idempotência:</strong> você pode analisar e importar o mesmo arquivo
+            quantas vezes precisar; itens repetidos (mesma moto, mesma multa ou mesmo lançamento)
+            serão automaticamente detectados e pulados.
           </p>
         </div>
       </div>
@@ -467,7 +474,8 @@ export default function Importar() {
               <CardTitle className="text-base font-bold">1. CONTROLE Motos</CardTitle>
             </div>
             <CardDescription className="text-xs">
-              Motos (compra, valor, km, ano), contratos de clientes e custos recorrentes / extrato da frota.
+              Motos (compra, valor, km, ano), contratos de clientes e custos recorrentes / extrato
+              da frota.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -585,12 +593,10 @@ export default function Importar() {
                 <p>
                   • Motos: <strong>{motosSummary.motosCriadas}</strong> criadas,{' '}
                   <strong>{motosSummary.motosAtualizadas}</strong> atualizadas (campos vazios).
-                  <br />
-                  • Contratos: <strong>{motosSummary.contratosCriados}</strong> criados,{' '}
+                  <br />• Contratos: <strong>{motosSummary.contratosCriados}</strong> criados,{' '}
                   <strong>{motosSummary.contratosPulados}</strong> pulados por duplicação.
-                  <br />
-                  • Caixa: <strong>{motosSummary.caixaCriados}</strong> lançamentos registrados,{' '}
-                  <strong>{motosSummary.caixaPulados}</strong> pulados.
+                  <br />• Caixa: <strong>{motosSummary.caixaCriados}</strong> lançamentos
+                  registrados, <strong>{motosSummary.caixaPulados}</strong> pulados.
                 </p>
               </div>
             )}
@@ -607,7 +613,8 @@ export default function Importar() {
               <CardTitle className="text-base font-bold">2. CONTROLE INFRAÇÕES</CardTitle>
             </div>
             <CardDescription className="text-xs">
-              Autos de infração por moto (J60, FAN, CROSSER, A91, B71, G51, G61, G71, G91), valores e quitações.
+              Autos de infração por moto (J60, FAN, CROSSER, A91, B71, G51, G61, G71, G91), valores
+              e quitações.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -718,7 +725,8 @@ export default function Importar() {
                 </p>
                 <p>
                   • <strong>{infracoesSummary.criadas}</strong> novas infrações cadastradas.
-                  <br />• <strong>{infracoesSummary.puladas}</strong> infrações puladas por já existirem no sistema.
+                  <br />• <strong>{infracoesSummary.puladas}</strong> infrações puladas por já
+                  existirem no sistema.
                 </p>
               </div>
             )}
@@ -732,7 +740,9 @@ export default function Importar() {
       {(motosPreview || infracoesPreview) && (
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base font-bold">Detalhamento dos Dados Identificados</CardTitle>
+            <CardTitle className="text-base font-bold">
+              Detalhamento dos Dados Identificados
+            </CardTitle>
             <CardDescription className="text-xs">
               Confira os registros antes de confirmar a importação
             </CardDescription>
@@ -772,6 +782,7 @@ export default function Importar() {
                           <th className="p-2 text-left font-semibold">Placa</th>
                           <th className="p-2 text-left font-semibold">Modelo</th>
                           <th className="p-2 text-right font-semibold">Valor Compra</th>
+                          <th className="p-2 text-right font-semibold">Aluguel Semanal</th>
                           <th className="p-2 text-center font-semibold">Ano</th>
                           <th className="p-2 text-center font-semibold">Status</th>
                         </tr>
@@ -788,6 +799,11 @@ export default function Importar() {
                                 ? `R$ ${m.valor_compra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                                 : '-'}
                             </td>
+                            <td className="p-2 text-right font-mono font-bold text-blue-600">
+                              {m.valor_semanal
+                                ? `R$ ${m.valor_semanal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                : '-'}
+                            </td>
                             <td className="p-2 text-center">{m.ano}</td>
                             <td className="p-2 text-center">
                               {m.status === 'NOVO' ? (
@@ -795,7 +811,10 @@ export default function Importar() {
                                   NOVO
                                 </Badge>
                               ) : (
-                                <Badge variant="outline" className="text-[10px] text-blue-700 border-blue-300">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] text-blue-700 border-blue-300"
+                                >
                                   JÁ EXISTE — PREENCHER VAZIOS
                                 </Badge>
                               )}
@@ -830,9 +849,14 @@ export default function Importar() {
                             <td className="p-2 font-semibold">{ct.motoIdentificador}</td>
                             <td className="p-2">{ct.locatario_nome}</td>
                             <td className="p-2 text-right font-mono font-bold">
-                              R$ {ct.valor_semanal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              R${' '}
+                              {ct.valor_semanal.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                              })}
                             </td>
-                            <td className="p-2 text-center capitalize">{ct.tipo.replace('_', ' ')}</td>
+                            <td className="p-2 text-center capitalize">
+                              {ct.tipo.replace('_', ' ')}
+                            </td>
                             <td className="p-2 text-center">
                               {ct.status === 'NOVO' ? (
                                 <Badge className="bg-emerald-100 text-emerald-800 text-[10px]">

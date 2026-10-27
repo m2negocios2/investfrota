@@ -104,7 +104,10 @@ export interface InfracoesPreviewResult {
  */
 export function normalizePlaca(raw?: string | null): string {
   if (!raw) return ''
-  return String(raw).toUpperCase().replace(/[^A-Z0-9]/g, '').trim()
+  return String(raw)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .trim()
 }
 
 /**
@@ -277,17 +280,27 @@ export function parseControleMotosWorkbook(
       if (!Array.isArray(row)) continue
 
       for (let c = 0; c < row.length; c++) {
-        const val = String(row[c] || '').trim().toUpperCase()
+        const val = String(row[c] || '')
+          .trim()
+          .toUpperCase()
         if (val.includes('PLACA')) colPlacaIdx = c
-        if (val.includes('TIPO')) colTipoIdx = c
-        if (val.includes('COMPRA') || val.includes('DT COMPRA')) colCompraIdx = c
-        if (val.includes('PREÇO') || val.includes('PRECO') || val.includes('VALOR')) colPrecoIdx = c
+        if (val.includes('TIPO') || val.includes('MODELO')) colTipoIdx = c
+        if (val.includes('COMPRA') || val.includes('DT COMPRA') || val.includes('DATA COMPRA'))
+          colCompraIdx = c
+        if (
+          val.includes('PREÇO') ||
+          val.includes('PRECO') ||
+          val.includes('VALOR COMPRA') ||
+          val.includes('VALOR')
+        )
+          colPrecoIdx = c
         if (val.includes('ANO')) colAnoIdx = c
         if (val.includes('KM')) colKmIdx = c
-        if (val.startsWith('MOTO')) colNomeIdx = c
+        if (val.startsWith('MOTO') || val.includes('APELIDO') || val.includes('NOME'))
+          colNomeIdx = c
       }
 
-      if (colPlacaIdx !== -1) {
+      if (colPlacaIdx !== -1 || (colTipoIdx !== -1 && colPrecoIdx !== -1)) {
         headerRowIdx = r
         break
       }
@@ -297,6 +310,7 @@ export function parseControleMotosWorkbook(
     let detectedModelo = ''
     let detectedAno = new Date().getFullYear()
     let detectedPreco = 0
+    let detectedValorSemanal = 0
     let detectedCompraDate: string | undefined = undefined
     let detectedKm = 0
     let detectedNome = cleanMotoName
@@ -328,7 +342,11 @@ export function parseControleMotosWorkbook(
         }
         if (colNomeIdx !== -1 && dataRow[colNomeIdx]) {
           const possibleName = String(dataRow[colNomeIdx]).trim()
-          if (possibleName && !possibleName.toUpperCase().startsWith('CLIENTE') && !possibleName.toUpperCase().startsWith('MOTO')) {
+          if (
+            possibleName &&
+            !possibleName.toUpperCase().startsWith('CLIENTE') &&
+            !possibleName.toUpperCase().startsWith('MOTO')
+          ) {
             detectedNome = possibleName
           }
         }
@@ -360,7 +378,13 @@ export function parseControleMotosWorkbook(
       const dbPlaca = normalizePlaca(m.placa)
       const dbNome = normalizeMotoName(m.nome || m.modelo)
       if (normDetectedPlaca && dbPlaca && normDetectedPlaca === dbPlaca) return true
-      if (normDetectedNome && dbNome && (normDetectedNome === dbNome || dbNome.includes(normDetectedNome) || normDetectedNome.includes(dbNome))) {
+      if (
+        normDetectedNome &&
+        dbNome &&
+        (normDetectedNome === dbNome ||
+          dbNome.includes(normDetectedNome) ||
+          normDetectedNome.includes(dbNome))
+      ) {
         return true
       }
       return false
@@ -379,6 +403,7 @@ export function parseControleMotosWorkbook(
         modelo: detectedModelo || existingMoto?.modelo || finalNome,
         ano: detectedAno || existingMoto?.ano || 2026,
         cor: existingMoto?.cor || 'PRETA',
+        valor_semanal: detectedValorSemanal || existingMoto?.valor_semanal || 250,
         data_compra: detectedCompraDate || existingMoto?.data_compra,
         valor_compra: detectedPreco || existingMoto?.valor_compra,
         km_atual: detectedKm || existingMoto?.km_atual || 0,
@@ -406,10 +431,15 @@ export function parseControleMotosWorkbook(
       const rowUpper = rowJoined.toUpperCase()
 
       // Detecta início do extrato
-      if (rowUpper.includes('DATA') && (rowUpper.includes('ENTRADA') || rowUpper.includes('SAÍDA') || rowUpper.includes('SAIDA'))) {
+      if (
+        rowUpper.includes('DATA') &&
+        (rowUpper.includes('ENTRADA') || rowUpper.includes('SAÍDA') || rowUpper.includes('SAIDA'))
+      ) {
         inExtrato = true
         for (let c = 0; c < row.length; c++) {
-          const val = String(row[c] || '').trim().toUpperCase()
+          const val = String(row[c] || '')
+            .trim()
+            .toUpperCase()
           if (val === 'DATA') extratoColData = c
           if (val === 'ENTRADA') extratoColEntrada = c
           if (val === 'SAÍDA' || val === 'SAIDA') extratoColSaida = c
@@ -463,7 +493,12 @@ export function parseControleMotosWorkbook(
       }
 
       // Detecta linha de Cliente / Contrato
-      if (rowUpper.includes('CLIENTE') && (rowUpper.includes('SEMANAL') || rowUpper.includes('CONQUISTA') || rowUpper.includes('PLANO'))) {
+      if (
+        rowUpper.includes('CLIENTE') &&
+        (rowUpper.includes('SEMANAL') ||
+          rowUpper.includes('CONQUISTA') ||
+          rowUpper.includes('PLANO'))
+      ) {
         let locatario = 'Locatário'
         let valorSemanal = 0
 
@@ -485,7 +520,9 @@ export function parseControleMotosWorkbook(
           // Verificar duplicidade com contrato existente
           const isDupContrato = existingContratos.some((ct) => {
             if (existingMoto && ct.moto !== existingMoto.id) return false
-            return ct.status === 'ativo' && Math.abs(Number(ct.valor_semanal || 0) - valorSemanal) < 1
+            return (
+              ct.status === 'ativo' && Math.abs(Number(ct.valor_semanal || 0) - valorSemanal) < 1
+            )
           })
 
           contratosPreview.push({
@@ -504,9 +541,17 @@ export function parseControleMotosWorkbook(
       }
 
       // Custos recorrentes fora do extrato (ex: Seguro, Óleo, Adm)
-      if (!inExtrato && (rowUpper.includes('SEGURO') || rowUpper.includes('ÓLEO') || rowUpper.includes('OLEO') || rowUpper.includes('ADM'))) {
+      if (
+        !inExtrato &&
+        (rowUpper.includes('SEGURO') ||
+          rowUpper.includes('ÓLEO') ||
+          rowUpper.includes('OLEO') ||
+          rowUpper.includes('ADM'))
+      ) {
         for (let c = 0; c < row.length; c++) {
-          const itemLabel = String(row[c] || '').trim().toUpperCase()
+          const itemLabel = String(row[c] || '')
+            .trim()
+            .toUpperCase()
           let itemCost = 0
           let cat = 'Outros'
 
@@ -527,7 +572,11 @@ export function parseControleMotosWorkbook(
 
             const isDup = existingCaixa.some((cx) => {
               if (existingMoto && cx.moto !== existingMoto.id) return false
-              return cx.tipo === 'saida' && Math.abs(Number(cx.valor) - itemCost) < 0.01 && cx.categoria === cat
+              return (
+                cx.tipo === 'saida' &&
+                Math.abs(Number(cx.valor) - itemCost) < 0.01 &&
+                cx.categoria === cat
+              )
             })
 
             caixaPreview.push({
@@ -636,7 +685,8 @@ export function parseControleInfracoesWorkbook(
       const dbNome = normalizeMotoName(m.nome || m.modelo)
       const dbPlaca = normalizePlaca(m.placa)
       if (dbPlaca.endsWith(cleanSheet) || dbPlaca === cleanSheet) return true
-      if (dbNome === cleanSheet || dbNome.includes(cleanSheet) || cleanSheet.includes(dbNome)) return true
+      if (dbNome === cleanSheet || dbNome.includes(cleanSheet) || cleanSheet.includes(dbNome))
+        return true
       return false
     })
 
@@ -658,13 +708,16 @@ export function parseControleInfracoesWorkbook(
       if (!Array.isArray(row)) continue
 
       for (let c = 0; c < row.length; c++) {
-        const cellText = String(row[c] || '').trim().toUpperCase()
+        const cellText = String(row[c] || '')
+          .trim()
+          .toUpperCase()
         if (cellText === 'NUM' || cellText.startsWith('NUM')) colNum = c
         if (cellText === 'DATA' || cellText.includes('DATA')) colData = c
         if (cellText === 'MULTA' || cellText.includes('MULTA')) colMulta = c
         if (cellText === 'VALOR' || cellText.includes('VALOR')) colValor = c
         if (cellText === 'CLIENTE' || cellText.includes('CLIENTE')) colCliente = c
-        if (cellText === 'PAGAMENTO' || cellText.includes('PAG /') || cellText.includes('PAG')) colPagamento = c
+        if (cellText === 'PAGAMENTO' || cellText.includes('PAG /') || cellText.includes('PAG'))
+          colPagamento = c
         if (cellText.includes('DETRAN')) colDetran = c
         if (cellText.includes('PRAZO')) colPrazo = c
       }
@@ -715,7 +768,11 @@ export function parseControleInfracoesWorkbook(
       // Verificar duplicidade com infrações existentes
       const isDup = existingInfracoes.some((inf) => {
         if (matchedMoto && inf.moto !== matchedMoto.id) return false
-        if (codigoMulta && inf.codigo_multa && codigoMulta.toUpperCase() === inf.codigo_multa.toUpperCase()) {
+        if (
+          codigoMulta &&
+          inf.codigo_multa &&
+          codigoMulta.toUpperCase() === inf.codigo_multa.toUpperCase()
+        ) {
           return true
         }
         const infData = inf.data ? inf.data.split('T')[0] : ''
@@ -736,7 +793,8 @@ export function parseControleInfracoesWorkbook(
         status_pagamento: statusPag,
         deu_entrada_detran: deuEntrada,
         prazo: prazoStr ? parseExcelDate(prazoStr) : undefined,
-        observacao: pagamentoStr || prazoStr ? `Pagamento/Obs: ${pagamentoStr || prazoStr}` : undefined,
+        observacao:
+          pagamentoStr || prazoStr ? `Pagamento/Obs: ${pagamentoStr || prazoStr}` : undefined,
         status: isDup ? 'JÁ EXISTE — será pulado' : 'NOVO',
       })
     }
