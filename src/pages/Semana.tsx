@@ -119,8 +119,27 @@ export default function Semana() {
   // "A semana pertence ao mês da sua segunda-feira, EXCETO quando a segunda-feira
   // é o último dia do mês (ou seja, apenas 1 dia da semana cai nesse mês),
   // caso em que a semana pertence ao mês seguinte."
+  //
+  // Ordem de exibição solicitada pela usuária:
+  // "no painel semana mostrar da última semana até a primeira"
+  // - Se houver semana atual (mês corrente), a semana atual fica no topo,
+  //   seguida das anteriores em ordem decrescente (ex.: Semana 4 [atual], Semana 3, Semana 2, Semana 1).
+  // - Para outros meses (ou se a atual não estiver no mês), os blocos aparecem em ordem decrescente
+  //   (da última semana até a primeira semana do mês).
+  // Os rótulos ("MÊS: SEMANA X"), semanas do ano, cálculos e numeração original permanecem intactos.
   const monthWeeks = useMemo(() => {
-    return getMonthWeeks(selectedYear, selectedMonth, todayISO.code)
+    const weeks = getMonthWeeks(selectedYear, selectedMonth, todayISO.code)
+    const hasCurrent = weeks.some((item) => item.isCurrent)
+
+    if (hasCurrent) {
+      return [...weeks].sort((a, b) => {
+        if (a.isCurrent) return -1
+        if (b.isCurrent) return 1
+        return b.weekOfMonth - a.weekOfMonth
+      })
+    }
+
+    return [...weeks].sort((a, b) => b.weekOfMonth - a.weekOfMonth)
   }, [selectedYear, selectedMonth, todayISO.code])
 
   // Função auxiliar para filtrar contratos ativos para uma semana específica
