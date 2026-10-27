@@ -19,6 +19,7 @@ import {
   CalendarDays,
   Shield,
   ListTodo,
+  Zap,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -60,6 +61,7 @@ export default function Layout() {
     { name: 'FLUXO DE CAIXA', href: '/caixa', icon: Wallet },
     { name: 'SEMANA', href: '/semana', icon: CalendarDays },
     { name: 'CAUÇÕES', href: '/caucoes', icon: Shield },
+    { name: 'LANÇAMENTOS RÁPIDOS', href: '/lancamentos-rapidos', icon: Zap },
     {
       name: 'AVISOS DE CUSTOS',
       href: '/contas-a-pagar',
