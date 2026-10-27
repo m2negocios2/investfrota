@@ -371,6 +371,119 @@ export default function MotoDetails() {
   const totalYearOccupied = monthOccupancy.reduce((acc, m) => acc + m.occupiedDays, 0)
   const yearRate = Math.round((totalYearOccupied / totalYearDays) * 100)
 
+  // Taxa de Locação - Nova Regra de Cálculo
+  // Mede a proporção de dias em que a moto esteve locada dentro do período de referência do ano corrente.
+  // Período de referência: da DATA DE COMPRA/RECEBIMENTO DA MOTO até 31/12 do ano atual.
+  // Se a moto foi comprada/recebida antes do ano atual, considera o ano todo (01/01 a 31/12).
+  // Se a moto foi comprada/recebida no ano atual, conta da data de compra até 31/12 do ano atual.
+  // Dias locados: usa o histórico de contratos sem sobreposição (ativos contam até hoje; finalizados usam a data de fim).
+  const currentYear = new Date().getFullYear()
+  const todayStr = getTodayLocalDate()
+
+  let taxaLocacaoData: {
+    taxa: number
+    diasLocados: number
+    totalDiasPeriodo: number
+    dataInicioRef: string
+    dataFimRef: string
+  } | null = null
+
+  if (moto.data_compra) {
+    const rawCompraMatch = moto.data_compra.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (rawCompraMatch) {
+      const [, cAno, cMes, cDia] = rawCompraMatch
+      const anoCompra = parseInt(cAno, 10)
+
+      let refInicioStr = `${currentYear}-01-01`
+      if (anoCompra === currentYear) {
+        refInicioStr = `${cAno}-${cMes}-${cDia}`
+      } else if (anoCompra > currentYear) {
+        // Compra com data futura ao ano atual
+        refInicioStr = `${cAno}-${cMes}-${cDia}`
+      }
+
+      const refFimStr = `${currentYear}-12-31`
+
+      if (refInicioStr <= refFimStr) {
+        // Gerar conjunto de dias do período de referência
+        const refStart = new Date(
+          parseInt(refInicioStr.slice(0, 4), 10),
+          parseInt(refInicioStr.slice(5, 7), 10) - 1,
+          parseInt(refInicioStr.slice(8, 10), 10),
+        )
+        const refEnd = new Date(currentYear, 11, 31)
+
+        // Contratos válidos no período
+        const diasLocadosSet = new Set<string>()
+
+        contratos.forEach((contrato) => {
+          if (!contrato.data_inicio) return
+          const rawInicio = contrato.data_inicio.match(/^(\d{4})-(\d{2})-(\d{2})/)
+          if (!rawInicio) return
+          const startStr = rawInicio[0]
+
+          let endStr: string
+          if (contrato.data_entrega) {
+            const rawEntrega = contrato.data_entrega.match(/^(\d{4})-(\d{2})-(\d{2})/)
+            endStr = rawEntrega ? rawEntrega[0] : rawInicio[0]
+          } else if (contrato.status === 'ativo') {
+            endStr = todayStr
+          } else {
+            const rawUpdated = (contrato.updated || contrato.created || '').match(
+              /^(\d{4})-(\d{2})-(\d{2})/,
+            )
+            endStr = rawUpdated ? rawUpdated[0] : startStr
+          }
+
+          // Se a data de fim for anterior à data de início, ajusta
+          if (endStr < startStr) {
+            endStr = startStr
+          }
+
+          // Interseção entre [startStr, endStr] e [refInicioStr, refFimStr]
+          const effectiveStart = startStr > refInicioStr ? startStr : refInicioStr
+          const effectiveEnd = endStr < refFimStr ? endStr : refFimStr
+
+          if (effectiveStart <= effectiveEnd) {
+            const cur = new Date(
+              parseInt(effectiveStart.slice(0, 4), 10),
+              parseInt(effectiveStart.slice(5, 7), 10) - 1,
+              parseInt(effectiveStart.slice(8, 10), 10),
+            )
+            const curEnd = new Date(
+              parseInt(effectiveEnd.slice(0, 4), 10),
+              parseInt(effectiveEnd.slice(5, 7), 10) - 1,
+              parseInt(effectiveEnd.slice(8, 10), 10),
+            )
+
+            while (cur <= curEnd) {
+              const y = cur.getFullYear()
+              const m = String(cur.getMonth() + 1).padStart(2, '0')
+              const d = String(cur.getDate()).padStart(2, '0')
+              diasLocadosSet.add(`${y}-${m}-${d}`)
+              cur.setDate(cur.getDate() + 1)
+            }
+          }
+        })
+
+        // Total de dias no período de referência
+        const diffMs = refEnd.getTime() - refStart.getTime()
+        const totalDias = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1
+
+        const diasLocadosCount = diasLocadosSet.size
+        const taxa = totalDias > 0 ? (diasLocadosCount / totalDias) * 100 : 0
+
+        taxaLocacaoData = {
+          taxa: Math.round(taxa),
+          diasLocados: diasLocadosCount,
+          totalDiasPeriodo: totalDias,
+          dataInicioRef: refInicioStr,
+          dataFimRef: refFimStr,
+        }
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -473,14 +586,28 @@ export default function MotoDetails() {
         <Card className="shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">
-              Taxa de Ocupação ({selectedYear})
+              Taxa de Locação ({currentYear})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white">{yearRate}%</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {totalYearOccupied} dias locados em {selectedYear}
-            </p>
+            {taxaLocacaoData ? (
+              <>
+                <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {taxaLocacaoData.taxa}%
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {taxaLocacaoData.diasLocados} de {taxaLocacaoData.totalDiasPeriodo} dias locados
+                  no período
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-muted-foreground">-</div>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  Sem data de compra/recebimento cadastrada
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
