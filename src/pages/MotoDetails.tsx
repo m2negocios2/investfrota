@@ -19,6 +19,7 @@ import {
   Save,
   Trash2,
   AlertTriangle,
+  Pencil,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -40,8 +41,22 @@ import { contratosService } from '@/services/contratos'
 import { caixaService } from '@/services/caixa'
 import { pagamentosService } from '@/services/pagamentos'
 import { FinalizeContractModal } from '@/components/FinalizeContractModal'
-import { formatDateDisplay } from '@/lib/dateUtils'
-import { Moto, Contrato, CaixaLancamento, Pagamento } from '@/types/database'
+import { formatDateDisplay, getTodayLocalDate } from '@/lib/dateUtils'
+import {
+  Moto,
+  Contrato,
+  CaixaLancamento,
+  Pagamento,
+  TipoLocacao,
+  DiaSemana,
+} from '@/types/database'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 export default function MotoDetails() {
   const { id } = useParams<{ id: string }>()
@@ -67,6 +82,21 @@ export default function MotoDetails() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [contractToDelete, setContractToDelete] = useState<Contrato | null>(null)
   const [deletingContract, setDeletingContract] = useState(false)
+
+  // Edit contract modal
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [contractToEdit, setContractToEdit] = useState<Contrato | null>(null)
+  const [editLocatarioNome, setEditLocatarioNome] = useState('')
+  const [editLocatarioDoc, setEditLocatarioDoc] = useState('')
+  const [editLocatarioTel, setEditLocatarioTel] = useState('')
+  const [editTipoContrato, setEditTipoContrato] = useState<TipoLocacao>('normal')
+  const [editDataInicio, setEditDataInicio] = useState('')
+  const [editDiaSemana, setEditDiaSemana] = useState<DiaSemana>('SEG')
+  const [editPrazoMeses, setEditPrazoMeses] = useState<number>(12)
+  const [editDataEntrega, setEditDataEntrega] = useState('')
+  const [editValorSemanal, setEditValorSemanal] = useState<number>(245)
+  const [editObservacoes, setEditObservacoes] = useState('')
+  const [savingEditContract, setSavingEditContract] = useState(false)
 
   const loadData = async () => {
     if (!id) return
@@ -123,6 +153,97 @@ export default function MotoDetails() {
     setInputKmAtual(moto.km_atual !== undefined ? String(moto.km_atual) : '')
     setInputKmOleo(moto.km_ultimo_oleo !== undefined ? String(moto.km_ultimo_oleo) : '')
     setKmModalOpen(true)
+  }
+
+  const handleOpenEditModal = (contrato: Contrato) => {
+    setContractToEdit(contrato)
+    setEditLocatarioNome(contrato.locatario_nome || '')
+    setEditLocatarioDoc(contrato.locatario_documento || '')
+    setEditLocatarioTel(contrato.locatario_telefone || '')
+    setEditObservacoes(contrato.observacoes || '')
+
+    const cleanInicio = contrato.data_inicio
+      ? contrato.data_inicio.split('T')[0].split(' ')[0]
+      : getTodayLocalDate()
+    setEditDataInicio(cleanInicio)
+
+    const cleanEntrega = contrato.data_entrega
+      ? contrato.data_entrega.split('T')[0].split(' ')[0]
+      : ''
+    setEditDataEntrega(cleanEntrega)
+
+    setEditTipoContrato(contrato.tipo || 'normal')
+    setEditPrazoMeses(contrato.prazo_meses || 12)
+
+    const sem =
+      contrato.valor_semanal !== undefined && contrato.valor_semanal !== null
+        ? contrato.valor_semanal
+        : contrato.valor_diario
+          ? Number((contrato.valor_diario * 7).toFixed(2))
+          : 245
+    setEditValorSemanal(sem)
+
+    if (contrato.dia_pagamento_semana) {
+      setEditDiaSemana(contrato.dia_pagamento_semana)
+    } else if (cleanInicio) {
+      const daysMap: Array<'DOM' | 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB'> = [
+        'DOM',
+        'SEG',
+        'TER',
+        'QUA',
+        'QUI',
+        'SEX',
+        'SAB',
+      ]
+      const dt = new Date(cleanInicio)
+      setEditDiaSemana(daysMap[dt.getUTCDay()] || 'SEG')
+    } else {
+      setEditDiaSemana('SEG')
+    }
+
+    setEditModalOpen(true)
+  }
+
+  const handleSaveEditContract = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!contractToEdit || !editLocatarioNome.trim() || !editDataInicio) {
+      toast.error('Preencha os campos obrigatórios')
+      return
+    }
+
+    setSavingEditContract(true)
+    try {
+      const payload: any = {
+        locatario_nome: editLocatarioNome.trim(),
+        locatario_documento: editLocatarioDoc.trim(),
+        locatario_telefone: editLocatarioTel.trim(),
+        tipo: editTipoContrato,
+        data_inicio: editDataInicio,
+        valor_semanal: Number(editValorSemanal),
+        valor_diario: Number((Number(editValorSemanal) / 7).toFixed(2)),
+        dia_pagamento_semana: editDiaSemana,
+        observacoes: editObservacoes.trim(),
+      }
+
+      if (editTipoContrato === 'plano_conquista') {
+        payload.prazo_meses = Number(editPrazoMeses)
+      } else {
+        payload.prazo_meses = null
+      }
+
+      payload.data_entrega = editDataEntrega || ''
+
+      await contratosService.update(contractToEdit.id, payload)
+      toast.success('Contrato atualizado com sucesso!')
+      setEditModalOpen(false)
+      setContractToEdit(null)
+      loadData()
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao atualizar contrato')
+    } finally {
+      setSavingEditContract(false)
+    }
   }
 
   const handleOpenFinalizeModal = (contrato: Contrato) => {
@@ -643,6 +764,17 @@ export default function MotoDetails() {
                           </span>
                         </div>
 
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleOpenEditModal(contrato)}
+                          title="Editar contrato"
+                          aria-label="Editar contrato"
+                          className="h-8 w-8 text-slate-600 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-300 dark:hover:bg-blue-950/40 transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+
                         {contrato.status === 'ativo' && (
                           <Button
                             variant="ghost"
@@ -721,6 +853,176 @@ export default function MotoDetails() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Contract Modal */}
+      <Dialog
+        open={editModalOpen}
+        onOpenChange={(open) => {
+          setEditModalOpen(open)
+          if (!open) setContractToEdit(null)
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar Contrato de Locação</DialogTitle>
+            <DialogDescription>
+              Atualize locatário, modalidade, prazos, datas ou valor deste contrato.
+            </DialogDescription>
+          </DialogHeader>
+
+          {contractToEdit && (
+            <form onSubmit={handleSaveEditContract} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="editLocatario">Nome Completo do Locatário *</Label>
+                <Input
+                  id="editLocatario"
+                  value={editLocatarioNome}
+                  onChange={(e) => setEditLocatarioNome(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="editCpf">CPF / Documento</Label>
+                  <Input
+                    id="editCpf"
+                    value={editLocatarioDoc}
+                    onChange={(e) => setEditLocatarioDoc(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editTel">Telefone / WhatsApp</Label>
+                  <Input
+                    id="editTel"
+                    value={editLocatarioTel}
+                    onChange={(e) => setEditLocatarioTel(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="editTipo">Tipo de Contrato</Label>
+                  <Select
+                    value={editTipoContrato}
+                    onValueChange={(val: TipoLocacao) => setEditTipoContrato(val)}
+                  >
+                    <SelectTrigger id="editTipo">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">Locação Normal (Recorrente)</SelectItem>
+                      <SelectItem value="plano_conquista">Plano Conquista</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="editDataInicio">Data de Início *</Label>
+                  <Input
+                    id="editDataInicio"
+                    type="date"
+                    value={editDataInicio}
+                    onChange={(e) => setEditDataInicio(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editDiaPagamento">Dia de Pagamento Semanal no Painel Semana</Label>
+                <Select
+                  value={editDiaSemana}
+                  onValueChange={(val: DiaSemana) => setEditDiaSemana(val)}
+                >
+                  <SelectTrigger id="editDiaPagamento">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SEG">SEG — Segunda-feira</SelectItem>
+                    <SelectItem value="TER">TER — Terça-feira</SelectItem>
+                    <SelectItem value="QUA">QUA — Quarta-feira</SelectItem>
+                    <SelectItem value="QUI">QUI — Quinta-feira</SelectItem>
+                    <SelectItem value="SEX">SEX — Sexta-feira</SelectItem>
+                    <SelectItem value="SAB">SAB — Sábado</SelectItem>
+                    <SelectItem value="DOM">DOM — Domingo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {editTipoContrato === 'plano_conquista' ? (
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-900/50 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="editPrazo">Prazo (Meses)</Label>
+                      <Input
+                        id="editPrazo"
+                        type="number"
+                        min={1}
+                        value={editPrazoMeses}
+                        onChange={(e) => setEditPrazoMeses(Number(e.target.value))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="editDataEntrega">Data de Fim de Contrato</Label>
+                      <Input
+                        id="editDataEntrega"
+                        type="date"
+                        value={editDataEntrega}
+                        onChange={(e) => setEditDataEntrega(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/60 space-y-1.5">
+                  <Label htmlFor="editDataEntregaNormal">Data de Fim de Contrato (Opcional)</Label>
+                  <Input
+                    id="editDataEntregaNormal"
+                    type="date"
+                    value={editDataEntrega}
+                    onChange={(e) => setEditDataEntrega(e.target.value)}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Deixe vazio para contratos contínuos ou preencha para estipular término.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="editValorSemanal">Valor Semanal de Aluguel (R$)</Label>
+                <Input
+                  id="editValorSemanal"
+                  type="number"
+                  step="0.01"
+                  min={1}
+                  value={editValorSemanal}
+                  onChange={(e) => setEditValorSemanal(Number(e.target.value))}
+                  required
+                />
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEditModalOpen(false)
+                    setContractToEdit(null)
+                  }}
+                  disabled={savingEditContract}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={savingEditContract}>
+                  {savingEditContract ? 'Salvando...' : 'Salvar Alterações'}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Finalize Contract Modal with Custom End Date */}
       <FinalizeContractModal

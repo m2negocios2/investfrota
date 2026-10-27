@@ -57,13 +57,41 @@ export const contratosService = {
 
   async update(id: string, data: Partial<Contrato>): Promise<Contrato> {
     const payload: Partial<Contrato> = { ...data }
-    if (data.data_inicio !== undefined && data.data_inicio) {
-      payload.data_inicio = dateToApiMidday(data.data_inicio)
+    if (data.data_inicio !== undefined) {
+      payload.data_inicio = data.data_inicio ? dateToApiMidday(data.data_inicio) : ''
     }
-    if (data.data_entrega !== undefined && data.data_entrega) {
-      payload.data_entrega = dateToApiMidday(data.data_entrega)
+    if (data.data_entrega !== undefined) {
+      payload.data_entrega = data.data_entrega ? dateToApiMidday(data.data_entrega) : ''
     }
-    return await pb.collection('contratos').update<Contrato>(id, payload)
+    const updatedContract = await pb.collection('contratos').update<Contrato>(id, payload)
+
+    // Sincronizar recebimentos vinculados em aberto (status != 'pago') caso locatario_nome ou valor_semanal tenham mudado
+    try {
+      const recUpdates: Record<string, any> = {}
+      if (data.locatario_nome !== undefined && data.locatario_nome.trim()) {
+        recUpdates.locatario_nome = data.locatario_nome.trim()
+      }
+      if (data.valor_semanal !== undefined && data.valor_semanal > 0) {
+        recUpdates.valor = data.valor_semanal
+      }
+
+      if (Object.keys(recUpdates).length > 0) {
+        const openRecs = await pb.collection('recebimentos').getFullList({
+          filter: `contrato = "${id}" && status != "pago"`,
+        })
+        for (const rec of openRecs) {
+          try {
+            await pb.collection('recebimentos').update(rec.id, recUpdates)
+          } catch (errRec) {
+            console.warn('Aviso ao sincronizar recebimento aberto com novo contrato:', errRec)
+          }
+        }
+      }
+    } catch (errSync) {
+      console.warn('Aviso ao sincronizar recebimentos do contrato editado:', errSync)
+    }
+
+    return updatedContract
   },
 
   async finalizar(id: string, motoId: string, dataFim?: string): Promise<Contrato> {

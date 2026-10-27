@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Trash2,
   AlertTriangle,
+  Pencil,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -53,8 +54,9 @@ export default function Rentals() {
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
   const [loading, setLoading] = useState(true)
 
-  // New Contract Dialog
-  const [newContractOpen, setNewContractOpen] = useState(Boolean(defaultMotoId))
+  // New / Edit Contract Dialog
+  const [contractModalOpen, setContractModalOpen] = useState(Boolean(defaultMotoId))
+  const [editingContract, setEditingContract] = useState<Contrato | null>(null)
   const [motoSelected, setMotoSelected] = useState<string>(defaultMotoId)
   const [locatarioNome, setLocatarioNome] = useState('')
   const [locatarioDoc, setLocatarioDoc] = useState('')
@@ -127,6 +129,101 @@ export default function Rentals() {
     }
   }
 
+  const handleOpenNewContract = (motoId?: string) => {
+    setEditingContract(null)
+    const targetMotoId =
+      motoId || defaultMotoId || motos.find((m) => m.status === 'disponivel')?.id || ''
+    setMotoSelected(targetMotoId)
+    setLocatarioNome('')
+    setLocatarioDoc('')
+    setLocatarioTel('')
+    setObservacoes('')
+    const today = getTodayLocalDate()
+    setDataInicio(today)
+
+    const found = motos.find((m) => m.id === targetMotoId)
+    const sem =
+      found?.valor_semanal !== undefined && found?.valor_semanal !== null
+        ? found.valor_semanal
+        : found?.valor_diario
+          ? Number((found.valor_diario * 7).toFixed(2))
+          : 245
+    setValorSemanalContrato(sem)
+    setValorDiario(Number((sem / 7).toFixed(2)))
+    const tipo = found?.tipo_locacao_padrao || 'normal'
+    setTipoContrato(tipo)
+    setPrazoMeses(12)
+    setDataEntrega(tipo === 'plano_conquista' ? calculateEndDate(today, 12) : '')
+    setDataFimContratoManual(false)
+
+    // Derive dia da semana
+    const daysMap: Array<'DOM' | 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB'> = [
+      'DOM',
+      'SEG',
+      'TER',
+      'QUA',
+      'QUI',
+      'SEX',
+      'SAB',
+    ]
+    const dt = new Date(today)
+    setDiaSemana(daysMap[dt.getUTCDay()] || 'SEG')
+
+    setContractModalOpen(true)
+  }
+
+  const handleOpenEditContract = (contrato: Contrato) => {
+    setEditingContract(contrato)
+    setMotoSelected(contrato.moto)
+    setLocatarioNome(contrato.locatario_nome || '')
+    setLocatarioDoc(contrato.locatario_documento || '')
+    setLocatarioTel(contrato.locatario_telefone || '')
+    setObservacoes(contrato.observacoes || '')
+
+    const cleanInicio = contrato.data_inicio
+      ? contrato.data_inicio.split('T')[0].split(' ')[0]
+      : getTodayLocalDate()
+    setDataInicio(cleanInicio)
+
+    const cleanEntrega = contrato.data_entrega
+      ? contrato.data_entrega.split('T')[0].split(' ')[0]
+      : ''
+    setDataEntrega(cleanEntrega)
+    setDataFimContratoManual(Boolean(cleanEntrega))
+
+    setTipoContrato(contrato.tipo || 'normal')
+    setPrazoMeses(contrato.prazo_meses || 12)
+
+    const sem =
+      contrato.valor_semanal !== undefined && contrato.valor_semanal !== null
+        ? contrato.valor_semanal
+        : contrato.valor_diario
+          ? Number((contrato.valor_diario * 7).toFixed(2))
+          : 245
+    setValorSemanalContrato(sem)
+    setValorDiario(Number((sem / 7).toFixed(2)))
+
+    if (contrato.dia_pagamento_semana) {
+      setDiaSemana(contrato.dia_pagamento_semana)
+    } else if (cleanInicio) {
+      const daysMap: Array<'DOM' | 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB'> = [
+        'DOM',
+        'SEG',
+        'TER',
+        'QUA',
+        'QUI',
+        'SEX',
+        'SAB',
+      ]
+      const dt = new Date(cleanInicio)
+      setDiaSemana(daysMap[dt.getUTCDay()] || 'SEG')
+    } else {
+      setDiaSemana('SEG')
+    }
+
+    setContractModalOpen(true)
+  }
+
   const handleMotoChange = (motoId: string) => {
     setMotoSelected(motoId)
     const found = motos.find((m) => m.id === motoId)
@@ -174,7 +271,7 @@ export default function Rentals() {
     }
   }
 
-  const handleCreateContract = async (e: React.FormEvent) => {
+  const handleSaveContract = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!motoSelected || !locatarioNome.trim() || !dataInicio) {
       toast.error('Preencha os campos obrigatórios')
@@ -193,34 +290,48 @@ export default function Rentals() {
         valor_semanal: Number(valorSemanalContrato),
         valor_diario: Number((Number(valorSemanalContrato) / 7).toFixed(2)),
         dia_pagamento_semana: diaSemana,
-        status: 'ativo',
         observacoes: observacoes.trim(),
       }
 
       if (tipoContrato === 'plano_conquista') {
         payload.prazo_meses = Number(prazoMeses)
+      } else {
+        payload.prazo_meses = null
       }
+
       if (dataEntrega) {
         payload.data_entrega = dataEntrega
+      } else {
+        payload.data_entrega = ''
       }
 
-      const created = await contratosService.create(payload)
+      if (editingContract) {
+        // Modo Edição
+        await contratosService.update(editingContract.id, payload)
+        toast.success('Contrato atualizado com sucesso!')
+      } else {
+        // Modo Criação
+        payload.status = 'ativo'
+        const created = await contratosService.create(payload)
 
-      // Automatically generate first weekly installment in recebimentos
-      const nextDue = new Date(new Date(dataInicio).getTime() + 7 * 86400000)
-        .toISOString()
-        .split('T')[0]
-      await recebimentosService.create({
-        moto: motoSelected,
-        contrato: created.id,
-        locatario_nome: locatarioNome.trim(),
-        data_vencimento: nextDue,
-        valor: Number(valorSemanalContrato),
-        status: 'em_dia',
-      })
+        // Automatically generate first weekly installment in recebimentos
+        const nextDue = new Date(new Date(dataInicio).getTime() + 7 * 86400000)
+          .toISOString()
+          .split('T')[0]
+        await recebimentosService.create({
+          moto: motoSelected,
+          contrato: created.id,
+          locatario_nome: locatarioNome.trim(),
+          data_vencimento: nextDue,
+          valor: Number(valorSemanalContrato),
+          status: 'em_dia',
+        })
 
-      toast.success('Contrato de locação iniciado com sucesso!')
-      setNewContractOpen(false)
+        toast.success('Contrato de locação iniciado com sucesso!')
+      }
+
+      setContractModalOpen(false)
+      setEditingContract(null)
       // reset form
       setLocatarioNome('')
       setLocatarioDoc('')
@@ -230,7 +341,7 @@ export default function Rentals() {
       loadData()
     } catch (err) {
       console.error(err)
-      toast.error('Erro ao cadastrar contrato')
+      toast.error(editingContract ? 'Erro ao atualizar contrato' : 'Erro ao cadastrar contrato')
     } finally {
       setSubmitting(false)
     }
@@ -312,7 +423,7 @@ export default function Rentals() {
             Acompanhe motos locadas, contratos ativos e status de recebimentos.
           </p>
         </div>
-        <Button onClick={() => setNewContractOpen(true)} className="gap-2">
+        <Button onClick={() => handleOpenNewContract()} className="gap-2">
           <Plus className="w-4 h-4" />
           Novo Contrato de Locação
         </Button>
@@ -425,6 +536,16 @@ export default function Rentals() {
                         <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenEditContract(contrato)}
+                            title="Editar contrato"
+                            aria-label="Editar contrato"
+                            className="h-8 w-8 text-slate-600 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-300 dark:hover:bg-blue-950/40 transition-colors"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleOpenFinalizeModal(contrato)}
                             className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
@@ -494,10 +615,7 @@ export default function Rentals() {
                     <Button
                       size="sm"
                       className="w-full text-xs"
-                      onClick={() => {
-                        handleMotoChange(moto.id)
-                        setNewContractOpen(true)
-                      }}
+                      onClick={() => handleOpenNewContract(moto.id)}
                     >
                       <KeyRound className="w-3.5 h-3.5 mr-1.5" />
                       Alugar Esta Moto
@@ -612,16 +730,28 @@ export default function Rentals() {
                           )}
 
                           {relatedContrato && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenDeleteModal(relatedContrato)}
-                              title="Apagar contrato deste recebimento feito por engano"
-                              aria-label="Apagar contrato feito por engano"
-                              className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <div className="flex items-center">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenEditContract(relatedContrato)}
+                                title="Editar contrato deste recebimento"
+                                aria-label="Editar contrato"
+                                className="h-8 w-8 text-slate-600 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-300 dark:hover:bg-blue-950/40 transition-colors"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenDeleteModal(relatedContrato)}
+                                title="Apagar contrato deste recebimento feito por engano"
+                                aria-label="Apagar contrato feito por engano"
+                                className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -634,20 +764,36 @@ export default function Rentals() {
         </TabsContent>
       </Tabs>
 
-      {/* New Contract Modal */}
-      <Dialog open={newContractOpen} onOpenChange={setNewContractOpen}>
+      {/* New / Edit Contract Modal */}
+      <Dialog
+        open={contractModalOpen}
+        onOpenChange={(open) => {
+          setContractModalOpen(open)
+          if (!open) {
+            setEditingContract(null)
+          }
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Novo Contrato de Locação</DialogTitle>
+            <DialogTitle>
+              {editingContract ? 'Editar Contrato de Locação' : 'Novo Contrato de Locação'}
+            </DialogTitle>
             <DialogDescription>
-              Vincule a moto ao locatário e defina o modelo de aluguel.
+              {editingContract
+                ? 'Atualize os dados cadastrais, valores, datas ou tipo do contrato.'
+                : 'Vincule a moto ao locatário e defina o modelo de aluguel.'}
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleCreateContract} className="space-y-4">
+          <form onSubmit={handleSaveContract} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="motoSelect">Selecione a Moto *</Label>
-              <Select value={motoSelected} onValueChange={handleMotoChange}>
+              <Select
+                value={motoSelected}
+                onValueChange={handleMotoChange}
+                disabled={Boolean(editingContract)}
+              >
                 <SelectTrigger id="motoSelect">
                   <SelectValue placeholder="Escolha a moto" />
                 </SelectTrigger>
@@ -659,6 +805,12 @@ export default function Rentals() {
                   ))}
                 </SelectContent>
               </Select>
+              {editingContract && (
+                <p className="text-[11px] text-muted-foreground">
+                  A moto vinculada ao contrato não pode ser trocada na edição (se necessário, crie
+                  um novo contrato).
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -825,13 +977,22 @@ export default function Rentals() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setNewContractOpen(false)}
+                onClick={() => {
+                  setContractModalOpen(false)
+                  setEditingContract(null)
+                }}
                 disabled={submitting}
               >
                 Cancelar
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? 'Cadastrando...' : 'Confirmar Locação'}
+                {submitting
+                  ? editingContract
+                    ? 'Salvando...'
+                    : 'Cadastrando...'
+                  : editingContract
+                    ? 'Salvar Alterações'
+                    : 'Confirmar Locação'}
               </Button>
             </DialogFooter>
           </form>
