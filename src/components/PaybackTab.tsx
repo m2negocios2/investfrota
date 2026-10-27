@@ -30,6 +30,10 @@ interface PaybackMarker {
   meses: number
   atingido: boolean
   label: string
+  dataCalculada?: Date
+  dataExibicao?: string // DD/MM/YYYY
+  diasFaltantes?: number
+  mesesRestantes?: number
 }
 
 interface MotoPaybackData {
@@ -46,6 +50,10 @@ interface MotoPaybackData {
   lucroSobreInvestimentoPct: number | null
   semDadosSuficientes: boolean
   motivoSemDados?: string
+
+  // Data de referência de início (compra ou criação)
+  dataInicioRef?: Date
+  dataInicioFormatada?: string // DD/MM/YYYY
 
   // Contrato Conquista
   contratoConquistaAtivo?: Contrato
@@ -85,6 +93,16 @@ function formatMesesAnos(meses: number): string {
     return `${anos} ${anos === 1 ? 'ano' : 'anos'}`
   }
   return `${anos}a ${restoMeses}m`
+}
+
+/**
+ * Adiciona fração de meses a uma data base preservando cálculo de dias.
+ * 1 mês equivale à média padrão de 30.4375 dias.
+ */
+function addFractionalMonths(baseDate: Date, months: number): Date {
+  const d = new Date(baseDate.getTime())
+  const msToAdd = months * 30.4375 * 24 * 60 * 60 * 1000
+  return new Date(d.getTime() + msToAdd)
 }
 
 export const PaybackTab: React.FC<PaybackTabProps> = ({ motos, contratos, caixa }) => {
@@ -191,6 +209,9 @@ export const PaybackTab: React.FC<PaybackTabProps> = ({ motos, contratos, caixa 
       const paybacks: PaybackMarker[] = []
       let mesesMaxEscala = 24 // padrão mínimo: 2 anos
 
+      const dataBaseInicio = dataCompraDate || hoje
+      const dataInicioFormatada = dataCompraDate ? formatDateDisplay(dataCompraDate) : undefined
+
       if (temValorCompra && valorCompra > 0 && ritmoMensal > 0) {
         // Quantos meses desde o início para cada payback
         // Payback 1: meta = 1 * valorCompra
@@ -201,24 +222,65 @@ export const PaybackTab: React.FC<PaybackTabProps> = ({ motos, contratos, caixa 
           let mesesTotaisAteMeta = 0
 
           if (lucroAcumulado >= metaLucro) {
-            // Já atingiu! Estimar mês em que atingiu baseado na proporção do tempo decorrido
-            mesesTotaisAteMeta = (metaLucro / lucroAcumulado) * mesesDecorridos
+            // Já atingiu!
+            // Para determinar a data exata em que atingiu:
+            // Percorremos os lançamentos cronologicamente acumulando lucro
+            // Se encontrar a data do lançamento que superou a meta, usamos ela.
+            // Senão, calculamos pela proporção linear a partir do início.
+            let dataAtingida: Date | null = null
+            if (lancamentosMoto.length > 0) {
+              const ordenados = [...lancamentosMoto]
+                .map((l) => ({ ...l, dObj: parseDateOnly(l.data) }))
+                .filter((l): l is typeof l & { dObj: Date } => l.dObj !== null)
+                .sort((a, b) => a.dObj.getTime() - b.dObj.getTime())
+
+              let acum = 0
+              for (const l of ordenados) {
+                acum += l.tipo === 'entrada' ? Number(l.valor) || 0 : -(Number(l.valor) || 0)
+                if (acum >= metaLucro) {
+                  dataAtingida = l.dObj
+                  break
+                }
+              }
+            }
+
+            if (!dataAtingida) {
+              mesesTotaisAteMeta = (metaLucro / Math.max(lucroAcumulado, 1)) * mesesDecorridos
+              dataAtingida = addFractionalMonths(dataBaseInicio, mesesTotaisAteMeta)
+            } else {
+              mesesTotaisAteMeta = Math.max(0, diffInMonths(dataBaseInicio, dataAtingida))
+            }
+
             paybacks.push({
               multiplicador: mult,
               meses: mesesTotaisAteMeta,
               atingido: true,
               label: `Payback ${mult}`,
+              dataCalculada: dataAtingida,
+              dataExibicao: formatDateDisplay(dataAtingida),
             })
           } else {
             // Falta atingir: meses decorridos + meses restantes projetados
             const falta = metaLucro - lucroAcumulado
             const mesesRestantes = falta / ritmoMensal
             mesesTotaisAteMeta = mesesDecorridos + mesesRestantes
+
+            // Data projetada EXATA (dia/mês/ano) calculada a partir de HOJE + meses restantes
+            const dataProjetada = addFractionalMonths(hoje, mesesRestantes)
+            const diffDias = Math.max(
+              0,
+              Math.round((dataProjetada.getTime() - hoje.getTime()) / (24 * 60 * 60 * 1000)),
+            )
+
             paybacks.push({
               multiplicador: mult,
               meses: mesesTotaisAteMeta,
               atingido: false,
               label: `Payback ${mult}`,
+              dataCalculada: dataProjetada,
+              dataExibicao: formatDateDisplay(dataProjetada),
+              diasFaltantes: diffDias,
+              mesesRestantes,
             })
           }
         }
@@ -254,6 +316,8 @@ export const PaybackTab: React.FC<PaybackTabProps> = ({ motos, contratos, caixa 
         lucroSobreInvestimentoPct,
         semDadosSuficientes,
         motivoSemDados,
+        dataInicioRef: dataCompraDate || undefined,
+        dataInicioFormatada,
         contratoConquistaAtivo: contratoConquista,
         fimContratoData,
         fimContratoMeses,
@@ -489,6 +553,8 @@ const MotoPaybackCard: React.FC<MotoPaybackCardProps> = ({ item }) => {
     lucroSobreInvestimentoPct,
     semDadosSuficientes,
     motivoSemDados,
+    dataInicioRef,
+    dataInicioFormatada,
     contratoConquistaAtivo,
     fimContratoData,
     fimContratoMeses,
@@ -501,15 +567,41 @@ const MotoPaybackCard: React.FC<MotoPaybackCardProps> = ({ item }) => {
   const mesesFaltantesProximo =
     proximoPayback && ritmoMensal > 0 ? Math.max(0, proximoPayback.meses - mesesDecorridos) : null
 
-  // Marcadores de escala na régua (ex: 6 meses, 1 ano, 18 meses, 2 anos, etc.)
+  // Marcadores de escala na régua (ex: Início, 1 ano — 2027, 2 anos — 2028, etc.)
   const markersEscala = useMemo(() => {
     const step = mesesMaxEscala <= 36 ? 6 : 12
-    const list: number[] = [0]
-    for (let m = step; m <= mesesMaxEscala; m += step) {
-      list.push(m)
+    const list: Array<{
+      meses: number
+      rotuloPrincipal: string
+      rotuloSub?: string
+    }> = []
+
+    const anoBase = dataInicioRef ? dataInicioRef.getFullYear() : new Date().getFullYear()
+
+    for (let m = 0; m <= mesesMaxEscala; m += step) {
+      if (m === 0) {
+        list.push({
+          meses: 0,
+          rotuloPrincipal: 'Início',
+          rotuloSub: dataInicioFormatada,
+        })
+      } else if (m % 12 === 0) {
+        const anos = m / 12
+        const anoReal = anoBase + anos
+        list.push({
+          meses: m,
+          rotuloPrincipal: `${anos} ${anos === 1 ? 'ano' : 'anos'}`,
+          rotuloSub: `${anoReal}`,
+        })
+      } else {
+        list.push({
+          meses: m,
+          rotuloPrincipal: `${m}m`,
+        })
+      }
     }
     return list
-  }, [mesesMaxEscala])
+  }, [mesesMaxEscala, dataInicioRef, dataInicioFormatada])
 
   // Posição percentual na barra
   const toPercent = (meses: number) => {
@@ -518,6 +610,7 @@ const MotoPaybackCard: React.FC<MotoPaybackCardProps> = ({ item }) => {
   }
 
   const progressoAtualPct = toPercent(mesesDecorridos)
+  const p1 = paybacks.find((p) => p.multiplicador === 1)
 
   return (
     <Card className="shadow-sm border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 transition-colors">
@@ -593,15 +686,28 @@ const MotoPaybackCard: React.FC<MotoPaybackCardProps> = ({ item }) => {
                   : '—'}
               </span>
             </div>
-            {proximoPayback && (
-              <span className="text-[11px] text-muted-foreground">
-                Próximo: <strong>{proximoPayback.label}</strong>{' '}
-                {mesesFaltantesProximo !== null && (
-                  <span className="text-primary font-semibold">
-                    (~{formatMesesAnos(mesesFaltantesProximo)})
+            {/* Exibição da previsão do Payback 1 ou do próximo payback */}
+            {p1 && (
+              <div className="text-[11px] text-muted-foreground text-left sm:text-right mt-0.5">
+                {p1.atingido ? (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center sm:justify-end gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Payback 1 atingido em {p1.dataExibicao || '—'}
+                  </span>
+                ) : (
+                  <span>
+                    Payback 1 previsto:{' '}
+                    <strong className="text-slate-900 dark:text-white font-bold">
+                      {p1.dataExibicao || '—'}
+                    </strong>
+                    {mesesFaltantesProximo !== null && (
+                      <span className="text-primary font-medium ml-1">
+                        (~{formatMesesAnos(mesesFaltantesProximo)})
+                      </span>
+                    )}
                   </span>
                 )}
-              </span>
+              </div>
             )}
           </div>
         </div>
@@ -750,26 +856,37 @@ const MotoPaybackCard: React.FC<MotoPaybackCardProps> = ({ item }) => {
                               ? 'bg-amber-500 border-white dark:border-slate-900 text-white'
                               : 'bg-purple-600 border-white dark:border-slate-900 text-white'
                         }`}
-                        title={`${pb.label}: ${formatMesesAnos(pb.meses)} (${
+                        title={`${pb.label}: ${pb.dataExibicao ? pb.dataExibicao : ''} (${
                           isAtingido ? 'Atingido!' : 'Previsto'
                         })`}
                       >
-                        {pb.multiplicador}
+                        {isAtingido ? '✓' : pb.multiplicador}
                       </div>
 
                       {/* Tag do Payback abaixo da barra */}
                       <div className="absolute top-5 left-1/2 -translate-x-1/2 flex flex-col items-center whitespace-nowrap pointer-events-none">
                         <span
-                          className={`text-[9px] font-extrabold px-1 rounded ${
+                          className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded shadow-xs ${
                             isAtingido
-                              ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50'
-                              : 'text-slate-700 dark:text-slate-300'
+                              ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/70 border border-emerald-300/60 dark:border-emerald-800'
+                              : 'text-slate-800 dark:text-slate-200 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700'
                           }`}
                         >
                           {isAtingido && '✓ '}
                           {pb.label}
                         </span>
-                        <span className="text-[8px] text-muted-foreground">
+                        {pb.dataExibicao && (
+                          <span
+                            className={`text-[8.5px] font-bold ${
+                              isAtingido
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : 'text-primary dark:text-blue-400'
+                            }`}
+                          >
+                            {pb.dataExibicao}
+                          </span>
+                        )}
+                        <span className="text-[7.5px] text-muted-foreground">
                           {formatMesesAnos(pb.meses)}
                         </span>
                       </div>
@@ -803,22 +920,43 @@ const MotoPaybackCard: React.FC<MotoPaybackCardProps> = ({ item }) => {
               </div>
 
               {/* Escala em Meses e Anos no Rodapé da Barra */}
-              <div className="relative w-full h-4 mt-7 border-t border-slate-200 dark:border-slate-800">
-                {markersEscala.map((mes) => {
-                  const pct = toPercent(mes)
+              <div className="relative w-full h-8 mt-10 border-t border-slate-200 dark:border-slate-800">
+                {markersEscala.map((mk) => {
+                  const pct = toPercent(mk.meses)
+                  // No início (0%), não deslocar -50% para não cortar à esquerda; no fim (100%), alinhar à direita
+                  const alignClass =
+                    pct === 0
+                      ? 'left-0 translate-x-0 items-start'
+                      : pct >= 98
+                        ? 'right-0 -translate-x-0 items-end'
+                        : '-translate-x-1/2 items-center'
+
                   return (
                     <div
-                      key={mes}
-                      className="absolute top-0 -translate-x-1/2 flex flex-col items-center"
-                      style={{ left: `${pct}%` }}
+                      key={mk.meses}
+                      className={`absolute top-0 flex flex-col ${alignClass}`}
+                      style={pct > 0 && pct < 98 ? { left: `${pct}%` } : undefined}
                     >
-                      <div className="w-0.5 h-1.5 bg-slate-300 dark:bg-slate-700" />
-                      <span className="text-[9px] text-muted-foreground mt-0.5 whitespace-nowrap font-mono">
-                        {mes === 0
-                          ? 'Início'
-                          : mes % 12 === 0
-                            ? `${mes / 12} ${mes / 12 === 1 ? 'ano' : 'anos'}`
-                            : `${mes}m`}
+                      <div
+                        className={`w-0.5 h-1.5 bg-slate-300 dark:bg-slate-700 ${
+                          pct === 0 ? 'ml-0.5' : pct >= 98 ? 'mr-0.5' : ''
+                        }`}
+                      />
+                      <span className="text-[9px] font-medium text-slate-600 dark:text-slate-400 mt-0.5 whitespace-nowrap">
+                        {mk.meses === 0 ? (
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            {mk.rotuloSub ? `Início · ${mk.rotuloSub}` : 'Início'}
+                          </span>
+                        ) : mk.rotuloSub ? (
+                          <span>
+                            {mk.rotuloPrincipal}{' '}
+                            <strong className="text-slate-700 dark:text-slate-300 font-bold">
+                              — {mk.rotuloSub}
+                            </strong>
+                          </span>
+                        ) : (
+                          <span>{mk.rotuloPrincipal}</span>
+                        )}
                       </span>
                     </div>
                   )
