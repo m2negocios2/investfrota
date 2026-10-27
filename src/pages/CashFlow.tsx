@@ -61,12 +61,27 @@ export default function CashFlow() {
   const [newModalOpen, setNewModalOpen] = useState(false)
   const [motoId, setMotoId] = useState('')
   const [tipo, setTipo] = useState<CaixaTipo>('entrada')
-  const [descricao, setDescricao] = useState('')
+  const [descricao, setDescricao] = useState('Aluguel')
   const [categoria, setCategoria] = useState('')
   const [valor, setValor] = useState<number>(0)
   const [data, setData] = useState(getTodayLocalDate())
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('pix')
   const [submitting, setSubmitting] = useState(false)
+
+  const handleOpenNewModal = () => {
+    setTipo('entrada')
+    // Preenche com "Aluguel" se estiver vazio ou se for a sugestão padrão
+    setDescricao((prev) => (prev.trim() === '' ? 'Aluguel' : prev))
+    setNewModalOpen(true)
+  }
+
+  const handleSelectTipo = (newTipo: CaixaTipo) => {
+    setTipo(newTipo)
+    if (newTipo === 'entrada') {
+      // Se estiver vazio, pré-preenche com "Aluguel"
+      setDescricao((prev) => (prev.trim() === '' ? 'Aluguel' : prev))
+    }
+  }
 
   // Edit Entry Modal
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -154,7 +169,7 @@ export default function CashFlow() {
 
       toast.success('Lançamento registrado com sucesso no caixa!')
       setNewModalOpen(false)
-      setDescricao('')
+      setDescricao('Aluguel')
       setValor(0)
       loadData()
     } catch (err) {
@@ -254,7 +269,7 @@ export default function CashFlow() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={() => setNewModalOpen(true)} className="gap-2">
+          <Button onClick={handleOpenNewModal} className="gap-2">
             <Plus className="w-4 h-4" />
             Novo Lançamento
           </Button>
@@ -710,7 +725,7 @@ export default function CashFlow() {
                 <Button
                   type="button"
                   variant={tipo === 'entrada' ? 'default' : 'outline'}
-                  onClick={() => setTipo('entrada')}
+                  onClick={() => handleSelectTipo('entrada')}
                   className={tipo === 'entrada' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
                 >
                   <ArrowUpRight className="w-4 h-4 mr-1.5" />
@@ -719,7 +734,7 @@ export default function CashFlow() {
                 <Button
                   type="button"
                   variant={tipo === 'saida' ? 'destructive' : 'outline'}
-                  onClick={() => setTipo('saida')}
+                  onClick={() => handleSelectTipo('saida')}
                 >
                   <ArrowDownRight className="w-4 h-4 mr-1.5" />
                   Saída (Custo)
