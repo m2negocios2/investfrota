@@ -465,20 +465,24 @@ export default function CashFlow() {
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-xs sm:text-sm">
                       <thead>
                         <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300">
-                          <th className="py-3 px-4 text-left font-bold w-28">1ª DATA</th>
-                          <th className="py-3 px-4 text-right font-bold w-32 text-emerald-700 dark:text-emerald-400">
-                            2ª ENTRADAS
+                          <th className="py-2 px-2 sm:px-3 text-left font-bold whitespace-nowrap">
+                            DATA
                           </th>
-                          <th className="py-3 px-4 text-right font-bold w-32 text-red-700 dark:text-red-400">
-                            3ª SAÍDAS
+                          <th className="py-2 px-2 sm:px-3 text-right font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                            ENTRADAS
                           </th>
-                          <th className="py-3 px-4 text-right font-extrabold w-36 bg-blue-100/50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200">
-                            4ª SALDO
+                          <th className="py-2 px-2 sm:px-3 text-right font-bold text-red-700 dark:text-red-400 whitespace-nowrap">
+                            SAÍDAS
                           </th>
-                          <th className="py-3 px-4 text-left font-bold">DESCRIÇÃO</th>
+                          <th className="py-2 px-2 sm:px-3 text-right font-extrabold bg-blue-100/50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 whitespace-nowrap">
+                            SALDO
+                          </th>
+                          <th className="py-2 px-2 sm:px-3 text-left font-bold min-w-[130px]">
+                            DESCRIÇÃO
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -490,35 +494,35 @@ export default function CashFlow() {
                               key={row.id}
                               className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
                             >
-                              {/* 1ª DATA */}
-                              <td className="py-3 px-4 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                              {/* DATA */}
+                              <td className="py-2 px-2 sm:px-3 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap text-xs">
                                 {formatDateDisplay(row.data)}
                               </td>
 
-                              {/* 2ª ENTRADAS */}
-                              <td className="py-3 px-4 text-right font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                              {/* ENTRADAS */}
+                              <td className="py-2 px-2 sm:px-3 text-right font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap text-xs">
                                 {isEntrada
                                   ? `R$ ${row.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                                   : '-'}
                               </td>
 
-                              {/* 3ª SAÍDAS */}
-                              <td className="py-3 px-4 text-right font-semibold text-red-600 dark:text-red-400 whitespace-nowrap">
+                              {/* SAÍDAS */}
+                              <td className="py-2 px-2 sm:px-3 text-right font-semibold text-red-600 dark:text-red-400 whitespace-nowrap text-xs">
                                 {!isEntrada
                                   ? `R$ ${row.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                                   : '-'}
                               </td>
 
-                              {/* 4ª SALDO (em destaque visual) */}
+                              {/* SALDO (em destaque visual) */}
                               <td
-                                className={`py-3 px-4 text-right font-extrabold text-base whitespace-nowrap bg-blue-50/50 dark:bg-blue-950/30 ${
+                                className={`py-2 px-2 sm:px-3 text-right font-extrabold whitespace-nowrap bg-blue-50/50 dark:bg-blue-950/30 ${
                                   isPositivo
                                     ? 'text-blue-700 dark:text-blue-300'
                                     : 'text-red-700 dark:text-red-300'
                                 }`}
                               >
                                 <span
-                                  className={`inline-block px-2.5 py-1 rounded-md font-black shadow-xs ${
+                                  className={`inline-block px-1.5 py-0.5 sm:px-2 rounded text-xs font-black ${
                                     isPositivo
                                       ? 'bg-blue-100/80 text-blue-800 dark:bg-blue-900/60 dark:text-blue-100'
                                       : 'bg-red-100/80 text-red-800 dark:bg-red-900/60 dark:text-red-100'
@@ -532,46 +536,42 @@ export default function CashFlow() {
                               </td>
 
                               {/* DESCRIÇÃO */}
-                              <td className="py-3 px-4">
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                              <td className="py-2 px-2 sm:px-3">
+                                <div className="flex flex-wrap items-center gap-1">
+                                  <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs break-words">
                                     {row.descricao}
                                   </span>
-                                  <div className="flex items-center gap-1.5 shrink-0">
-                                    {row.categoria && (
-                                      <Badge variant="outline" className="text-[10px] py-0">
-                                        {row.categoria}
-                                      </Badge>
-                                    )}
-                                    {row.forma_pagamento && (
-                                      <span className="text-[10px] text-muted-foreground uppercase">
-                                        {row.forma_pagamento}
-                                      </span>
-                                    )}
-                                  </div>
+                                  {row.categoria && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] py-0 px-1 font-normal shrink-0"
+                                    >
+                                      {row.categoria}
+                                    </Badge>
+                                  )}
                                 </div>
                               </td>
                             </tr>
                           )
                         })}
                       </tbody>
-                      <tfoot className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-bold">
+                      <tfoot className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-bold text-xs">
                         <tr>
-                          <td className="py-3 px-4 text-left uppercase text-xs text-muted-foreground">
-                            Total da Moto
+                          <td className="py-2 px-2 sm:px-3 text-left uppercase text-[11px] text-muted-foreground whitespace-nowrap">
+                            Total Moto
                           </td>
-                          <td className="py-3 px-4 text-right text-emerald-600 dark:text-emerald-400 font-extrabold whitespace-nowrap">
+                          <td className="py-2 px-2 sm:px-3 text-right text-emerald-600 dark:text-emerald-400 font-extrabold whitespace-nowrap">
                             R${' '}
                             {motoEntradasTotal.toLocaleString('pt-BR', {
                               minimumFractionDigits: 2,
                             })}
                           </td>
-                          <td className="py-3 px-4 text-right text-red-600 dark:text-red-400 font-extrabold whitespace-nowrap">
+                          <td className="py-2 px-2 sm:px-3 text-right text-red-600 dark:text-red-400 font-extrabold whitespace-nowrap">
                             R${' '}
                             {motoSaidasTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </td>
                           <td
-                            className={`py-3 px-4 text-right font-black text-base whitespace-nowrap bg-blue-100/60 dark:bg-blue-950/60 ${
+                            className={`py-2 px-2 sm:px-3 text-right font-black whitespace-nowrap bg-blue-100/60 dark:bg-blue-950/60 ${
                               motoSaldoTotal >= 0
                                 ? 'text-blue-800 dark:text-blue-200'
                                 : 'text-red-800 dark:text-red-200'
@@ -580,8 +580,8 @@ export default function CashFlow() {
                             R${' '}
                             {motoSaldoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </td>
-                          <td className="py-3 px-4 text-xs text-muted-foreground">
-                            {rowsWithBalance.length} movimentação(ões) acumulada(s)
+                          <td className="py-2 px-2 sm:px-3 text-[11px] text-muted-foreground whitespace-nowrap">
+                            {rowsWithBalance.length} mov.
                           </td>
                         </tr>
                       </tfoot>
