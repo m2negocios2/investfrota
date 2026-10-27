@@ -73,6 +73,7 @@ export default function Semana() {
 
   // Payment Confirmation Dialog (when clicking neutral or overdue cell)
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
+  const [submittingPayment, setSubmittingPayment] = useState(false)
   const [cellTarget, setCellTarget] = useState<{
     moto: Moto
     contrato: Contrato
@@ -188,7 +189,7 @@ export default function Semana() {
   }
 
   // Handle cell click (Toggle or confirm payment)
-  const handleCellClick = (
+  const handleCellClick = async (
     contrato: Contrato,
     moto: Moto,
     dia: DiaSemana,
@@ -200,21 +201,18 @@ export default function Semana() {
 
     if (cellState.status === 'pago' && cellState.recebimento) {
       // Estornar / Desmarcar pagamento
-      if (
-        confirm(
-          `A moto ${moto.nome || moto.modelo} já consta como PAGA nesta semana. Deseja estornar/desmarcar o pagamento?`,
-        )
-      ) {
-        recebimentosService
-          .estornarPagamento(cellState.recebimento.id, 'em_dia')
-          .then(() => {
-            toast.success('Pagamento estornado com sucesso!')
-            loadData()
-          })
-          .catch((err) => {
-            console.error(err)
-            toast.error('Erro ao estornar pagamento')
-          })
+      const confirmed = window.confirm(
+        `A moto ${moto.nome || moto.modelo} já consta como PAGA nesta semana.\n\nDeseja estornar o pagamento? O lançamento de aluguel e a comissão correspondente serão retirados do Caixa.`,
+      )
+      if (confirmed) {
+        try {
+          await recebimentosService.estornarPagamento(cellState.recebimento.id, 'em_dia')
+          toast.success('Pagamento estornado com sucesso! Lançamentos retirados do Caixa.')
+          await loadData()
+        } catch (err) {
+          console.error('Erro ao estornar pagamento no painel Semana:', err)
+          toast.error('Erro ao estornar pagamento')
+        }
       }
       return
     }
@@ -234,24 +232,16 @@ export default function Semana() {
 
   // Confirm payment in modal
   const handleConfirmPayment = async () => {
-    if (!cellTarget) return
+    if (!cellTarget || submittingPayment) return
+    setSubmittingPayment(true)
     try {
       const todayStr = getTodayLocalDate()
       const weekCode = cellTarget.weekCode
 
-      if (cellTarget.recebimento) {
-        // Update existing recebimento to 'pago' and register in caixa
-        await recebimentosService.marcarComoPago(
-          cellTarget.recebimento.id,
-          cellTarget.moto.id,
-          cellTarget.valor,
-          cellTarget.contrato.locatario_nome,
-          formaPagamento,
-          todayStr,
-          cellTarget.contrato.id,
-        )
-      } else {
-        // Create new paid recebimento with semana_ano and register in caixa
+      let recebimentoId = cellTarget.recebimento?.id
+
+      if (!recebimentoId) {
+        // Criar novo registro de recebimento com semana_ano e vincular ao contrato
         const newRec = await recebimentosService.create({
           moto: cellTarget.moto.id,
           contrato: cellTarget.contrato.id,
@@ -259,27 +249,35 @@ export default function Semana() {
           data_vencimento: cellTarget.dateStr,
           data_pagamento: todayStr,
           valor: cellTarget.valor,
-          status: 'pago',
+          status: 'em_dia',
           forma_pagamento: formaPagamento,
           semana_ano: weekCode,
         })
-        await recebimentosService.marcarComoPago(
-          newRec.id,
-          cellTarget.moto.id,
-          cellTarget.valor,
-          cellTarget.contrato.locatario_nome,
-          formaPagamento,
-          todayStr,
-          cellTarget.contrato.id,
-        )
+        recebimentoId = newRec.id
       }
 
-      toast.success(`Pagamento de R$ ${cellTarget.valor.toFixed(2)} registrado e lançado no caixa!`)
+      // Marcar como pago, gerar receita no caixa e comissão automática se configurada
+      await recebimentosService.marcarComoPago(
+        recebimentoId,
+        cellTarget.moto.id,
+        cellTarget.valor,
+        cellTarget.contrato.locatario_nome,
+        formaPagamento,
+        todayStr,
+        cellTarget.contrato.id,
+      )
+
+      toast.success(
+        `Pagamento de R$ ${cellTarget.valor.toFixed(2)} registrado e lançado no Caixa com sucesso!`,
+      )
       setPaymentModalOpen(false)
-      loadData()
+      setCellTarget(null)
+      await loadData()
     } catch (err) {
-      console.error(err)
-      toast.error('Erro ao registrar pagamento')
+      console.error('Erro ao registrar pagamento no painel Semana:', err)
+      toast.error('Erro ao registrar pagamento e lançar no caixa')
+    } finally {
+      setSubmittingPayment(false)
     }
   }
 
@@ -838,14 +836,19 @@ export default function Semana() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPaymentModalOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setPaymentModalOpen(false)}
+              disabled={submittingPayment}
+            >
               Cancelar
             </Button>
             <Button
               onClick={handleConfirmPayment}
+              disabled={submittingPayment}
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
             >
-              Confirmar Pagamento e Pintar de Verde
+              {submittingPayment ? 'Registrando...' : 'Confirmar Pagamento e Pintar de Verde'}
             </Button>
           </DialogFooter>
         </DialogContent>

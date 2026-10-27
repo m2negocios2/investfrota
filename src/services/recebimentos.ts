@@ -61,11 +61,17 @@ export const recebimentosService = {
     // Registrar entrada (receita) no Caixa com proteção precisa de idempotência por ID do recebimento
     try {
       // 1. Checa se já existe um lançamento de receita para este recebimento específico
-      const existingByRec = await pb.collection('caixa_lancamentos').getList(1, 1, {
-        filter: `recebimento = "${id}" && tipo = "entrada"`,
-      })
+      let exists = false
+      try {
+        const existingByRec = await pb.collection('caixa_lancamentos').getList(1, 1, {
+          filter: `recebimento = "${id}" && tipo = "entrada"`,
+        })
+        exists = existingByRec.totalItems > 0
+      } catch (checkErr) {
+        console.warn('Aviso ao verificar receita existente por recebimento:', checkErr)
+      }
 
-      if (existingByRec.totalItems === 0) {
+      if (!exists) {
         await pb.collection('caixa_lancamentos').create({
           moto: motoId,
           tipo: 'entrada',
@@ -79,30 +85,21 @@ export const recebimentosService = {
       }
     } catch (errCaixa) {
       console.error('Erro ao registrar receita no caixa ao marcar como pago:', errCaixa)
-      // Tenta fallback direto sem o filtro prévio em caso de erro no getList
-      try {
-        await pb.collection('caixa_lancamentos').create({
-          moto: motoId,
-          tipo: 'entrada',
-          descricao: `Recebimento de aluguel - ${locatarioNome}`,
-          categoria: 'Aluguel',
-          valor: valor,
-          data: safeApiDate,
-          forma_pagamento: formaPagamento,
-          recebimento: id,
-        })
-      } catch (errFallback) {
-        console.error('Falha crítica no fallback de lançamento no caixa:', errFallback)
-      }
+      throw new Error(
+        `Falha ao registrar receita no Caixa: ${(errCaixa as Error)?.message || errCaixa}`,
+      )
     }
 
     // Registrar comissão automática caso o contrato deste recebimento possua comissão configurada
     try {
       let contratoId = contratoIdParam || updated.contrato
       if (!contratoId) {
-        // Se não estava no payload do update nem recebido por parâmetro, busca no banco
-        const fullRec = await pb.collection('recebimentos').getOne<Recebimento>(id)
-        contratoId = fullRec.contrato
+        try {
+          const fullRec = await pb.collection('recebimentos').getOne<Recebimento>(id)
+          contratoId = fullRec.contrato
+        } catch {
+          /* intentionally ignored */
+        }
       }
 
       if (contratoId) {
@@ -117,7 +114,7 @@ export const recebimentosService = {
         })
       }
     } catch (errComissao) {
-      console.warn('Aviso ao disparar comissão automática do recebimento:', errComissao)
+      console.error('Erro ao disparar comissão automática do recebimento:', errComissao)
     }
 
     return updated
@@ -127,13 +124,15 @@ export const recebimentosService = {
     id: string,
     novoStatus: 'em_dia' | 'em_atraso' = 'em_dia',
   ): Promise<Recebimento> {
+    // 1. Atualizar o recebimento para o novo status e limpar dados de pagamento
     const updated = await pb.collection('recebimentos').update<Recebimento>(id, {
       status: novoStatus,
       data_pagamento: '',
       forma_pagamento: '' as any,
     })
 
-    // Ao estornar recebimento, remove lançamentos associados no Caixa (receita e eventual comissão vinculada ao recebimento)
+    // 2. Ao estornar recebimento, remove APENAS lançamentos associados no Caixa (receita e eventual comissão vinculada ao id do recebimento)
+    // Preserva rigorosamente todo o resto do caixa (blindagem contra exclusões incorretas)
     try {
       const lancamentosVinculados = await pb.collection('caixa_lancamentos').getFullList({
         filter: `recebimento = "${id}"`,
@@ -142,11 +141,11 @@ export const recebimentosService = {
         try {
           await pb.collection('caixa_lancamentos').delete(item.id)
         } catch (delErr) {
-          console.warn('Aviso ao remover lançamento de caixa no estorno:', delErr)
+          console.error('Erro ao remover lançamento de caixa no estorno:', delErr)
         }
       }
     } catch (errEstornoCaixa) {
-      console.warn('Aviso ao buscar lançamentos vinculados para estorno:', errEstornoCaixa)
+      console.error('Erro ao buscar lançamentos vinculados para estorno:', errEstornoCaixa)
     }
 
     return updated

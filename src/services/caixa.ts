@@ -30,7 +30,7 @@ export const caixaService = {
 
   /**
    * Registra despesa automática de comissão se o contrato possuir comissão definida (> 0).
-   * Evita duplicações verificando o identificador do recebimento ou critérios de idempotência.
+   * Evita duplicações verificando o identificador do recebimento.
    */
   async registrarComissaoSeAplicavel(params: {
     contratoId?: string
@@ -73,10 +73,9 @@ export const caixaService = {
       }
 
       const safeDate = dateToApiMidday(dataReceita)
-      const cleanDate = (dataReceita || '').split('T')[0].split(' ')[0]
 
       // 3. Montar descrição clara
-      // Descrição tipo: "Comissão — {nome do locatário} ({moto})"
+      // Descrição exata solicitada: "Comissão — {locatário} ({moto})"
       const nomeFinal = (locatarioNome || contrato.locatario_nome || 'Locatário').trim()
       let identificadorMoto = motoIdentificacao?.trim()
       if (!identificadorMoto && motoId) {
@@ -89,41 +88,21 @@ export const caixaService = {
       }
       const descricaoComissao = `Comissão — ${nomeFinal}${identificadorMoto ? ` (${identificadorMoto})` : ''}`
 
-      // 4. Verificação de idempotência / proteção contra duplicidade
+      // 4. Verificação de idempotência estrita por ID do recebimento
+      // NUNCA descartar por data/valor aproximado, pois contratos recebem valores idênticos em datas próximas
       if (recebimentoId) {
-        const existingByRec = await pb
-          .collection('caixa_lancamentos')
-          .getList<CaixaLancamento>(1, 1, {
-            filter: `recebimento = "${recebimentoId}" && tipo = "saida" && categoria = "Comissão"`,
-          })
-        if (existingByRec.totalItems > 0) {
-          return existingByRec.items[0]
+        try {
+          const existingByRec = await pb
+            .collection('caixa_lancamentos')
+            .getList<CaixaLancamento>(1, 1, {
+              filter: `recebimento = "${recebimentoId}" && tipo = "saida" && categoria = "Comissão"`,
+            })
+          if (existingByRec.totalItems > 0) {
+            return existingByRec.items[0]
+          }
+        } catch (errCheck) {
+          console.warn('Aviso ao checar comissão existente por recebimento:', errCheck)
         }
-      }
-
-      // Verificação de segurança adicional por contrato, moto, data e valor aproximado
-      const existingFilter = [
-        `moto = "${motoId}"`,
-        `tipo = "saida"`,
-        `categoria = "Comissão"`,
-        `comissao_de = "${contratoId}"`,
-        cleanDate ? `data ~ "${cleanDate}"` : '',
-        `valor >= ${valorComissao - 0.05} && valor <= ${valorComissao + 0.05}`,
-      ]
-        .filter(Boolean)
-        .join(' && ')
-
-      try {
-        const existingApprox = await pb
-          .collection('caixa_lancamentos')
-          .getList<CaixaLancamento>(1, 1, {
-            filter: existingFilter,
-          })
-        if (existingApprox.totalItems > 0) {
-          return existingApprox.items[0]
-        }
-      } catch (errCheck) {
-        console.warn('Aviso ao checar comissão existente:', errCheck)
       }
 
       // 5. Criar lançamento de despesa de comissão no Caixa
@@ -143,7 +122,7 @@ export const caixaService = {
       const created = await pb.collection('caixa_lancamentos').create<CaixaLancamento>(payload)
       return created
     } catch (err) {
-      console.warn('Aviso ao registrar despesa de comissão automática:', err)
+      console.error('Erro ao registrar despesa de comissão automática:', err)
       return null
     }
   },
