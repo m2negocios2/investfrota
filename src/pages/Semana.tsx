@@ -46,8 +46,8 @@ import { getTodayLocalDate, formatDateDisplay } from '@/lib/dateUtils'
 import {
   NOMES_MESES,
   DIAS_SEMANA_CONFIG as DIAS_SEMANA,
-  getISOWeekNumber,
-  getWeekDates,
+  getWeekForDate,
+  getWeekDatesFromSunday,
   getMonthWeeks,
 } from '@/lib/semanaCalendar'
 
@@ -57,9 +57,9 @@ export default function Semana() {
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Referência do dia de hoje para identificar semana atual e mês atual
+  // Referência do dia de hoje para identificar semana atual (domingo a sábado) e mês atual
   const today = useMemo(() => new Date(), [])
-  const todayISO = useMemo(() => getISOWeekNumber(today), [today])
+  const todayWeek = useMemo(() => getWeekForDate(today), [today])
   const currentMonth = today.getMonth() // 0-11
   const currentYear = today.getFullYear()
 
@@ -115,20 +115,21 @@ export default function Semana() {
     loadData()
   }, [])
 
-  // Regra de atribuição de semanas ao mês (definida pela usuária - padrão 4-4-5 para 2026):
-  // "A semana pertence ao mês da sua segunda-feira, EXCETO quando a segunda-feira
-  // é o último dia do mês (ou seja, apenas 1 dia da semana cai nesse mês),
-  // caso em que a semana pertence ao mês seguinte."
+  // Regra de atribuição de semanas ao mês (definida pela usuária):
+  // Semanas de DOMINGO a SÁBADO.
+  // A semana pertence ao mês do seu domingo de início;
+  // EXCETO quando restam no máximo 2 dias desse mês a partir do domingo
+  // (domingo no penúltimo ou último dia do mês), caso em que pertence ao mês seguinte.
   //
   // Ordem de exibição solicitada pela usuária:
   // "no painel semana mostrar da última semana até a primeira"
-  // - Se houver semana atual (mês corrente), a semana atual fica no topo,
-  //   seguida das anteriores em ordem decrescente (ex.: Semana 4 [atual], Semana 3, Semana 2, Semana 1).
+  // - Se houver semana atual (mês corrente), a semana atual fica no topo com selo verde,
+  //   seguida das anteriores em ordem decrescente.
   // - Para outros meses (ou se a atual não estiver no mês), os blocos aparecem em ordem decrescente
   //   (da última semana até a primeira semana do mês).
   // Os rótulos ("MÊS: SEMANA X"), semanas do ano, cálculos e numeração original permanecem intactos.
   const monthWeeks = useMemo(() => {
-    const weeks = getMonthWeeks(selectedYear, selectedMonth, todayISO.code)
+    const weeks = getMonthWeeks(selectedYear, selectedMonth, todayWeek.code)
     const hasCurrent = weeks.some((item) => item.isCurrent)
 
     if (hasCurrent) {
@@ -140,7 +141,7 @@ export default function Semana() {
     }
 
     return [...weeks].sort((a, b) => b.weekOfMonth - a.weekOfMonth)
-  }, [selectedYear, selectedMonth, todayISO.code])
+  }, [selectedYear, selectedMonth, todayWeek.code])
 
   // Função auxiliar para filtrar contratos ativos para uma semana específica
   const getActiveContratosForWeek = (weekStartStr: string, weekEndStr: string) => {
@@ -485,22 +486,22 @@ export default function Semana() {
       <div className="space-y-4">
         {monthWeeks.map((weekInfo) => {
           const isCurrentBlock = weekInfo.isCurrent
-          const weekDates = getWeekDates(weekInfo.year, weekInfo.week)
-          const weekStartStr = weekDates['SEG'].dateStr
-          const weekEndStr = weekDates['DOM'].dateStr
+          const weekDates = getWeekDatesFromSunday(weekInfo.sundayDate)
+          const weekStartStr = weekDates['DOM'].dateStr
+          const weekEndStr = weekDates['SAB'].dateStr
 
           // Contratos ativos específicos desta semana
           const activeContratosThisWeek = getActiveContratosForWeek(weekStartStr, weekEndStr)
 
-          // Totais diários e totais gerais da semana
+          // Totais diários e totais gerais da semana (DOM a SAB)
           const dailyTotals: { [key in DiaSemana]: number } = {
+            DOM: 0,
             SEG: 0,
             TER: 0,
             QUA: 0,
             QUI: 0,
             SEX: 0,
             SAB: 0,
-            DOM: 0,
           }
 
           activeContratosThisWeek.forEach((contrato) => {
@@ -565,8 +566,8 @@ export default function Semana() {
                   }`}
                 >
                   Semana {weekInfo.week} do ano ({weekInfo.year}) •{' '}
-                  {weekDates['SEG'].dateStr.split('-').slice(1).reverse().join('/')} a{' '}
-                  {weekDates['DOM'].dateStr.split('-').slice(1).reverse().join('/')}
+                  {weekDates['DOM'].dateStr.split('-').slice(1).reverse().join('/')} a{' '}
+                  {weekDates['SAB'].dateStr.split('-').slice(1).reverse().join('/')}
                 </div>
               </div>
 
@@ -658,7 +659,7 @@ export default function Semana() {
                               </div>
                             </td>
 
-                            {/* 7 Days Columns (SEG..DOM) */}
+                            {/* 7 Days Columns (DOM..SAB) */}
                             {DIAS_SEMANA.map((d) => {
                               const isPayDay = diaPgto === d.key
                               if (!isPayDay) {
