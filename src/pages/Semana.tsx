@@ -174,38 +174,98 @@ export default function Semana() {
     'DEZEMBRO',
   ]
 
+  // Regra de atribuição de uma semana (Segunda a Domingo) a um Mês/Ano:
+  // - Uma semana começa sempre na Segunda-feira e termina no Domingo.
+  // - A semana pertence ao mês M se o mês M contém a maioria dos seus dias (>= 4 dias),
+  //   o que equivale exatamente ao dia de Quinta-feira (4º dia da semana) pertencer ao mês M.
+  //   - Se a segunda-feira for 29, 30 ou 31/dezembro:
+  //     * 29/12: Seg 29, Ter 30, Qua 31 (3 dias dez), Qui 1, Sex 2, Sab 3, Dom 4 (4 dias jan) -> Qui é jan!
+  //       MAS a usuária exigiu explicitamente:
+  //       "Dezembro/2025: 5 semanas (segundas 1, 8, 15, 22, 29 — a semana que começa em 29/12 tem 3 dias em dezembro e CONTA como semana de dezembro)."
+  //       "Agosto/2026: 4 semanas (a semana que começa em 31/08 tem apenas 1 dia em agosto e NÃO conta como semana de agosto, e deve aparecer como primeira semana de setembro/2026)."
+  //   - Portanto, a regra exata e consistente especificada é:
+  //     Uma semana (Seg a Dom) pertence ao mês onde ela tem pelo menos 3 dias (ou seja, se começou no mês anterior mas tem >= 4 dias no mês seguinte, passa para o mês seguinte; e se começou no mês mas tem apenas 1 ou 2 dias no mês, passa para o mês seguinte; com 3 ou mais dias no mês, ela é retida como semana daquele mês).
+  //     Formalmente para qualquer semana com início em Monday (d_mon):
+  //     Quantos dias dessa semana caem no mês de início (M)?
+  //     Se d_mon tem >= 3 dias em M (ou seja, d_mon <= último_dia - 2), a semana pertence ao mês de d_mon!
+  //     Se d_mon tem apenas 1 ou 2 dias em M (ou seja, d_mon = último_dia ou último_dia - 1), a semana é descartada de M e pertence ao mês seguinte (M+1)!
+
+  // Helper que determina para qual mês/ano operacional uma semana (pela sua segunda-feira) pertence:
+  const getAssignedMonthForMonday = (monday: Date): { year: number; month: number } => {
+    const y = monday.getUTCFullYear()
+    const m = monday.getUTCMonth()
+    const d = monday.getUTCDate()
+    const daysInM = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+    const daysInThisMonth = daysInM - d + 1 // número de dias da semana (1 a 7) que caem no mês m
+
+    // Se tem menos de 3 dias no mês m (ou seja, 1 ou 2 dias: segunda-feira caiu em dia 30 num mês de 31 dias, ou dia 31, etc.):
+    // pertence ao mês seguinte!
+    if (daysInThisMonth < 3) {
+      if (m === 11) {
+        return { year: y + 1, month: 0 }
+      }
+      return { year: y, month: m + 1 }
+    }
+
+    return { year: y, month: m }
+  }
+
   // Calcula TODAS as semanas do mês selecionado.
-  // Regra de negócio especificada:
-  // "cada bloco de semana começando na segunda-feira, conforme regra já implementada:
-  //  semana 1 do mês = semana que começa na primeira segunda-feira do mês;
-  //  dias anteriores pertencem à última semana do mês anterior;
-  //  outubro tem 4 semanas, novembro 4, dezembro 5".
-  // "A atual continua no topo do mês; as demais semanas do mês seguem embaixo na ordem."
+  // Regra de negócio:
+  // - Outubro/2025: 4 semanas (segundas 6, 13, 20, 27).
+  // - Novembro/2025: 4 semanas (segundas 3, 10, 17, 24).
+  // - Dezembro/2025: 5 semanas (segundas 1, 8, 15, 22, 29).
+  // - Agosto/2026: 4 semanas (segundas 3, 10, 17, 24 — a de 31/08 vai para setembro/2026).
+  // - Setembro/2026: primeira semana começa em 31/08/2026.
   const monthWeeks = useMemo(() => {
-    // Acha todas as segundas-feiras cujos UTC dates pertencem a selectedMonth do selectedYear.
-    const mondays: {
+    // Para encontrar todas as semanas atribuídas a (selectedYear, selectedMonth):
+    // As semanas possíveis podem ter sua segunda-feira:
+    // 1) Nos últimos dias do mês anterior (se essa semana teve < 3 dias no mês anterior, passando para este mês)
+    // 2) Durante o próprio selectedMonth (desde que tenha >= 3 dias neste mês)
+    const assignedMondays: {
       date: Date
-      weekOfMonth: number
       iso: { year: number; week: number; code: string }
     }[] = []
 
-    // Dias do mês de 1 até o último dia do mês (28, 29, 30 ou 31)
-    const daysInMonth = new Date(Date.UTC(selectedYear, selectedMonth + 1, 0)).getUTCDate()
+    // 1) Verificar segundas-feiras no final do mês anterior (últimos 7 dias do mês anterior)
+    const prevMonthDate = new Date(Date.UTC(selectedYear, selectedMonth, 0)) // último dia do mês anterior
+    const lastDayPrevMonth = prevMonthDate.getUTCDate()
+    const prevMonthYear = prevMonthDate.getUTCFullYear()
+    const prevMonthIndex = prevMonthDate.getUTCMonth()
 
-    let weekCounter = 1
-    for (let d = 1; d <= daysInMonth; d++) {
-      const cur = new Date(Date.UTC(selectedYear, selectedMonth, d))
-      // 1 = Segunda-feira (Monday)
+    for (let d = Math.max(1, lastDayPrevMonth - 6); d <= lastDayPrevMonth; d++) {
+      const cur = new Date(Date.UTC(prevMonthYear, prevMonthIndex, d))
       if (cur.getUTCDay() === 1) {
-        mondays.push({
-          date: cur,
-          weekOfMonth: weekCounter++,
-          iso: getISOWeekNumber(cur),
-        })
+        // É uma segunda-feira no mês anterior. Verifica se pertence a selectedMonth
+        const assigned = getAssignedMonthForMonday(cur)
+        if (assigned.year === selectedYear && assigned.month === selectedMonth) {
+          assignedMondays.push({
+            date: cur,
+            iso: getISOWeekNumber(cur),
+          })
+        }
       }
     }
 
-    const items = mondays.map((m) => {
+    // 2) Verificar segundas-feiras no mês atual
+    const daysInCurrentMonth = new Date(Date.UTC(selectedYear, selectedMonth + 1, 0)).getUTCDate()
+    for (let d = 1; d <= daysInCurrentMonth; d++) {
+      const cur = new Date(Date.UTC(selectedYear, selectedMonth, d))
+      if (cur.getUTCDay() === 1) {
+        const assigned = getAssignedMonthForMonday(cur)
+        if (assigned.year === selectedYear && assigned.month === selectedMonth) {
+          assignedMondays.push({
+            date: cur,
+            iso: getISOWeekNumber(cur),
+          })
+        }
+      }
+    }
+
+    // Ordenar cronologicamente as segundas-feiras atribuídas a este mês
+    assignedMondays.sort((a, b) => a.date.getTime() - b.date.getTime())
+
+    const items = assignedMondays.map((m, index) => {
       const isCurrent = m.iso.code === todayISO.code
       return {
         year: m.iso.year,
@@ -214,13 +274,13 @@ export default function Semana() {
         isCurrent,
         monthName: NOMES_MESES[selectedMonth],
         monthYear: selectedYear,
-        weekOfMonth: m.weekOfMonth,
+        weekOfMonth: index + 1,
         mondayDate: m.date,
       }
     })
 
-    // Ordenação: se uma das semanas for a atual, ela fica no topo do mês; as demais seguem em ordem.
-    // Se a atual não estiver neste mês (ex.: navegou para outro mês), exibe as semanas na ordem 1, 2, 3...
+    // Ordenação de exibição: se uma das semanas for a semana atual, ela é destacada no topo;
+    // as demais semanas seguem embaixo na ordem cronológica (SEMANA 1, 2, ...).
     const hasCurrent = items.some((item) => item.isCurrent)
     if (hasCurrent) {
       return [...items].sort((a, b) => {
