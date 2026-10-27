@@ -113,10 +113,12 @@ export interface Caucao {
 }
 
 export type CaixaTipo = 'entrada' | 'saida'
+export type EntidadeTipo = 'empresa' | 'socia' | 'terceiros'
 
 export interface CaixaLancamento {
   id: string
-  moto: string
+  moto?: string
+  entidade?: EntidadeTipo
   tipo: CaixaTipo
   descricao: string
   categoria?: string

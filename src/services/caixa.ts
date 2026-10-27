@@ -18,6 +18,13 @@ export const caixaService = {
     })
   },
 
+  async getByEntidade(entidade: string): Promise<CaixaLancamento[]> {
+    return await pb.collection('caixa_lancamentos').getFullList<CaixaLancamento>({
+      filter: `entidade = "${entidade}"`,
+      sort: '-data,-created',
+    })
+  },
+
   async create(
     data: Omit<CaixaLancamento, 'id' | 'created' | 'updated'>,
   ): Promise<CaixaLancamento> {

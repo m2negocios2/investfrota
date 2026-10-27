@@ -5,11 +5,12 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Search,
-  Filter,
-  Calendar,
-  Trash2,
   Bike,
   Pencil,
+  Trash2,
+  Building2,
+  User,
+  Users,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -44,7 +45,32 @@ import {
   FormaPagamento,
   CategoriaGasto,
   Contrato,
+  EntidadeTipo,
 } from '@/types/database'
+
+export const ENTIDADES_CONFIG: Record<
+  EntidadeTipo,
+  { label: string; chipLabel: string; descricao: string; cor: string }
+> = {
+  empresa: {
+    label: 'EMPRESA (Custos Gerais)',
+    chipLabel: 'EMPRESA',
+    descricao: 'Custos gerais da empresa (aluguel do ponto, internet, contador, etc.)',
+    cor: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+  },
+  socia: {
+    label: 'EU / SÓCIA (Pró-labore/Retiradas)',
+    chipLabel: 'SÓCIA',
+    descricao: 'Retiradas e pró-labore da sócia',
+    cor: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-purple-300 dark:border-purple-800',
+  },
+  terceiros: {
+    label: 'DÍVIDAS COM TERCEIROS',
+    chipLabel: 'TERCEIROS',
+    descricao: 'Lançamentos e pagamentos de dívidas com terceiros',
+    cor: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 dark:border-rose-800',
+  },
+}
 
 export default function CashFlow() {
   const [lancamentos, setLancamentos] = useState<CaixaLancamento[]>([])
@@ -55,11 +81,14 @@ export default function CashFlow() {
   // Filters
   const [search, setSearch] = useState('')
   const [tipoFilter, setTipoFilter] = useState<string>('todos')
-  const [motoFilter, setMotoFilter] = useState<string>('todas')
+  // motoFilter pode ser 'todas', 'entidade:empresa', 'entidade:socia', 'entidade:terceiros' ou id da moto
+  const [targetFilter, setTargetFilter] = useState<string>('todas')
 
   // New Entry Modal
   const [newModalOpen, setNewModalOpen] = useState(false)
+  const [vinculoTipo, setVinculoTipo] = useState<'moto' | 'entidade'>('moto')
   const [motoId, setMotoId] = useState('')
+  const [entidade, setEntidade] = useState<EntidadeTipo>('empresa')
   const [tipo, setTipo] = useState<CaixaTipo>('entrada')
   const [descricao, setDescricao] = useState('Aluguel')
   const [categoria, setCategoria] = useState('')
@@ -70,6 +99,7 @@ export default function CashFlow() {
 
   const handleOpenNewModal = () => {
     setTipo('entrada')
+    setVinculoTipo('moto')
     // Preenche com "Aluguel" se estiver vazio ou se for a sugestão padrão
     setDescricao((prev) => (prev.trim() === '' ? 'Aluguel' : prev))
     setNewModalOpen(true)
@@ -78,15 +108,31 @@ export default function CashFlow() {
   const handleSelectTipo = (newTipo: CaixaTipo) => {
     setTipo(newTipo)
     if (newTipo === 'entrada') {
-      // Se estiver vazio, pré-preenche com "Aluguel"
-      setDescricao((prev) => (prev.trim() === '' ? 'Aluguel' : prev))
+      if (vinculoTipo === 'moto') {
+        setDescricao((prev) => (prev.trim() === '' || prev === 'Despesa' ? 'Aluguel' : prev))
+      }
+    } else {
+      if (descricao === 'Aluguel') {
+        setDescricao('')
+      }
+    }
+  }
+
+  const handleVinculoTipoChange = (novoVinculo: 'moto' | 'entidade') => {
+    setVinculoTipo(novoVinculo)
+    if (novoVinculo === 'entidade' && descricao === 'Aluguel') {
+      setDescricao('')
+    } else if (novoVinculo === 'moto' && tipo === 'entrada' && !descricao.trim()) {
+      setDescricao('Aluguel')
     }
   }
 
   // Edit Entry Modal
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editVinculoTipo, setEditVinculoTipo] = useState<'moto' | 'entidade'>('moto')
   const [editMotoId, setEditMotoId] = useState('')
+  const [editEntidade, setEditEntidade] = useState<EntidadeTipo>('empresa')
   const [editTipo, setEditTipo] = useState<CaixaTipo>('entrada')
   const [editDescricao, setEditDescricao] = useState('')
   const [editCategoria, setEditCategoria] = useState('')
@@ -119,25 +165,52 @@ export default function CashFlow() {
 
   const handleCreateEntry = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!motoId || !descricao.trim() || valor <= 0 || !data) {
-      toast.error('Preencha os campos obrigatórios e valor válido')
+
+    if (vinculoTipo === 'moto' && !motoId) {
+      toast.error('Selecione uma moto para este lançamento')
+      return
+    }
+    if (vinculoTipo === 'entidade' && !entidade) {
+      toast.error('Selecione uma entidade para este lançamento')
+      return
+    }
+    if (!descricao.trim() || valor <= 0 || !data) {
+      toast.error('Preencha os campos obrigatórios e um valor válido')
       return
     }
 
     setSubmitting(true)
     try {
-      const createdEntry = await caixaService.create({
-        moto: motoId,
+      const payload: any = {
         tipo,
         descricao: descricao.trim(),
-        categoria: categoria.trim() || (tipo === 'entrada' ? 'Aluguel' : 'Despesa'),
+        categoria:
+          categoria.trim() ||
+          (tipo === 'entrada'
+            ? vinculoTipo === 'moto'
+              ? 'Aluguel'
+              : 'Receita'
+            : vinculoTipo === 'entidade'
+              ? ENTIDADES_CONFIG[entidade].chipLabel
+              : 'Despesa'),
         valor: Number(valor),
         data,
         forma_pagamento: formaPagamento,
-      })
+      }
 
-      // Se for lançamento de receita (entrada), verificar se a moto possui contrato ativo com comissão cadastrada
-      if (tipo === 'entrada') {
+      if (vinculoTipo === 'moto') {
+        payload.moto = motoId
+        payload.entidade = ''
+      } else {
+        payload.moto = ''
+        payload.entidade = entidade
+      }
+
+      await caixaService.create(payload)
+
+      // Se for lançamento de receita (entrada) vinculado a moto, verificar se a moto possui contrato ativo com comissão
+      // COMISSÃO AUTOMÁTICA NUNCA SE APLICA A ENTIDADES (somente contratos de moto)
+      if (tipo === 'entrada' && vinculoTipo === 'moto' && motoId) {
         try {
           const activeContracts = await pb.collection('contratos').getList<Contrato>(1, 1, {
             filter: `moto = "${motoId}" && status = "ativo"`,
@@ -182,7 +255,15 @@ export default function CashFlow() {
 
   const handleOpenEdit = (item: CaixaLancamento) => {
     setEditingId(item.id)
-    setEditMotoId(item.moto || '')
+    if (item.entidade) {
+      setEditVinculoTipo('entidade')
+      setEditEntidade(item.entidade as EntidadeTipo)
+      setEditMotoId('')
+    } else {
+      setEditVinculoTipo('moto')
+      setEditMotoId(item.moto || '')
+      setEditEntidade('empresa')
+    }
     setEditTipo(item.tipo)
     setEditDescricao(item.descricao || '')
     setEditCategoria(item.categoria || '')
@@ -195,22 +276,48 @@ export default function CashFlow() {
   const handleUpdateEntry = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingId) return
-    if (!editMotoId || !editDescricao.trim() || editValor <= 0 || !editData) {
-      toast.error('Preencha os campos obrigatórios e valor válido')
+
+    if (editVinculoTipo === 'moto' && !editMotoId) {
+      toast.error('Selecione uma moto')
+      return
+    }
+    if (editVinculoTipo === 'entidade' && !editEntidade) {
+      toast.error('Selecione uma entidade')
+      return
+    }
+    if (!editDescricao.trim() || editValor <= 0 || !editData) {
+      toast.error('Preencha os campos obrigatórios e um valor válido')
       return
     }
 
     setEditSubmitting(true)
     try {
-      await caixaService.update(editingId, {
-        moto: editMotoId,
+      const payload: any = {
         tipo: editTipo,
         descricao: editDescricao.trim(),
-        categoria: editCategoria.trim() || (editTipo === 'entrada' ? 'Aluguel' : 'Despesa'),
+        categoria:
+          editCategoria.trim() ||
+          (editTipo === 'entrada'
+            ? editVinculoTipo === 'moto'
+              ? 'Aluguel'
+              : 'Receita'
+            : editVinculoTipo === 'entidade'
+              ? ENTIDADES_CONFIG[editEntidade].chipLabel
+              : 'Despesa'),
         valor: Number(editValor),
         data: editData,
         forma_pagamento: editFormaPagamento,
-      })
+      }
+
+      if (editVinculoTipo === 'moto') {
+        payload.moto = editMotoId
+        payload.entidade = ''
+      } else {
+        payload.moto = ''
+        payload.entidade = editEntidade
+      }
+
+      await caixaService.update(editingId, payload)
 
       toast.success('Lançamento atualizado com sucesso!')
       setEditModalOpen(false)
@@ -236,7 +343,7 @@ export default function CashFlow() {
     }
   }
 
-  // Filtered List
+  // Filtered List para o extrato geral
   const filtered = lancamentos.filter((l) => {
     const desc = l.descricao || ''
     const cat = l.categoria || ''
@@ -244,11 +351,21 @@ export default function CashFlow() {
       desc.toLowerCase().includes(search.toLowerCase()) ||
       cat.toLowerCase().includes(search.toLowerCase())
     const matchesTipo = tipoFilter === 'todos' || l.tipo === tipoFilter
-    const matchesMoto = motoFilter === 'todas' || l.moto === motoFilter
-    return matchesSearch && matchesTipo && matchesMoto
+
+    let matchesTarget = true
+    if (targetFilter === 'todas') {
+      matchesTarget = true
+    } else if (targetFilter.startsWith('entidade:')) {
+      const entName = targetFilter.replace('entidade:', '')
+      matchesTarget = l.entidade === entName
+    } else {
+      matchesTarget = l.moto === targetFilter
+    }
+
+    return matchesSearch && matchesTipo && matchesTarget
   })
 
-  // Totals
+  // Totals gerais do extrato filtrado
   const totalEntradas = filtered
     .filter((l) => l.tipo === 'entrada')
     .reduce((acc, l) => acc + l.valor, 0)
@@ -256,6 +373,16 @@ export default function CashFlow() {
     .filter((l) => l.tipo === 'saida')
     .reduce((acc, l) => acc + l.valor, 0)
   const saldoFinal = totalEntradas - totalSaidas
+
+  // Dados da seleção para a tabela de fluxo detalhada (moto OU entidade)
+  const isEntidadeSelected = targetFilter.startsWith('entidade:')
+  const selectedEntidadeKey = isEntidadeSelected
+    ? (targetFilter.replace('entidade:', '') as EntidadeTipo)
+    : null
+  const selectedMoto =
+    !isEntidadeSelected && targetFilter !== 'todas'
+      ? motos.find((m) => m.id === targetFilter)
+      : null
 
   return (
     <div className="space-y-6">
@@ -265,7 +392,7 @@ export default function CashFlow() {
             Fluxo de Caixa
           </h1>
           <p className="text-sm text-muted-foreground">
-            Registro de entradas (aluguéis) e saídas (manutenções, custos) por moto.
+            Registro de receitas e despesas por Moto e por Entidade (Empresa, Sócia e Terceiros).
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -275,6 +402,7 @@ export default function CashFlow() {
           </Button>
         </div>
       </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="shadow-sm">
@@ -334,26 +462,46 @@ export default function CashFlow() {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <Bike className="w-5 h-5 text-blue-600" />
+                {isEntidadeSelected ? (
+                  <Building2 className="w-5 h-5 text-indigo-600" />
+                ) : (
+                  <Bike className="w-5 h-5 text-blue-600" />
+                )}
                 <div>
                   <span className="text-sm font-bold text-slate-900 dark:text-white">
-                    Fluxo Individual por Moto
+                    Fluxo Individual: Motos ou Entidades
                   </span>
                   <p className="text-xs text-muted-foreground">
-                    Selecione uma moto para visualizar a tabela de fluxo e saldo acumulado
+                    Selecione uma moto ou uma entidade geral para visualizar a tabela de fluxo e
+                    saldo
                   </p>
                 </div>
               </div>
-              <div className="w-full sm:w-72">
-                <Select value={motoFilter} onValueChange={setMotoFilter}>
+              <div className="w-full sm:w-80">
+                <Select value={targetFilter} onValueChange={setTargetFilter}>
                   <SelectTrigger className="font-medium bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
-                    <SelectValue placeholder="Selecione uma moto..." />
+                    <SelectValue placeholder="Selecione moto ou entidade..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todas">Todas as Motos (Visão Geral)</SelectItem>
+                    <SelectItem value="todas">Todas as Motos e Entidades (Visão Geral)</SelectItem>
+
+                    {/* Grupo: ENTIDADES GERAIS */}
+                    <div className="px-2 py-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider bg-slate-50 dark:bg-slate-900 border-y border-slate-100 dark:border-slate-800 my-1">
+                      Entidades Gerais da Empresa
+                    </div>
+                    <SelectItem value="entidade:empresa">🏢 EMPRESA (Custos Gerais)</SelectItem>
+                    <SelectItem value="entidade:socia">
+                      👤 EU / SÓCIA (Retiradas / Pró-labore)
+                    </SelectItem>
+                    <SelectItem value="entidade:terceiros">🤝 DÍVIDAS COM TERCEIROS</SelectItem>
+
+                    {/* Grupo: MOTOS */}
+                    <div className="px-2 py-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider bg-slate-50 dark:bg-slate-900 border-y border-slate-100 dark:border-slate-800 my-1">
+                      Motos da Frota
+                    </div>
                     {motos.map((m) => (
                       <SelectItem key={m.id} value={m.id}>
-                        {m.nome ? m.nome : m.modelo} {m.placa ? `(${m.placa})` : ''}
+                        🏍️ {m.nome ? m.nome : m.modelo} {m.placa ? `(${m.placa})` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -387,24 +535,24 @@ export default function CashFlow() {
         </CardContent>
       </Card>
 
-      {/* Tabela de Fluxo da Moto (exibida quando uma moto específica está selecionada) */}
-      {motoFilter !== 'todas' &&
+      {/* Tabela de Fluxo Individual (exibida quando uma moto OU entidade específica está selecionada) */}
+      {targetFilter !== 'todas' &&
         (() => {
-          const motoSelecionada = motos.find((m) => m.id === motoFilter)
-          // Movimentações da moto selecionada em ordem cronológica crescente (mais antiga para mais recente)
-          // para apuração correta do saldo acumulado linha a linha
-          const motoLancamentosAsc = lancamentos
-            .filter((l) => l.moto === motoFilter)
-            .sort((a, b) => {
-              const dateA = a.data ? a.data.slice(0, 10) : ''
-              const dateB = b.data ? b.data.slice(0, 10) : ''
-              if (dateA !== dateB) return dateA.localeCompare(dateB)
-              return (a.created || '').localeCompare(b.created || '')
-            })
+          // Filtrar lançamentos daquele alvo (moto ou entidade)
+          const targetLancamentos = isEntidadeSelected
+            ? lancamentos.filter((l) => l.entidade === selectedEntidadeKey)
+            : lancamentos.filter((l) => l.moto === targetFilter)
 
-          // Calcular saldo acumulado histórico (running balance da mais antiga até a data da linha)
+          // Ordenar cronologicamente crescente para running balance correto
+          const targetLancamentosAsc = [...targetLancamentos].sort((a, b) => {
+            const dateA = a.data ? a.data.slice(0, 10) : ''
+            const dateB = b.data ? b.data.slice(0, 10) : ''
+            if (dateA !== dateB) return dateA.localeCompare(dateB)
+            return (a.created || '').localeCompare(b.created || '')
+          })
+
           let running = 0
-          const rowsWithBalanceAsc = motoLancamentosAsc.map((item) => {
+          const rowsWithBalanceAsc = targetLancamentosAsc.map((item) => {
             if (item.tipo === 'entrada') {
               running += item.valor
             } else {
@@ -416,18 +564,29 @@ export default function CashFlow() {
             }
           })
 
-          // Inverter para exibição com a data MAIS RECENTE no topo (descendo para a mais antiga).
-          // Para lançamentos do mesmo dia, mantém o mais recente primeiro (ordem decrescente de criação).
+          // Inverter para exibição com a data MAIS RECENTE no topo (descendo para a mais antiga)
           const rowsWithBalance = [...rowsWithBalanceAsc].reverse()
 
-          // Totalizadores da moto (permanecem o total consolidado do período)
-          const motoEntradasTotal = motoLancamentosAsc
+          // Totais
+          const targetEntradasTotal = targetLancamentosAsc
             .filter((l) => l.tipo === 'entrada')
             .reduce((sum, l) => sum + l.valor, 0)
-          const motoSaidasTotal = motoLancamentosAsc
+          const targetSaidasTotal = targetLancamentosAsc
             .filter((l) => l.tipo === 'saida')
             .reduce((sum, l) => sum + l.valor, 0)
-          const motoSaldoTotal = motoEntradasTotal - motoSaidasTotal
+          const targetSaldoTotal = targetEntradasTotal - targetSaidasTotal
+
+          const headerTitle = isEntidadeSelected
+            ? `Fluxo de Caixa: ${ENTIDADES_CONFIG[selectedEntidadeKey!].label}`
+            : `Fluxo de Caixa da Moto: ${selectedMoto?.nome || selectedMoto?.modelo || 'Moto'}`
+
+          const headerSubtitle = isEntidadeSelected
+            ? ENTIDADES_CONFIG[selectedEntidadeKey!].descricao
+            : 'Histórico de movimentações (mais recentes primeiro) e saldo acumulado da moto'
+
+          const totalLabel = isEntidadeSelected
+            ? `Total ${ENTIDADES_CONFIG[selectedEntidadeKey!].chipLabel}`
+            : 'Total Moto'
 
           return (
             <Card className="border-blue-200 dark:border-blue-900 shadow-md">
@@ -435,37 +594,48 @@ export default function CashFlow() {
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <Bike className="w-5 h-5 text-blue-600" />
+                      {isEntidadeSelected ? (
+                        <Building2 className="w-5 h-5 text-indigo-600" />
+                      ) : (
+                        <Bike className="w-5 h-5 text-blue-600" />
+                      )}
                       <CardTitle className="text-lg font-bold text-slate-900 dark:text-white">
-                        Fluxo de Caixa da Moto:{' '}
-                        {motoSelecionada?.nome || motoSelecionada?.modelo || 'Moto'}
+                        {headerTitle}
                       </CardTitle>
-                      {motoSelecionada?.placa && (
+                      {!isEntidadeSelected && selectedMoto?.placa && (
                         <Badge
                           variant="outline"
                           className="bg-white dark:bg-slate-900 font-mono text-xs"
                         >
-                          {motoSelecionada.placa}
+                          {selectedMoto.placa}
+                        </Badge>
+                      )}
+                      {isEntidadeSelected && (
+                        <Badge
+                          variant="outline"
+                          className={`text-xs font-semibold ${ENTIDADES_CONFIG[selectedEntidadeKey!].cor}`}
+                        >
+                          ENTIDADE
                         </Badge>
                       )}
                     </div>
-                    <CardDescription className="mt-1">
-                      Histórico de movimentações (mais recentes primeiro) e saldo acumulado da moto
-                    </CardDescription>
+                    <CardDescription className="mt-1">{headerSubtitle}</CardDescription>
                   </div>
 
-                  {/* Resumo rápido da moto */}
+                  {/* Resumo rápido do saldo */}
                   <div className="flex items-center gap-3">
                     <div className="text-right">
                       <span className="text-[11px] uppercase tracking-wider text-muted-foreground block font-semibold">
-                        Saldo Acumulado da Moto
+                        Saldo Acumulado
                       </span>
                       <span
                         className={`text-lg font-extrabold ${
-                          motoSaldoTotal >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600'
+                          targetSaldoTotal >= 0
+                            ? 'text-blue-600 dark:text-blue-400'
+                            : 'text-red-600'
                         }`}
                       >
-                        R$ {motoSaldoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {targetSaldoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                   </div>
@@ -474,12 +644,16 @@ export default function CashFlow() {
               <CardContent className="p-0">
                 {rowsWithBalance.length === 0 ? (
                   <div className="text-center py-10 text-muted-foreground p-6">
-                    <Bike className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                    {isEntidadeSelected ? (
+                      <Building2 className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                    ) : (
+                      <Bike className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                    )}
                     <p className="font-semibold text-slate-700 dark:text-slate-300">
-                      Nenhum lançamento registrado para esta moto
+                      Nenhum lançamento registrado para este vínculo
                     </p>
                     <p className="text-xs">
-                      Lançamentos de entrada e despesa vinculados a esta moto aparecerão aqui.
+                      Lançamentos de entrada e despesa vinculados aqui aparecerão nesta tabela.
                     </p>
                   </div>
                 ) : (
@@ -507,7 +681,6 @@ export default function CashFlow() {
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {rowsWithBalance.map((row) => {
                           const isEntrada = row.tipo === 'entrada'
-                          const isPositivo = row.runningBalance >= 0
                           return (
                             <tr
                               key={row.id}
@@ -532,7 +705,7 @@ export default function CashFlow() {
                                   : '-'}
                               </td>
 
-                              {/* SALDO */}
+                              {/* SALDO (fundo azul na coluna inteira, letra verde/vermelha) */}
                               <td
                                 className={`py-2 px-2 sm:px-3 text-right font-bold whitespace-nowrap text-xs bg-blue-50/70 dark:bg-blue-950/30 ${
                                   row.runningBalance > 0
@@ -571,29 +744,31 @@ export default function CashFlow() {
                       <tfoot className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-bold text-xs">
                         <tr>
                           <td className="py-2 px-2 sm:px-3 text-left uppercase text-[11px] text-muted-foreground whitespace-nowrap">
-                            Total Moto
+                            {totalLabel}
                           </td>
                           <td className="py-2 px-2 sm:px-3 text-right text-emerald-600 dark:text-emerald-400 font-extrabold whitespace-nowrap">
                             R${' '}
-                            {motoEntradasTotal.toLocaleString('pt-BR', {
+                            {targetEntradasTotal.toLocaleString('pt-BR', {
                               minimumFractionDigits: 2,
                             })}
                           </td>
                           <td className="py-2 px-2 sm:px-3 text-right text-red-600 dark:text-red-400 font-extrabold whitespace-nowrap">
                             R${' '}
-                            {motoSaidasTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            {targetSaidasTotal.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                            })}
                           </td>
                           <td
                             className={`py-2 px-2 sm:px-3 text-right font-black whitespace-nowrap bg-blue-100/60 dark:bg-blue-950/50 ${
-                              motoSaldoTotal > 0
+                              targetSaldoTotal > 0
                                 ? 'text-emerald-600 dark:text-emerald-400'
-                                : motoSaldoTotal < 0
+                                : targetSaldoTotal < 0
                                   ? 'text-red-600 dark:text-red-400'
                                   : 'text-slate-600 dark:text-slate-400'
                             }`}
                           >
                             R${' '}
-                            {motoSaldoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            {targetSaldoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </td>
                           <td className="py-2 px-2 sm:px-3 text-[11px] text-muted-foreground whitespace-nowrap">
                             {rowsWithBalance.length} mov.
@@ -608,7 +783,7 @@ export default function CashFlow() {
           )
         })()}
 
-      {/* Transactions List */}
+      {/* Extrato Detalhado de Lançamentos */}
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="text-base font-bold">Extrato Detalhado de Lançamentos</CardTitle>
@@ -631,6 +806,11 @@ export default function CashFlow() {
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {filtered.map((item) => {
                 const moto = motos.find((m) => m.id === item.moto)
+                const isEntidade = !!item.entidade
+                const entidadeConfig = isEntidade
+                  ? ENTIDADES_CONFIG[item.entidade as EntidadeTipo]
+                  : null
+
                 return (
                   <div
                     key={item.id}
@@ -659,13 +839,26 @@ export default function CashFlow() {
                             {item.categoria || item.tipo}
                           </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {formatDateDisplay(item.data)} •{' '}
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">
-                            {moto?.nome || moto?.modelo || 'Moto'}
+                        <p className="text-xs text-muted-foreground mt-0.5 flex flex-wrap items-center gap-1.5">
+                          <span>{formatDateDisplay(item.data)}</span>
+                          <span>•</span>
+                          {isEntidade && entidadeConfig ? (
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] py-0 px-1.5 font-bold ${entidadeConfig.cor}`}
+                            >
+                              {entidadeConfig.chipLabel}
+                            </Badge>
+                          ) : (
+                            <span className="font-semibold text-slate-800 dark:text-slate-200">
+                              {moto?.nome || moto?.modelo || 'Moto'}
+                              {moto?.placa && ` (${moto.placa})`}
+                            </span>
+                          )}
+                          <span>
+                            • Forma:{' '}
+                            {item.forma_pagamento ? item.forma_pagamento.toUpperCase() : 'PIX'}
                           </span>
-                          {moto?.placa && ` (${moto.placa})`} • Forma:{' '}
-                          {item.forma_pagamento ? item.forma_pagamento.toUpperCase() : 'PIX'}
                         </p>
                       </div>
                     </div>
@@ -714,11 +907,12 @@ export default function CashFlow() {
           <DialogHeader>
             <DialogTitle>Novo Lançamento no Caixa</DialogTitle>
             <DialogDescription>
-              Adicione uma receita ou despesa vinculada a uma moto.
+              Adicione uma receita ou despesa vinculada a uma moto ou entidade geral da empresa.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleCreateEntry} className="space-y-4">
+            {/* Tipo de Lançamento: Entrada vs Saída */}
             <div className="space-y-2">
               <Label>Tipo de Lançamento</Label>
               <div className="grid grid-cols-2 gap-2">
@@ -742,21 +936,80 @@ export default function CashFlow() {
               </div>
             </div>
 
+            {/* Vínculo: MOTO vs ENTIDADES */}
             <div className="space-y-2">
-              <Label htmlFor="motoId">Moto Relacionada *</Label>
-              <Select value={motoId} onValueChange={setMotoId}>
-                <SelectTrigger id="motoId">
-                  <SelectValue placeholder="Selecione a moto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {motos.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.nome || m.modelo} — {m.placa}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Vincular a:</Label>
+              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={vinculoTipo === 'moto' ? 'default' : 'ghost'}
+                  onClick={() => handleVinculoTipoChange('moto')}
+                  className={`gap-1.5 text-xs font-semibold ${
+                    vinculoTipo === 'moto'
+                      ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-white'
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  <Bike className="w-3.5 h-3.5" />
+                  Moto da Frota
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={vinculoTipo === 'entidade' ? 'default' : 'ghost'}
+                  onClick={() => handleVinculoTipoChange('entidade')}
+                  className={`gap-1.5 text-xs font-semibold ${
+                    vinculoTipo === 'entidade'
+                      ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-white'
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  Entidade Geral
+                </Button>
+              </div>
             </div>
+
+            {/* Campo condicional: Seletor de Moto OU Seletor de Entidade */}
+            {vinculoTipo === 'moto' ? (
+              <div className="space-y-2">
+                <Label htmlFor="motoId">Moto Relacionada *</Label>
+                <Select value={motoId} onValueChange={setMotoId}>
+                  <SelectTrigger id="motoId">
+                    <SelectValue placeholder="Selecione a moto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {motos.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.nome || m.modelo} — {m.placa}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="entidadeSelect">Entidade Relacionada *</Label>
+                <Select value={entidade} onValueChange={(val: EntidadeTipo) => setEntidade(val)}>
+                  <SelectTrigger id="entidadeSelect">
+                    <SelectValue placeholder="Selecione a entidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="empresa">
+                      🏢 EMPRESA (Custos gerais: aluguel ponto, contador, etc.)
+                    </SelectItem>
+                    <SelectItem value="socia">👤 EU / SÓCIA (Retiradas / Pró-labore)</SelectItem>
+                    <SelectItem value="terceiros">
+                      🤝 TERCEIROS (Pagamento de dívidas com terceiros)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  {ENTIDADES_CONFIG[entidade]?.descricao}
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="desc">Descrição do Lançamento *</Label>
@@ -764,8 +1017,16 @@ export default function CashFlow() {
                 id="desc"
                 placeholder={
                   tipo === 'entrada'
-                    ? 'Ex: Aluguel semanal Carlos'
-                    : 'Ex: Troca de pastilhas de freio'
+                    ? vinculoTipo === 'moto'
+                      ? 'Ex: Aluguel semanal Carlos'
+                      : 'Ex: Aporte / Devolução'
+                    : vinculoTipo === 'moto'
+                      ? 'Ex: Troca de pastilhas de freio'
+                      : entidade === 'empresa'
+                        ? 'Ex: Aluguel do ponto comercial, Internet, Contador'
+                        : entidade === 'socia'
+                          ? 'Ex: Retirada de lucros sócia'
+                          : 'Ex: Parcela empréstimo fornecedor'
                 }
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
@@ -820,25 +1081,33 @@ export default function CashFlow() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="catSelect">Categoria de Gasto/Entrada</Label>
+                <Label htmlFor="catSelect">Categoria</Label>
                 {tipo === 'entrada' ? (
                   <Input
                     id="catInput"
-                    placeholder="Ex: Aluguel Semanal, Caução..."
+                    placeholder="Ex: Aluguel, Caução..."
                     value={categoria}
                     onChange={(e) => setCategoria(e.target.value)}
                   />
                 ) : (
                   <Select value={categoria} onValueChange={setCategoria}>
                     <SelectTrigger id="catSelect">
-                      <SelectValue placeholder="Selecione a categoria" />
+                      <SelectValue placeholder="Selecione categoria" />
                     </SelectTrigger>
                     <SelectContent>
+                      {vinculoTipo === 'entidade' && (
+                        <SelectItem value={ENTIDADES_CONFIG[entidade].chipLabel}>
+                          {ENTIDADES_CONFIG[entidade].chipLabel}
+                        </SelectItem>
+                      )}
                       {categorias.map((c) => (
                         <SelectItem key={c.id} value={c.nome}>
                           {c.nome}
                         </SelectItem>
                       ))}
+                      <SelectItem value="Custos Gerais">Custos Gerais</SelectItem>
+                      <SelectItem value="Pró-labore">Pró-labore</SelectItem>
+                      <SelectItem value="Dívidas">Dívidas</SelectItem>
                       <SelectItem value="Outros">Outros</SelectItem>
                     </SelectContent>
                   </Select>
@@ -874,6 +1143,7 @@ export default function CashFlow() {
           </DialogHeader>
 
           <form onSubmit={handleUpdateEntry} className="space-y-4">
+            {/* Tipo de Lançamento */}
             <div className="space-y-2">
               <Label>Tipo de Lançamento</Label>
               <div className="grid grid-cols-2 gap-2">
@@ -897,31 +1167,85 @@ export default function CashFlow() {
               </div>
             </div>
 
+            {/* Vínculo: MOTO vs ENTIDADES */}
             <div className="space-y-2">
-              <Label htmlFor="editMotoId">Moto Relacionada *</Label>
-              <Select value={editMotoId} onValueChange={setEditMotoId}>
-                <SelectTrigger id="editMotoId">
-                  <SelectValue placeholder="Selecione a moto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {motos.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.nome || m.modelo} — {m.placa}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Vincular a:</Label>
+              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={editVinculoTipo === 'moto' ? 'default' : 'ghost'}
+                  onClick={() => setEditVinculoTipo('moto')}
+                  className={`gap-1.5 text-xs font-semibold ${
+                    editVinculoTipo === 'moto'
+                      ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-white'
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  <Bike className="w-3.5 h-3.5" />
+                  Moto da Frota
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={editVinculoTipo === 'entidade' ? 'default' : 'ghost'}
+                  onClick={() => setEditVinculoTipo('entidade')}
+                  className={`gap-1.5 text-xs font-semibold ${
+                    editVinculoTipo === 'entidade'
+                      ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-white'
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  Entidade Geral
+                </Button>
+              </div>
             </div>
+
+            {editVinculoTipo === 'moto' ? (
+              <div className="space-y-2">
+                <Label htmlFor="editMotoId">Moto Relacionada *</Label>
+                <Select value={editMotoId} onValueChange={setEditMotoId}>
+                  <SelectTrigger id="editMotoId">
+                    <SelectValue placeholder="Selecione a moto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {motos.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.nome || m.modelo} — {m.placa}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="editEntidadeSelect">Entidade Relacionada *</Label>
+                <Select
+                  value={editEntidade}
+                  onValueChange={(val: EntidadeTipo) => setEditEntidade(val)}
+                >
+                  <SelectTrigger id="editEntidadeSelect">
+                    <SelectValue placeholder="Selecione a entidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="empresa">
+                      🏢 EMPRESA (Custos gerais: aluguel ponto, contador, etc.)
+                    </SelectItem>
+                    <SelectItem value="socia">👤 EU / SÓCIA (Retiradas / Pró-labore)</SelectItem>
+                    <SelectItem value="terceiros">
+                      🤝 TERCEIROS (Pagamento de dívidas com terceiros)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="editDesc">Descrição do Lançamento *</Label>
               <Input
                 id="editDesc"
-                placeholder={
-                  editTipo === 'entrada'
-                    ? 'Ex: Aluguel semanal Carlos'
-                    : 'Ex: Troca de pastilhas de freio'
-                }
+                placeholder="Descrição da movimentação"
                 value={editDescricao}
                 onChange={(e) => setEditDescricao(e.target.value)}
                 required
@@ -975,7 +1299,7 @@ export default function CashFlow() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="editCatSelect">Categoria de Gasto/Entrada</Label>
+                <Label htmlFor="editCatSelect">Categoria</Label>
                 {editTipo === 'entrada' ? (
                   <Input
                     id="editCatInput"
@@ -989,11 +1313,19 @@ export default function CashFlow() {
                       <SelectValue placeholder="Selecione a categoria" />
                     </SelectTrigger>
                     <SelectContent>
+                      {editVinculoTipo === 'entidade' && (
+                        <SelectItem value={ENTIDADES_CONFIG[editEntidade].chipLabel}>
+                          {ENTIDADES_CONFIG[editEntidade].chipLabel}
+                        </SelectItem>
+                      )}
                       {categorias.map((c) => (
                         <SelectItem key={c.id} value={c.nome}>
                           {c.nome}
                         </SelectItem>
                       ))}
+                      <SelectItem value="Custos Gerais">Custos Gerais</SelectItem>
+                      <SelectItem value="Pró-labore">Pró-labore</SelectItem>
+                      <SelectItem value="Dívidas">Dívidas</SelectItem>
                       <SelectItem value="Outros">Outros</SelectItem>
                     </SelectContent>
                   </Select>

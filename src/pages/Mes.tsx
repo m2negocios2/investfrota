@@ -16,7 +16,8 @@ import { Button } from '@/components/ui/button'
 import { caixaService } from '@/services/caixa'
 import { motosService } from '@/services/motos'
 import { formatDateDisplay } from '@/lib/dateUtils'
-import { CaixaLancamento, Moto } from '@/types/database'
+import { CaixaLancamento, Moto, EntidadeTipo } from '@/types/database'
+import { ENTIDADES_CONFIG } from '@/pages/CashFlow'
 import { toast } from 'sonner'
 
 interface MonthGroup {
@@ -99,9 +100,15 @@ export default function Mes() {
         const query = search.toLowerCase()
         const desc = (item.descricao || '').toLowerCase()
         const cat = (item.categoria || '').toLowerCase()
-        const motoObj = item.expand?.moto || motosMap[item.moto]
+        const motoObj = item.expand?.moto || (item.moto ? motosMap[item.moto] : null)
         const motoNome = (motoObj?.nome || motoObj?.modelo || '').toLowerCase()
-        if (!desc.includes(query) && !cat.includes(query) && !motoNome.includes(query)) {
+        const entidadeNome = (item.entidade || '').toLowerCase()
+        if (
+          !desc.includes(query) &&
+          !cat.includes(query) &&
+          !motoNome.includes(query) &&
+          !entidadeNome.includes(query)
+        ) {
           return
         }
       }
@@ -175,11 +182,25 @@ export default function Mes() {
     })
   }, [lancamentos, motosMap, search])
 
-  // Helper para obter o nome da moto vinculada ao lançamento
-  const getMotoNome = (item: CaixaLancamento) => {
-    const motoObj = item.expand?.moto || motosMap[item.moto]
+  // Helper para obter o identificador do vínculo (moto ou entidade)
+  const getVinculoInfo = (item: CaixaLancamento) => {
+    if (item.entidade) {
+      const cfg = ENTIDADES_CONFIG[item.entidade as EntidadeTipo]
+      return {
+        tipo: 'entidade' as const,
+        label: cfg?.chipLabel || item.entidade.toUpperCase(),
+        cor: cfg?.cor || 'bg-slate-100 text-slate-800 border-slate-300',
+      }
+    }
+    const motoObj = item.expand?.moto || (item.moto ? motosMap[item.moto] : null)
     const nome = motoObj?.nome?.trim() || motoObj?.modelo?.trim()
-    return nome || '—'
+    if (nome) {
+      return {
+        tipo: 'moto' as const,
+        label: nome,
+      }
+    }
+    return null
   }
 
   // Totalizadores gerais (todos os meses visíveis)
@@ -449,7 +470,6 @@ export default function Mes() {
                             </tr>
                           ) : (
                             month.recebimentos.map((item) => {
-                              const motoNome = getMotoNome(item)
                               return (
                                 <tr
                                   key={item.id}
@@ -468,15 +488,31 @@ export default function Mes() {
                                     {formatDateDisplay(item.data)}
                                   </td>
 
-                                  {/* MOTO (3ª coluna) */}
+                                  {/* MOTO / ENTIDADE (3ª coluna) */}
                                   <td className="py-1.5 px-2 whitespace-nowrap">
-                                    {motoNome !== '—' ? (
-                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
-                                        {motoNome}
-                                      </span>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">—</span>
-                                    )}
+                                    {(() => {
+                                      const vinculo = getVinculoInfo(item)
+                                      if (!vinculo) {
+                                        return (
+                                          <span className="text-muted-foreground text-xs">—</span>
+                                        )
+                                      }
+                                      if (vinculo.tipo === 'entidade') {
+                                        return (
+                                          <span
+                                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold border ${vinculo.cor}`}
+                                            title="Lançamento da entidade da empresa"
+                                          >
+                                            {vinculo.label}
+                                          </span>
+                                        )
+                                      }
+                                      return (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                                          {vinculo.label}
+                                        </span>
+                                      )
+                                    })()}
                                   </td>
 
                                   {/* DESCRIÇÃO */}
@@ -558,7 +594,6 @@ export default function Mes() {
                             </tr>
                           ) : (
                             month.despesas.map((item) => {
-                              const motoNome = getMotoNome(item)
                               return (
                                 <tr
                                   key={item.id}
@@ -577,15 +612,31 @@ export default function Mes() {
                                     {formatDateDisplay(item.data)}
                                   </td>
 
-                                  {/* MOTO (3ª coluna) */}
+                                  {/* MOTO / ENTIDADE (3ª coluna) */}
                                   <td className="py-1.5 px-2 whitespace-nowrap">
-                                    {motoNome !== '—' ? (
-                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
-                                        {motoNome}
-                                      </span>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">—</span>
-                                    )}
+                                    {(() => {
+                                      const vinculo = getVinculoInfo(item)
+                                      if (!vinculo) {
+                                        return (
+                                          <span className="text-muted-foreground text-xs">—</span>
+                                        )
+                                      }
+                                      if (vinculo.tipo === 'entidade') {
+                                        return (
+                                          <span
+                                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold border ${vinculo.cor}`}
+                                            title="Lançamento da entidade da empresa"
+                                          >
+                                            {vinculo.label}
+                                          </span>
+                                        )
+                                      }
+                                      return (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                                          {vinculo.label}
+                                        </span>
+                                      )
+                                    })()}
                                   </td>
 
                                   {/* DESCRIÇÃO */}
