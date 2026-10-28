@@ -20,6 +20,7 @@ import {
   ListTodo,
   Zap,
   CalendarRange,
+  CreditCard,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -52,6 +53,7 @@ export default function Layout() {
     { name: 'LANÇAMENTOS RÁPIDOS', href: '/lancamentos-rapidos', icon: Zap },
     { name: 'FLUXO DE CAIXA', href: '/caixa', icon: Wallet },
     { name: 'MÊS', href: '/mes', icon: CalendarRange },
+    { name: 'CONTAS A PAGAR', href: '/contas-a-pagar', icon: CreditCard },
     { name: 'SEMANA', href: '/semana', icon: CalendarDays },
     { name: 'CAUÇÕES', href: '/caucoes', icon: Shield },
     {

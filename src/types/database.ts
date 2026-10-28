@@ -167,3 +167,45 @@ export interface Pendencia {
   created: string
   updated: string
 }
+
+export type ContaAPagarTipo = 'parcelamento' | 'consorcio' | 'financiamento' | 'outro'
+
+export interface ContaAPagar {
+  id: string
+  descricao: string
+  credor: string
+  tipo: ContaAPagarTipo
+  valor_total: number
+  quantidade_parcelas: number
+  valor_parcela: number
+  data_inicio: string
+  dia_vencimento?: number
+  observacao?: string
+  concluida?: boolean
+  created: string
+  updated: string
+}
+
+export interface ContaAPagarPagamento {
+  id: string
+  conta: string
+  data: string
+  valor: number
+  numero_parcela?: number
+  caixa_lancamento?: string
+  observacao?: string
+  created: string
+  updated: string
+  expand?: {
+    conta?: ContaAPagar
+    caixa_lancamento?: CaixaLancamento
+  }
+}
+
+export interface ContaAPagarComProgresso extends ContaAPagar {
+  totalPago: number
+  saldoRestante: number
+  quantidadePaga: number
+  percentualPago: number
+  pagamentos: ContaAPagarPagamento[]
+}

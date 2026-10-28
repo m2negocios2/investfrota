@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T23:35:37.389Z",
+  "generatedAt": "2026-10-28T16:41:34.377Z",
   "collections": [
     {
       "name": "users",
@@ -888,6 +888,169 @@
         }
       ],
       "indexes": ["CREATE INDEX idx_pendencias_feito ON pendencias (feito)"]
+    },
+    {
+      "name": "contas_a_pagar",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "credor",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["parcelamento", "consorcio", "financiamento", "outro"]
+        },
+        {
+          "name": "valor_total",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "quantidade_parcelas",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor_parcela",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_inicio",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dia_vencimento",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "concluida",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_contas_credor ON contas_a_pagar (credor)",
+        "CREATE INDEX idx_contas_tipo ON contas_a_pagar (tipo)",
+        "CREATE INDEX idx_contas_concluida ON contas_a_pagar (concluida)"
+      ]
+    },
+    {
+      "name": "contas_a_pagar_pagamentos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "conta",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "contas_a_pagar"
+        },
+        {
+          "name": "data",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "numero_parcela",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "caixa_lancamento",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "caixa_lancamentos"
+        },
+        {
+          "name": "observacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_contas_pag_conta ON contas_a_pagar_pagamentos (conta)",
+        "CREATE INDEX idx_contas_pag_data ON contas_a_pagar_pagamentos (data)",
+        "CREATE INDEX idx_contas_pag_caixa ON contas_a_pagar_pagamentos (caixa_lancamento)"
+      ]
     }
   ]
 }

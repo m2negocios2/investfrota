@@ -18,6 +18,7 @@ import MotoDetails from './pages/MotoDetails'
 import Rentals from './pages/Rentals'
 import CashFlow from './pages/CashFlow'
 import Mes from './pages/Mes'
+import ContasAPagar from './pages/ContasAPagar'
 import LancamentosRapidos from './pages/LancamentosRapidos'
 import ExpenseCategories from './pages/ExpenseCategories'
 import Reports from './pages/Reports'
@@ -59,6 +60,7 @@ const App = () => (
             <Route path="/alugueis" element={<Rentals />} />
             <Route path="/caixa" element={<CashFlow />} />
             <Route path="/mes" element={<Mes />} />
+            <Route path="/contas-a-pagar" element={<ContasAPagar />} />
             <Route path="/lancamentos-rapidos" element={<LancamentosRapidos />} />
             <Route path="/categorias-gastos" element={<ExpenseCategories />} />
             <Route path="/relatorios" element={<Reports />} />
