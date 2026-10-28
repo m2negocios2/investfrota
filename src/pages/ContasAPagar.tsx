@@ -1149,7 +1149,22 @@ export default function ContasAPagar() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="pagData">Data do Pagamento *</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="pagData">Data do Pagamento *</Label>
+                    {pagData === getTodayLocalDate() ? (
+                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-800">
+                        Hoje
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setPagData(getTodayLocalDate())}
+                        className="text-[10px] font-semibold text-rose-600 hover:text-rose-700 hover:underline"
+                      >
+                        Hoje
+                      </button>
+                    )}
+                  </div>
                   <Input
                     id="pagData"
                     type="date"
@@ -1157,6 +1172,9 @@ export default function ContasAPagar() {
                     onChange={(e) => setPagData(e.target.value)}
                     required
                   />
+                  <span className="text-[10px] text-muted-foreground block">
+                    Padrão <strong>Hoje</strong>. Altere se for retroativo.
+                  </span>
                 </div>
 
                 <div className="space-y-1">
