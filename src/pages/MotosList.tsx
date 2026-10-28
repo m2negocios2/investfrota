@@ -161,7 +161,7 @@ export default function MotosList() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
           {filteredMotos.map((moto) => {
             const statusConfig = {
               disponivel: {
@@ -199,45 +199,50 @@ export default function MotosList() {
             return (
               <Card
                 key={moto.id}
-                className="shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
+                className="shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between overflow-hidden"
               >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
+                <CardHeader className="p-3 sm:p-3.5 pb-2">
+                  <div className="flex items-start justify-between gap-1.5">
+                    <div className="min-w-0 flex-1">
                       {/* Destaque para o NOME da moto com placa secundária */}
-                      <CardTitle className="text-lg font-extrabold text-slate-900 dark:text-white truncate">
+                      <CardTitle
+                        className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white truncate"
+                        title={moto.nome || moto.modelo}
+                      >
                         {moto.nome || moto.modelo}
                       </CardTitle>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="font-mono text-xs uppercase px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <span className="font-mono text-[11px] uppercase px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded border border-slate-200 dark:border-slate-700 shrink-0">
                           {moto.placa}
                         </span>
-                        <span className="text-xs text-muted-foreground truncate">
+                        <span className="text-[11px] text-muted-foreground truncate max-w-[130px]">
                           {moto.modelo}
                         </span>
                       </div>
                     </div>
                     <Badge
                       variant="outline"
-                      className={`text-xs capitalize shrink-0 ${statusInfo.color} flex items-center gap-1`}
+                      className={`text-[10px] sm:text-[11px] px-1.5 py-0.5 font-medium capitalize shrink-0 ${statusInfo.color} flex items-center gap-1`}
                     >
-                      <StatusIcon className="w-3 h-3" />
-                      {statusInfo.label}
+                      <StatusIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      <span>{statusInfo.label}</span>
                     </Badge>
                   </div>
                 </CardHeader>
 
-                <CardContent className="space-y-3 pb-4">
-                  <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 dark:bg-slate-800/60 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                <CardContent className="space-y-2 p-3 sm:p-3.5 pt-0 pb-3">
+                  <div className="grid grid-cols-2 gap-1.5 text-[11px] bg-slate-50 dark:bg-slate-800/60 p-2 sm:p-2.5 rounded-md border border-slate-100 dark:border-slate-800">
                     <div>
-                      <span className="text-muted-foreground block">Ano / Cor:</span>
-                      <span className="font-medium text-slate-800 dark:text-slate-200">
+                      <span className="text-muted-foreground block text-[10px]">Ano / Cor:</span>
+                      <span className="font-medium text-slate-800 dark:text-slate-200 truncate block">
                         {moto.ano} • {moto.cor}
                       </span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground block">Valor Semanal:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
+                      <span className="text-muted-foreground block text-[10px]">
+                        Valor Semanal:
+                      </span>
+                      <span className="font-bold text-slate-900 dark:text-white truncate block">
                         R${' '}
                         {(moto.valor_semanal !== undefined && moto.valor_semanal !== null
                           ? moto.valor_semanal
@@ -245,9 +250,9 @@ export default function MotosList() {
                         ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
-                    <div className="col-span-2 pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
-                      <span className="text-muted-foreground">Plano Padrão: </span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200 capitalize">
+                    <div className="col-span-2 pt-1 border-t border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between">
+                      <span className="text-muted-foreground text-[10px]">Plano:</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200 capitalize text-[10px] truncate">
                         {moto.tipo_locacao_padrao === 'plano_conquista'
                           ? 'Plano Conquista'
                           : 'Locação Normal'}
@@ -256,21 +261,22 @@ export default function MotosList() {
                   </div>
 
                   {moto.observacoes && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 italic">
+                    <p className="text-[11px] text-muted-foreground line-clamp-1 italic">
                       "{moto.observacoes}"
                     </p>
                   )}
                 </CardContent>
 
-                <div className="px-6 py-3 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-1">
+                <div className="px-3 py-2 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1">
+                  <div className="flex items-center gap-0.5">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => navigate(`/motos/${moto.id}/editar`)}
-                      className="h-8 w-8 p-0 text-slate-600 hover:text-slate-900 dark:text-slate-400"
+                      className="h-7 w-7 p-0 text-slate-600 hover:text-slate-900 dark:text-slate-400"
+                      title="Editar moto"
                     >
-                      <Edit className="w-4 h-4" />
+                      <Edit className="w-3.5 h-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -279,16 +285,22 @@ export default function MotosList() {
                         setMotoToDelete(moto)
                         setDeleteModalOpen(true)
                       }}
-                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                      className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                      title="Excluir moto"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
 
-                  <Button asChild size="sm" variant="outline" className="text-xs gap-1">
+                  <Button
+                    asChild
+                    size="sm"
+                    variant="outline"
+                    className="text-[11px] h-7 px-2 gap-1 font-medium"
+                  >
                     <Link to={`/motos/${moto.id}`}>
-                      Ver Ficha Completa
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      <span>Ficha</span>
+                      <ArrowRight className="w-3 h-3" />
                     </Link>
                   </Button>
                 </div>
