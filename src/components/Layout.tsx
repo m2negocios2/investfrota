@@ -13,7 +13,6 @@ import {
   TrendingUp,
   ShieldCheck,
   ShieldAlert,
-  Tags,
   Smartphone,
   CalendarDays,
   Shield,
@@ -21,6 +20,7 @@ import {
   Zap,
   CalendarRange,
   CreditCard,
+  Building2,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -57,11 +57,11 @@ export default function Layout() {
     { name: 'SEMANA', href: '/semana', icon: CalendarDays },
     { name: 'CAUÇÕES', href: '/caucoes', icon: Shield },
     {
-      name: 'CATEGORIAS DE GASTOS',
-      href: '/categorias-gastos',
-      icon: Tags,
+      name: 'CADASTROS',
+      href: '/cadastros',
+      icon: Building2,
     },
-    { name: 'PROJEÇÕES & RELATÓRIOS', href: '/relatorios', icon: TrendingUp },
+    { name: 'RELATÓRIOS', href: '/relatorios', icon: TrendingUp },
     {
       name: 'INFRAÇÕES',
       href: '/infracoes',

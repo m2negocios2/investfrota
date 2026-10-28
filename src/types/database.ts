@@ -219,3 +219,26 @@ export interface ContaAPagarComProgresso extends ContaAPagar {
   proximaParcelaNumero: number
   proximaParcelaValorSugerido: number
 }
+
+export interface EmpresaConfig {
+  id: string
+  nome_empresa: string
+  documento?: string
+  telefone?: string
+  email?: string
+  observacoes?: string
+  created: string
+  updated: string
+}
+
+export interface Socio {
+  id: string
+  nome: string
+  funcao?: string
+  participacao_percentual?: number
+  telefone?: string
+  email?: string
+  observacao?: string
+  created: string
+  updated: string
+}

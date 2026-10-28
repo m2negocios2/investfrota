@@ -241,11 +241,10 @@ export default function Reports() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <TrendingUp className="w-6 h-6 text-primary" />
-            Projeções & Relatórios Contábeis
+            Relatórios
           </h1>
           <p className="text-sm text-muted-foreground">
-            Balanço patrimonial, DRE mensal/anual e índices de rentabilidade da{' '}
-            <strong>M2 Gestão de Motos</strong>.
+            Relatórios administrativos e contábeis da <strong>M2 Gestão de Motos</strong>.
           </p>
         </div>
 
@@ -294,42 +293,220 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Main Tabs of Reports */}
-      <Tabs value={activeReportTab} onValueChange={setActiveReportTab} className="space-y-4">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-5 max-w-3xl">
-          <TabsTrigger value="payback" className="gap-1.5 font-bold text-primary">
-            <TrendingUp className="w-3.5 h-3.5" />
-            Payback
-          </TabsTrigger>
-          <TabsTrigger value="dre-mensal" className="gap-1.5">
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            DRE Mensal
-          </TabsTrigger>
-          <TabsTrigger value="dre-anual" className="gap-1.5">
-            <Calendar className="w-3.5 h-3.5" />
-            DRE Anual
-          </TabsTrigger>
-          <TabsTrigger value="balanco" className="gap-1.5">
-            <Scale className="w-3.5 h-3.5" />
-            Balanço
-          </TabsTrigger>
-          <TabsTrigger value="indices" className="gap-1.5">
-            <Activity className="w-3.5 h-3.5" />
-            Índices & Indicadores
-          </TabsTrigger>
-        </TabsList>
+      {/* Duas Colunas de Navegação: Administrativos à Esquerda | Contábeis à Direita */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Coluna 1: Administrativos (Gerencial / Frota / Retorno de Investimento) */}
+        <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                    Administrativos (Esquerda)
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Gestão operacional, retorno por moto e indicadores de frota
+                  </CardDescription>
+                </div>
+              </div>
+              <Badge
+                variant="outline"
+                className="text-[10px] font-semibold bg-white dark:bg-slate-900"
+              >
+                Gerencial
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveReportTab('payback')}
+                className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all ${
+                  activeReportTab === 'payback'
+                    ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/50 shadow-sm ring-1 ring-blue-500'
+                    : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-slate-900'
+                }`}
+              >
+                <div
+                  className={`p-2 rounded-lg mt-0.5 ${
+                    activeReportTab === 'payback'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-sm font-bold block text-slate-900 dark:text-white">
+                    Payback por Moto
+                  </span>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+                    Régua de retorno, amortização de compra e margem de cada veículo.
+                  </p>
+                </div>
+              </button>
 
+              <button
+                type="button"
+                onClick={() => setActiveReportTab('indices')}
+                className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all ${
+                  activeReportTab === 'indices'
+                    ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/50 shadow-sm ring-1 ring-blue-500'
+                    : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-slate-900'
+                }`}
+              >
+                <div
+                  className={`p-2 rounded-lg mt-0.5 ${
+                    activeReportTab === 'indices'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  <Activity className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-sm font-bold block text-slate-900 dark:text-white">
+                    Índices & Indicadores
+                  </span>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+                    Taxa de ocupação da frota, inadimplência e ponto de equilíbrio.
+                  </p>
+                </div>
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Coluna 2: Contábeis (Demonstrações Financeiras / Contabilidade / Balanço) */}
+        <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                  <FileSpreadsheet className="w-4 h-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                    Contábeis (Direita)
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Demonstração contábil formal, apuração de resultado e patrimônio
+                  </CardDescription>
+                </div>
+              </div>
+              <Badge
+                variant="outline"
+                className="text-[10px] font-semibold bg-white dark:bg-slate-900"
+              >
+                Financeiro
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveReportTab('dre-mensal')}
+                className={`flex flex-col p-3 rounded-xl border text-left transition-all ${
+                  activeReportTab === 'dre-mensal'
+                    ? 'border-emerald-600 bg-emerald-50/80 dark:bg-emerald-950/50 shadow-sm ring-1 ring-emerald-500'
+                    : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 bg-white dark:bg-slate-900'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div
+                    className={`p-1.5 rounded-lg ${
+                      activeReportTab === 'dre-mensal'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">
+                    DRE Mensal
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Receitas, custos diretos e despesas do mês.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveReportTab('dre-anual')}
+                className={`flex flex-col p-3 rounded-xl border text-left transition-all ${
+                  activeReportTab === 'dre-anual'
+                    ? 'border-emerald-600 bg-emerald-50/80 dark:bg-emerald-950/50 shadow-sm ring-1 ring-emerald-500'
+                    : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 bg-white dark:bg-slate-900'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div
+                    className={`p-1.5 rounded-lg ${
+                      activeReportTab === 'dre-anual'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">
+                    DRE Anual
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Resultado consolidado do ano selecionado.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveReportTab('balanco')}
+                className={`flex flex-col p-3 rounded-xl border text-left transition-all ${
+                  activeReportTab === 'balanco'
+                    ? 'border-emerald-600 bg-emerald-50/80 dark:bg-emerald-950/50 shadow-sm ring-1 ring-emerald-500'
+                    : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 bg-white dark:bg-slate-900'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div
+                    className={`p-1.5 rounded-lg ${
+                      activeReportTab === 'balanco'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    <Scale className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">Balanço</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Ativo, passivo e patrimônio líquido total.
+                </p>
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Visão do Relatório Ativo selecionado pelas duas colunas */}
+      <div className="space-y-4">
         {/* ========================================================================= */}
-        {/* TAB: PAYBACK POR MOTO COM RÉGUA DE MESES/ANOS */}
+        {/* TAB: PAYBACK POR MOTO COM RÉGUA DE MESES/ANOS (Administrativo) */}
         {/* ========================================================================= */}
-        <TabsContent value="payback" className="space-y-4">
+        {activeReportTab === 'payback' && (
           <PaybackTab motos={motos} contratos={contratos} caixa={caixa} />
-        </TabsContent>
+        )}
 
         {/* ========================================================================= */}
-        {/* TAB 1: DRE MENSAL */}
+        {/* TAB 1: DRE MENSAL (Contábil) */}
         {/* ========================================================================= */}
-        <TabsContent value="dre-mensal" className="space-y-4">
+        {activeReportTab === 'dre-mensal' && (
           <Card className="shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-3 border-b">
               <div>
@@ -429,12 +606,12 @@ export default function Reports() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
         {/* ========================================================================= */}
-        {/* TAB 2: DRE ANUAL */}
+        {/* TAB 2: DRE ANUAL (Contábil) */}
         {/* ========================================================================= */}
-        <TabsContent value="dre-anual" className="space-y-4">
+        {activeReportTab === 'dre-anual' && (
           <Card className="shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-3 border-b">
               <div>
@@ -516,12 +693,12 @@ export default function Reports() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
         {/* ========================================================================= */}
-        {/* TAB 3: BALANÇO PATRIMONIAL SIMPLIFICADO */}
+        {/* TAB 3: BALANÇO PATRIMONIAL SIMPLIFICADO (Contábil) */}
         {/* ========================================================================= */}
-        <TabsContent value="balanco" className="space-y-4">
+        {activeReportTab === 'balanco' && (
           <Card className="shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-3 border-b">
               <div>
@@ -638,12 +815,12 @@ export default function Reports() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
         {/* ========================================================================= */}
-        {/* TAB 4: ÍNDICES & INDICADORES FINANCEIROS */}
+        {/* TAB 4: ÍNDICES & INDICADORES FINANCEIROS (Administrativo) */}
         {/* ========================================================================= */}
-        <TabsContent value="indices" className="space-y-4">
+        {activeReportTab === 'indices' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Margem Líquida */}
             <Card className="shadow-sm border-blue-200 dark:border-blue-900">
@@ -754,8 +931,8 @@ export default function Reports() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
     </div>
   )
 }
