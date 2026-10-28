@@ -297,50 +297,141 @@ export default function LancamentosRapidos() {
             )}
           </div>
 
-          {/* 2. Campo de PREÇO */}
-          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <Label
-                htmlFor="precoInput"
-                className="text-sm font-semibold text-slate-700 dark:text-slate-200"
-              >
-                2. Preço (R$) *
-              </Label>
-              {valorNumerico > 0 && (
-                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                  R$ {valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
-              )}
+          {/* Bloco PREÇO + DATA (lado a lado na mesma linha) */}
+          <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 2. Campo de PREÇO */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="precoInput"
+                    className="text-sm font-semibold text-slate-700 dark:text-slate-200"
+                  >
+                    2. Preço (R$) *
+                  </Label>
+                  {valorNumerico > 0 && (
+                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                      R$ {valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg pointer-events-none">
+                    R$
+                  </div>
+                  <Input
+                    id="precoInput"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    value={precoInput}
+                    onChange={(e) => setPrecoInput(e.target.value)}
+                    className="pl-12 h-12 sm:h-14 text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+                  />
+                </div>
+                {valorNumerico <= 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Digite o valor antes de tocar no botão de lançamento.
+                  </p>
+                )}
+              </div>
+
+              {/* 3. Data do Lançamento (ao lado do Preço) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="dataInput"
+                    className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5"
+                  >
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    3. Data
+                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    {dataInput === getTodayLocalDate() ? (
+                      <Badge
+                        variant="outline"
+                        className="text-[11px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800"
+                      >
+                        Hoje ({formatDateDisplay(getTodayLocalDate())})
+                      </Badge>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDataInput(getTodayLocalDate())}
+                        className="h-6 px-2 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                      >
+                        Voltar para Hoje
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-[auto_1fr] gap-2 items-center">
+                  <Button
+                    type="button"
+                    variant={dataInput === getTodayLocalDate() ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setDataInput(getTodayLocalDate())}
+                    className={`h-12 sm:h-14 px-3 sm:px-4 font-bold text-sm ${
+                      dataInput === getTodayLocalDate()
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                        : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    Hoje
+                  </Button>
+                  <Input
+                    id="dataInput"
+                    type="date"
+                    value={dataInput}
+                    onChange={(e) => setDataInput(e.target.value || getTodayLocalDate())}
+                    className="h-12 sm:h-14 text-sm sm:text-base font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Padrão <strong>Hoje</strong>. Altere se for data retroativa.
+                </p>
+              </div>
             </div>
 
-            <div className="relative">
-              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg pointer-events-none">
-                R$
+            {/* Campo de OBSERVAÇÃO (opcional, entre preço/data e os botões de ação final) */}
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="observacaoInput"
+                  className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+                >
+                  Observação <span className="font-normal text-muted-foreground">(opcional)</span>
+                </Label>
+                {observacaoInput.trim() && (
+                  <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">
+                    Acrescenta após o nome da moto
+                  </span>
+                )}
               </div>
+
               <Input
-                id="precoInput"
+                id="observacaoInput"
                 type="text"
-                inputMode="decimal"
-                placeholder="0,00"
-                value={precoInput}
-                onChange={(e) => setPrecoInput(e.target.value)}
-                className="pl-12 h-14 text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+                placeholder="Ex: troca com filtro, dianteiro, traseiro..."
+                value={observacaoInput}
+                onChange={(e) => setObservacaoInput(e.target.value)}
+                maxLength={100}
+                className="h-10 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
               />
             </div>
-            {valorNumerico <= 0 && (
-              <p className="text-xs text-muted-foreground">
-                Digite o valor antes de tocar no botão desejado.
-              </p>
-            )}
           </div>
 
-          {/* 3. Os Botões Rápidos */}
+          {/* 4. Os Botões Rápidos (Ação Final para Confirmar o Lançamento) */}
           <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                3. Botões de Lançamento
+                4. Toque no Botão para Lançar
               </Label>
-              <span className="text-xs text-muted-foreground">Toque para lançar</span>
+              <span className="text-xs text-muted-foreground">Ação final</span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
@@ -388,111 +479,6 @@ export default function LancamentosRapidos() {
                 )
               })}
             </div>
-          </div>
-
-          {/* 4. Data do Lançamento e 5. Observação */}
-          <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
-            {/* 4. Data do Lançamento */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label
-                  htmlFor="dataInput"
-                  className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5"
-                >
-                  <Calendar className="w-4 h-4 text-blue-600" />
-                  4. Data do Lançamento
-                </Label>
-                <div className="flex items-center gap-1.5">
-                  {dataInput === getTodayLocalDate() ? (
-                    <Badge
-                      variant="outline"
-                      className="text-[11px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800"
-                    >
-                      Hoje ({formatDateDisplay(getTodayLocalDate())})
-                    </Badge>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDataInput(getTodayLocalDate())}
-                      className="h-6 px-2 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
-                    >
-                      Voltar para Hoje
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-2 items-center">
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    type="button"
-                    variant={dataInput === getTodayLocalDate() ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setDataInput(getTodayLocalDate())}
-                    className={`h-11 px-4 font-bold text-sm ${
-                      dataInput === getTodayLocalDate()
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
-                        : 'border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                    }`}
-                  >
-                    Hoje
-                  </Button>
-                </div>
-                <Input
-                  id="dataInput"
-                  type="date"
-                  value={dataInput}
-                  onChange={(e) => setDataInput(e.target.value || getTodayLocalDate())}
-                  className="h-11 text-base font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Padrão é <strong>Hoje</strong> já selecionado. Se precisar lançar com outra data
-                retroativa ou futura, escolha no campo acima.
-              </p>
-            </div>
-
-            {/* 5. Campo de OBSERVAÇÃO */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label
-                  htmlFor="observacaoInput"
-                  className="text-sm font-semibold text-slate-700 dark:text-slate-200"
-                >
-                  5. Observação{' '}
-                  <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
-                </Label>
-                {observacaoInput.trim() && (
-                  <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                    Acrescenta após o nome
-                  </span>
-                )}
-              </div>
-
-              <Input
-                id="observacaoInput"
-                type="text"
-                placeholder="Ex: troca com filtro, dianteiro, traseiro..."
-                value={observacaoInput}
-                onChange={(e) => setObservacaoInput(e.target.value)}
-                maxLength={100}
-                className="h-12 text-sm sm:text-base font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
-              />
-              <p className="text-xs text-muted-foreground">
-                O que for escrito será acrescentado após o nome na descrição do lançamento (ex:
-                &quot;Óleo — {selectedMoto?.nome?.trim() || selectedMoto?.modelo?.trim() || 'Moto'}
-                {observacaoInput.trim() ? ` — ${observacaoInput.trim()}` : ' — troca com filtro'}
-                &quot;).
-              </p>
-            </div>
-
-            <p className="text-xs text-muted-foreground">
-              Escolha a moto, informe o preço e toque no botão do serviço desejado. A data padrão é
-              Hoje. Após cada lançamento, os campos de preço e observação são limpos e a data é
-              redefinida para hoje.
-            </p>
           </div>
 
           {/* Status / Orientações */}
