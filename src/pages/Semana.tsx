@@ -42,6 +42,7 @@ import { contratosService } from '@/services/contratos'
 import { recebimentosService } from '@/services/recebimentos'
 import { Moto, Contrato, Recebimento, DiaSemana } from '@/types/database'
 import { getTodayLocalDate, formatDateDisplay } from '@/lib/dateUtils'
+import { getMotoColorStyle } from '@/components/MotoSelectorGrid'
 
 import {
   NOMES_MESES,
@@ -894,120 +895,185 @@ export default function Semana() {
       {/* Modal: Confirm Payment ou Apenas Colorir */}
       <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold text-slate-900 dark:text-white">
-              O que deseja fazer com esta célula?
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Moto <strong>{cellTarget?.moto.nome || cellTarget?.moto.modelo}</strong> •{' '}
-              {cellTarget?.dia} ({cellTarget?.dateStr ? formatDateDisplay(cellTarget.dateStr) : '-'}
-              )
-            </DialogDescription>
-          </DialogHeader>
+          {(() => {
+            const motoColor = cellTarget ? getMotoColorStyle(cellTarget.moto.cor) : null
+            const comissaoPercent =
+              cellTarget?.contrato.comissao_percentual ??
+              cellTarget?.contrato.percentual_comissao ??
+              0
+            const valorSemanal = cellTarget?.valor ?? 0
+            const valorComissao = comissaoPercent > 0 ? (valorSemanal * comissaoPercent) / 100 : 0
 
-          <div className="space-y-3.5 py-1 text-xs">
-            {/* Dados do Contrato */}
-            <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border space-y-1">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Locatário:</span>
-                <span className="font-bold">
-                  {cellTarget?.contrato.locatario_nome?.trim() || 'Sem locatário'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Valor Semanal:</span>
-                <span className="font-black text-emerald-600 dark:text-emerald-400">
-                  R$ {cellTarget?.valor.toFixed(2)}
-                </span>
-              </div>
-            </div>
-
-            {/* Forma de Pagamento (usada ao Lançar) */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">
-                Forma de Pagamento (para opção com lançamento):
-              </Label>
-              <Select value={formaPagamento} onValueChange={(val: any) => setFormaPagamento(val)}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pix">PIX (Instantâneo)</SelectItem>
-                  <SelectItem value="dinheiro">Dinheiro em Espécie</SelectItem>
-                  <SelectItem value="cartao">Cartão de Débito / Crédito</SelectItem>
-                  <SelectItem value="transferencia">Transferência Bancária</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Bloco explicativo das duas opções pedidas pela usuária */}
-            <div className="space-y-2 pt-1">
-              {/* 1) APENAS COLORIR */}
-              <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="font-bold text-slate-800 dark:text-slate-100 text-xs block">
-                      1) APENAS COLORIR?
-                    </span>
-                    <span className="text-[11px] text-muted-foreground block mt-0.5">
-                      Pinta a célula de verde como paga, <strong>SEM</strong> lançar nada no Fluxo
-                      de Caixa (sem receita nem comissão).
-                    </span>
+            return (
+              <>
+                {/* 1) CABEÇALHO COM A MOTO (nome/ícone na cor, descrição) */}
+                <DialogHeader className="space-y-1.5 pb-1 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 ${
+                        motoColor ? `${motoColor.bgSoft} ${motoColor.borderSoft}` : 'bg-slate-100'
+                      }`}
+                    >
+                      <Bike
+                        className="w-5 h-5"
+                        style={{ color: motoColor?.color || '#2563eb' }}
+                        strokeWidth={2.4}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <DialogTitle className="text-base font-bold text-slate-900 dark:text-white truncate">
+                        {cellTarget?.moto.nome || cellTarget?.moto.modelo || 'Moto'}
+                      </DialogTitle>
+                      <DialogDescription className="text-xs text-muted-foreground truncate">
+                        {cellTarget?.moto.modelo}
+                        {cellTarget?.moto.placa ? ` • Placa ${cellTarget.moto.placa}` : ''}
+                        {cellTarget?.moto.cor ? ` • Cor ${cellTarget.moto.cor}` : ''}
+                      </DialogDescription>
+                    </div>
                   </div>
+                </DialogHeader>
+
+                <div className="space-y-3 pt-2 text-xs">
+                  {/* 2) LOGO ABAIXO, A PERGUNTA 1 COM SEU BOTÃO */}
+                  <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 space-y-2 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <span className="font-bold text-slate-800 dark:text-slate-100 text-xs block">
+                          1) APENAS COLORIR?
+                        </span>
+                        <span className="text-[11px] text-muted-foreground block mt-0.5 leading-snug">
+                          Pinta a célula de verde como paga, <strong>SEM</strong> lançar nada no
+                          Fluxo de Caixa (sem receita nem comissão).
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleApenasColorir}
+                        disabled={submittingAction}
+                        className="h-8 text-xs font-bold border-emerald-500 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 shrink-0"
+                      >
+                        Colorir
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* 3) A PERGUNTA 2 COM SEU BOTÃO */}
+                  <div className="p-3 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/30 space-y-2.5 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <span className="font-bold text-emerald-900 dark:text-emerald-200 text-xs block">
+                          2) Colorir e Lançar pagamento?
+                        </span>
+                        <span className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80 block mt-0.5 leading-snug">
+                          Colore a célula de verde <strong>E LANÇA</strong> a receita no Fluxo de
+                          Caixa mais a comissão automática do contrato.
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleColorirELancarPagamento}
+                        disabled={submittingAction}
+                        className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+                      >
+                        Colorir e Lançar
+                      </Button>
+                    </div>
+
+                    {/* Forma de Pagamento (usada ao Lançar) */}
+                    <div className="pt-1 border-t border-emerald-200/60 dark:border-emerald-800/60 space-y-1">
+                      <Label className="text-[11px] font-semibold text-emerald-900 dark:text-emerald-200">
+                        Forma de Pagamento (ao lançar no Caixa):
+                      </Label>
+                      <Select
+                        value={formaPagamento}
+                        onValueChange={(val: any) => setFormaPagamento(val)}
+                      >
+                        <SelectTrigger className="h-8 text-xs bg-white dark:bg-slate-900 border-emerald-300 dark:border-emerald-800">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pix">PIX (Instantâneo)</SelectItem>
+                          <SelectItem value="dinheiro">Dinheiro em Espécie</SelectItem>
+                          <SelectItem value="cartao">Cartão de Débito / Crédito</SelectItem>
+                          <SelectItem value="transferencia">Transferência Bancária</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* 4) ABAIXO DA PERGUNTA 2, BLOCO COM OS DADOS DE PAGAMENTO DA CÉLULA */}
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-200 dark:border-slate-700">
+                      <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">
+                        Dados de Pagamento da Célula
+                      </span>
+                      <span className="text-[11px] font-mono text-muted-foreground">
+                        {cellTarget?.weekCode}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-muted-foreground block text-[11px]">Data / Dia:</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-100">
+                          {cellTarget?.dia} •{' '}
+                          {cellTarget?.dateStr ? formatDateDisplay(cellTarget.dateStr) : '—'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[11px]">Locatário:</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-100 truncate block">
+                          {cellTarget?.contrato.locatario_nome?.trim() || 'Sem locatário'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[11px]">
+                          Valor Semanal do Contrato:
+                        </span>
+                        <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm">
+                          R$ {valorSemanal.toFixed(2)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[11px]">
+                          Comissão do Contrato:
+                        </span>
+                        {comissaoPercent > 0 ? (
+                          <span className="font-bold text-slate-800 dark:text-slate-100">
+                            {comissaoPercent}%{' '}
+                            <span className="text-muted-foreground font-normal">
+                              (R$ {valorComissao.toFixed(2)})
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground italic">Sem comissão</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <DialogFooter className="pt-2">
                   <Button
                     type="button"
+                    variant="ghost"
                     size="sm"
-                    variant="outline"
-                    onClick={handleApenasColorir}
+                    onClick={() => {
+                      setPaymentModalOpen(false)
+                      setCellTarget(null)
+                    }}
                     disabled={submittingAction}
-                    className="h-8 text-xs font-bold border-emerald-500 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 shrink-0"
+                    className="text-xs"
                   >
-                    Colorir
+                    Cancelar
                   </Button>
-                </div>
-              </div>
-
-              {/* 2) Colorir e Lançar pagamento */}
-              <div className="p-3 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/30 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="font-bold text-emerald-900 dark:text-emerald-200 text-xs block">
-                      2) Colorir e Lançar pagamento
-                    </span>
-                    <span className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80 block mt-0.5">
-                      Colore a célula de verde <strong>E LANÇA</strong> a receita no Fluxo de Caixa
-                      mais a comissão automática do contrato.
-                    </span>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleColorirELancarPagamento}
-                    disabled={submittingAction}
-                    className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
-                  >
-                    Colorir e Lançar
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="pt-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setPaymentModalOpen(false)
-                setCellTarget(null)
-              }}
-              disabled={submittingAction}
-              className="text-xs"
-            >
-              Cancelar
-            </Button>
-          </DialogFooter>
+                </DialogFooter>
+              </>
+            )
+          })()}
         </DialogContent>
       </Dialog>
 
