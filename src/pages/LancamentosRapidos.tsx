@@ -387,7 +387,7 @@ export default function LancamentosRapidos() {
                     id="dataInput"
                     type="date"
                     value={dataInput}
-                    onChange={(e) => setDataInput(e.target.value || getTodayLocalDate())}
+                    onChange={(e) => setDataInput(e.target.value)}
                     className="h-12 sm:h-14 text-sm sm:text-base font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
                   />
                 </div>
