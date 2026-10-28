@@ -8,8 +8,8 @@ import {
   Receipt,
   Edit,
   Plus,
-  CircleDot,
-  CircleCheckBig,
+  Circle,
+  CircleCheck,
   Clock,
   Wrench,
   TrendingUp,
@@ -126,10 +126,10 @@ export default function MotoDetails() {
   // Active Contract
   const activeContract = contratos.find((c) => c.status === 'ativo')
 
-  // Símbolos dos selos de status: Locada = círculo preenchido, Disponível = novo ícone próprio
+  // Símbolos dos selos de status: Locada = círculo com check (CircleCheck), Disponível = círculo vazio (Circle)
   const statusBadgeConfig: Record<string, { label: string; icon: typeof Bike }> = {
-    disponivel: { label: 'Disponível', icon: CircleCheckBig },
-    locada: { label: 'Locada', icon: CircleDot },
+    disponivel: { label: 'Disponível', icon: Circle },
+    locada: { label: 'Locada', icon: CircleCheck },
     manutencao: { label: 'Em Manutenção', icon: Wrench },
     em_loja_detran: { label: 'Em Loja/Detran', icon: Clock },
   }
