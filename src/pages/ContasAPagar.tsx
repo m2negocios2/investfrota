@@ -340,8 +340,15 @@ export default function ContasAPagar() {
 
   const handleOpenRegistrarPagamento = (conta: ContaAPagarComProgresso) => {
     setPagamentoConta(conta)
-    setPagData(getTodayLocalDate())
-    setPagNumeroParcela(conta.proximaParcelaNumero)
+    const numParcela = conta.proximaParcelaNumero
+    setPagNumeroParcela(numParcela)
+
+    // Data padrão: data de vencimento da parcela selecionada (ou hoje como fallback)
+    const parcelaItem = conta.parcelasCalculadas.find((p) => p.numero === numParcela)
+    const dataInicial = parcelaItem?.data_vencimento
+      ? normalizeDateInput(parcelaItem.data_vencimento)
+      : getTodayLocalDate()
+    setPagData(dataInicial)
 
     // Sugestão baseada no valor da parcela daquela posição específica
     const sugestao =
@@ -1133,12 +1140,15 @@ export default function ContasAPagar() {
                     onChange={(e) => {
                       const n = parseInt(e.target.value, 10)
                       setPagNumeroParcela(n)
-                      // Ao mudar o número da parcela, sugerir o valor cadastrado para ela
+                      // Ao mudar o número da parcela, atualizar para o vencimento e valor da nova parcela
                       const parcelaItem = pagamentoConta.parcelasCalculadas.find(
                         (p) => p.numero === n,
                       )
                       if (parcelaItem && parcelaItem.valor > 0) {
                         setPagValor(String(parcelaItem.valor))
+                      }
+                      if (parcelaItem?.data_vencimento) {
+                        setPagData(normalizeDateInput(parcelaItem.data_vencimento))
                       }
                     }}
                     required
@@ -1173,7 +1183,8 @@ export default function ContasAPagar() {
                     required
                   />
                   <span className="text-[10px] text-muted-foreground block">
-                    Padrão <strong>Hoje</strong>. Altere se for retroativo.
+                    Padrão: <strong>vencimento da parcela</strong>. Use "Hoje" ou edite se
+                    necessário.
                   </span>
                 </div>
 
