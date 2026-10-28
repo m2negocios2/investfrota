@@ -5,18 +5,13 @@ import {
   Plus,
   Bike,
   Calendar,
-  CheckCircle,
-  XCircle,
   User,
   Clock,
-  ShieldCheck,
-  CreditCard,
-  AlertCircle,
   Trash2,
   AlertTriangle,
   Pencil,
 } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -36,7 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import { contratosService } from '@/services/contratos'
 import { motosService } from '@/services/motos'
@@ -44,7 +38,7 @@ import { recebimentosService } from '@/services/recebimentos'
 import { FinalizeContractModal } from '@/components/FinalizeContractModal'
 import { MotoCardButton } from '@/components/MotoSelectorGrid'
 import { getTodayLocalDate, formatDateDisplay } from '@/lib/dateUtils'
-import { Contrato, Moto, TipoLocacao, Recebimento } from '@/types/database'
+import { Contrato, Moto, TipoLocacao } from '@/types/database'
 
 export default function Rentals() {
   const [searchParams] = useSearchParams()
@@ -52,7 +46,6 @@ export default function Rentals() {
 
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [motos, setMotos] = useState<Moto[]>([])
-  const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
   const [loading, setLoading] = useState(true)
 
   // New / Edit Contract Dialog
@@ -75,13 +68,6 @@ export default function Rentals() {
   const [observacoes, setObservacoes] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  // Register payment dialog
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
-  const [selectedRecebimento, setSelectedRecebimento] = useState<Recebimento | null>(null)
-  const [formaPagamento, setFormaPagamento] = useState<
-    'pix' | 'dinheiro' | 'cartao' | 'transferencia'
-  >('pix')
-
   // Finalize contract dialog with custom end date
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false)
   const [contractToFinalize, setContractToFinalize] = useState<Contrato | null>(null)
@@ -93,14 +79,9 @@ export default function Rentals() {
 
   const loadData = async () => {
     try {
-      const [c, m, r] = await Promise.all([
-        contratosService.getAll(),
-        motosService.getAll(),
-        recebimentosService.getAll(),
-      ])
+      const [c, m] = await Promise.all([contratosService.getAll(), motosService.getAll()])
       setContratos(c)
       setMotos(m)
-      setRecebimentos(r)
     } catch (err) {
       console.error(err)
       toast.error('Erro ao carregar contratos')
@@ -402,31 +383,6 @@ export default function Rentals() {
     }
   }
 
-  const handleConfirmRecebimento = async () => {
-    if (!selectedRecebimento) return
-    try {
-      const todayStr = getTodayLocalDate()
-      await recebimentosService.marcarComoPago(
-        selectedRecebimento.id,
-        selectedRecebimento.moto,
-        selectedRecebimento.valor,
-        selectedRecebimento.locatario_nome,
-        formaPagamento,
-        todayStr,
-        selectedRecebimento.contrato,
-      )
-      toast.success('Recebimento registrado e lançado no caixa!')
-      setPaymentDialogOpen(false)
-      loadData()
-    } catch (err) {
-      console.error(err)
-      toast.error('Erro ao confirmar recebimento')
-    }
-  }
-
-  const activeContratos = contratos.filter((c) => c.status === 'ativo')
-  const availableMotos = motos.filter((m) => m.status === 'disponivel')
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -435,7 +391,7 @@ export default function Rentals() {
             Aluguéis e Contratos
           </h1>
           <p className="text-sm text-muted-foreground">
-            Acompanhe motos locadas, contratos ativos e status de recebimentos.
+            Acompanhe motos locadas e o histórico de contratos de cada veículo.
           </p>
         </div>
         <Button onClick={() => handleOpenNewContract()} className="gap-2">
@@ -444,486 +400,279 @@ export default function Rentals() {
         </Button>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="locadas" className="space-y-4">
-        <TabsList className="grid grid-cols-3 max-w-lg">
-          <TabsTrigger value="locadas">Motos Locadas ({motos.length})</TabsTrigger>
-          <TabsTrigger value="disponiveis">Disponíveis ({availableMotos.length})</TabsTrigger>
-          <TabsTrigger value="recebimentos">Recebimentos</TabsTrigger>
-        </TabsList>
+      {/* Visão direta: Duas colunas por Moto (Motos à esquerda e Contratos em quadradinhos à direita) */}
+      {motos.length === 0 ? (
+        <Card className="shadow-sm">
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <Bike className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+            <p className="font-semibold text-base text-slate-800 dark:text-slate-200">
+              Nenhuma moto cadastrada ainda
+            </p>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1 mb-4">
+              Cadastre sua primeira moto para gerenciar aluguéis e gerar contratos.
+            </p>
+            <Button asChild size="sm" className="gap-2">
+              <Link to="/motos/nova">
+                <Plus className="w-4 h-4" />
+                Cadastrar Moto
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {motos.map((moto) => {
+            // Contratos da moto ordenados: ativo primeiro, e por data_inicio decrescente
+            const motoContratos = contratos
+              .filter((c) => c.moto === moto.id)
+              .sort((a, b) => {
+                const aIsAtivo = a.status === 'ativo' ? 1 : 0
+                const bIsAtivo = b.status === 'ativo' ? 1 : 0
+                if (aIsAtivo !== bIsAtivo) {
+                  return bIsAtivo - aIsAtivo // Ativo primeiro
+                }
+                const dateA = a.data_inicio || ''
+                const dateB = b.data_inicio || ''
+                return dateB.localeCompare(dateA) // Mais recente primeiro
+              })
 
-        {/* Tab 1: Layout Duas Colunas por Moto */}
-        <TabsContent value="locadas" className="space-y-4">
-          {motos.length === 0 ? (
-            <Card className="shadow-sm">
-              <CardContent className="py-12 text-center text-muted-foreground">
-                <Bike className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
-                <p className="font-semibold text-base text-slate-800 dark:text-slate-200">
-                  Nenhuma moto cadastrada ainda
-                </p>
-                <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1 mb-4">
-                  Cadastre sua primeira moto para gerenciar aluguéis, gerar contratos e acompanhar
-                  recebimentos.
-                </p>
-                <Button asChild size="sm" className="gap-2">
-                  <Link to="/motos/nova">
-                    <Plus className="w-4 h-4" />
-                    Cadastrar Moto
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {motos.map((moto) => {
-                // Contratos da moto ordenados: ativo primeiro, e por data_inicio decrescente
-                const motoContratos = contratos
-                  .filter((c) => c.moto === moto.id)
-                  .sort((a, b) => {
-                    const aIsAtivo = a.status === 'ativo' ? 1 : 0
-                    const bIsAtivo = b.status === 'ativo' ? 1 : 0
-                    if (aIsAtivo !== bIsAtivo) {
-                      return bIsAtivo - aIsAtivo // Ativo primeiro
-                    }
-                    const dateA = a.data_inicio || ''
-                    const dateB = b.data_inicio || ''
-                    return dateB.localeCompare(dateA) // Mais recente primeiro
-                  })
+            const hasActiveContract = motoContratos.some((c) => c.status === 'ativo')
 
-                const hasActiveContract = motoContratos.some((c) => c.status === 'ativo')
+            return (
+              <div
+                key={moto.id}
+                className="p-3 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-stretch gap-3 sm:gap-4"
+              >
+                {/* Coluna ESQUERDA: Ícone/botão da moto com cor cadastrada, nome e placa */}
+                <div className="w-full md:w-64 lg:w-72 shrink-0 flex flex-col justify-between gap-2.5 pb-3 md:pb-0 md:pr-4 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800">
+                  <div className="space-y-2">
+                    <Link to={`/motos/${moto.id}`} className="block group">
+                      <MotoCardButton
+                        moto={moto}
+                        isSelected={hasActiveContract}
+                        onClick={() => {}}
+                      />
+                    </Link>
 
-                return (
-                  <div
-                    key={moto.id}
-                    className="p-3 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-stretch gap-3 sm:gap-4"
-                  >
-                    {/* Coluna ESQUERDA: Ícone/botão da moto com cor cadastrada, nome e placa */}
-                    <div className="w-full md:w-64 lg:w-72 shrink-0 flex flex-col justify-between gap-2.5 pb-3 md:pb-0 md:pr-4 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800">
-                      <div className="space-y-2">
-                        <Link to={`/motos/${moto.id}`} className="block group">
-                          <MotoCardButton
-                            moto={moto}
-                            isSelected={hasActiveContract}
-                            onClick={() => {}}
-                          />
-                        </Link>
-
-                        {/* Metadados e status da moto */}
-                        <div className="flex items-center justify-between text-xs px-1">
-                          <span className="text-muted-foreground">Status atual:</span>
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] font-semibold capitalize ${
-                              moto.status === 'locada'
-                                ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300'
-                                : moto.status === 'disponivel'
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300'
-                                  : moto.status === 'em_loja_detran'
-                                    ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300'
-                                    : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300'
-                            }`}
-                          >
-                            {moto.status === 'em_loja_detran' ? 'Em Loja / Detran' : moto.status}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      {/* Ações da moto na coluna esquerda */}
-                      <div className="flex items-center gap-2 pt-1">
-                        <Button
-                          asChild
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 h-8 text-xs gap-1"
-                        >
-                          <Link to={`/motos/${moto.id}`}>Ver Ficha</Link>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="default"
-                          className="flex-1 h-8 text-xs gap-1"
-                          onClick={() => handleOpenNewContract(moto.id)}
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          Novo Contrato
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Coluna DIREITA: Quadradinhos de contratos da moto */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                      {motoContratos.length === 0 ? (
-                        <div className="py-6 px-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-center bg-slate-50/50 dark:bg-slate-950/40 flex flex-col items-center justify-center gap-2">
-                          <KeyRound className="w-6 h-6 text-slate-400 dark:text-slate-500" />
-                          <p className="text-xs text-muted-foreground">
-                            Nenhum contrato cadastrado para esta moto.
-                          </p>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 h-7 px-2.5"
-                            onClick={() => handleOpenNewContract(moto.id)}
-                          >
-                            <Plus className="w-3.5 h-3.5 mr-1" />
-                            Criar Primeiro Contrato
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
-                          {motoContratos.map((contrato, idx) => {
-                            const isAtivo = contrato.status === 'ativo'
-                            const isFirst = idx === 0
-                            const semanal =
-                              contrato.valor_semanal !== undefined &&
-                              contrato.valor_semanal !== null
-                                ? contrato.valor_semanal
-                                : contrato.valor_diario * 7
-
-                            return (
-                              <div
-                                key={contrato.id}
-                                className={`relative rounded-xl p-3 flex flex-col justify-between transition-all border text-left ${
-                                  isAtivo
-                                    ? 'bg-gradient-to-br from-white to-emerald-50/30 dark:from-slate-900 dark:to-emerald-950/20 border-emerald-500 dark:border-emerald-600 shadow-sm ring-1 ring-emerald-500/30'
-                                    : 'bg-slate-50/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-90 hover:opacity-100 hover:border-slate-300 dark:hover:border-slate-700'
-                                }`}
-                              >
-                                {/* Topo do quadradinho: Locatário e Badges */}
-                                <div className="space-y-1.5">
-                                  <div className="flex items-start justify-between gap-1.5">
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center gap-1">
-                                        <User className="w-3.5 h-3.5 shrink-0 text-slate-500 dark:text-slate-400" />
-                                        <p
-                                          className="font-bold text-xs truncate text-slate-900 dark:text-white"
-                                          title={contrato.locatario_nome}
-                                        >
-                                          {contrato.locatario_nome}
-                                        </p>
-                                      </div>
-                                      {contrato.locatario_telefone && (
-                                        <p className="text-[10px] text-muted-foreground truncate pl-4">
-                                          {contrato.locatario_telefone}
-                                        </p>
-                                      )}
-                                    </div>
-
-                                    {/* Status Badge */}
-                                    <Badge
-                                      variant="outline"
-                                      className={`text-[9px] px-1.5 py-0 leading-tight uppercase shrink-0 font-bold ${
-                                        isAtivo
-                                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-700'
-                                          : 'bg-slate-200/70 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
-                                      }`}
-                                    >
-                                      {isAtivo ? 'ATIVO' : 'ENCERRADO'}
-                                    </Badge>
-                                  </div>
-
-                                  {/* Tipo de Contrato & Valor Semanal */}
-                                  <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100 dark:border-slate-800/80">
-                                    <Badge
-                                      variant="secondary"
-                                      className={`text-[9px] px-1.5 py-0 ${
-                                        contrato.tipo === 'plano_conquista'
-                                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300'
-                                          : 'bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300'
-                                      }`}
-                                    >
-                                      {contrato.tipo === 'plano_conquista' ? 'Conquista' : 'Normal'}
-                                    </Badge>
-                                    <span className="font-extrabold text-xs text-slate-900 dark:text-white">
-                                      R$ {semanal.toFixed(2)}
-                                      <span className="text-[9px] font-normal text-muted-foreground">
-                                        /sem
-                                      </span>
-                                    </span>
-                                  </div>
-
-                                  {/* Período: Início e Fim */}
-                                  <div className="space-y-0.5 text-[10px] bg-white/70 dark:bg-slate-950/40 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
-                                    <div className="flex items-center justify-between text-muted-foreground">
-                                      <span className="flex items-center gap-1">
-                                        <Calendar className="w-3 h-3 text-slate-400" />
-                                        Início:
-                                      </span>
-                                      <span className="font-medium text-slate-800 dark:text-slate-200">
-                                        {formatDateDisplay(contrato.data_inicio)}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-muted-foreground">
-                                      <span className="flex items-center gap-1">
-                                        <Clock className="w-3 h-3 text-slate-400" />
-                                        Fim:
-                                      </span>
-                                      <span className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[100px] text-right">
-                                        {contrato.data_entrega
-                                          ? formatDateDisplay(contrato.data_entrega)
-                                          : contrato.prazo_meses
-                                            ? `${contrato.prazo_meses} meses`
-                                            : 'Sem término'}
-                                      </span>
-                                    </div>
-                                    {(contrato.comissao_percentual ??
-                                    contrato.percentual_comissao) ? (
-                                      <div className="flex items-center justify-between text-[9px] text-purple-700 dark:text-purple-300 pt-0.5 border-t border-slate-100 dark:border-slate-800">
-                                        <span>Comissão:</span>
-                                        <span className="font-semibold">
-                                          {contrato.comissao_percentual ??
-                                            contrato.percentual_comissao}
-                                          %
-                                        </span>
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                </div>
-
-                                {/* Barra de Ações Compactas no rodapé do Quadradinho */}
-                                <div className="mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1">
-                                  {isAtivo ? (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleOpenFinalizeModal(contrato)}
-                                      className="h-7 px-2 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 font-medium"
-                                      title="Finalizar contrato com data de encerramento"
-                                    >
-                                      Finalizar
-                                    </Button>
-                                  ) : (
-                                    <span className="text-[10px] text-muted-foreground italic px-1">
-                                      Finalizado
-                                    </span>
-                                  )}
-
-                                  <div className="flex items-center gap-0.5">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => handleOpenEditContract(contrato)}
-                                      title="Editar contrato"
-                                      aria-label="Editar contrato"
-                                      className="h-7 w-7 text-slate-600 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-300 dark:hover:bg-blue-950/40"
-                                    >
-                                      <Pencil className="w-3.5 h-3.5" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => handleOpenDeleteModal(contrato)}
-                                      title="Apagar contrato feito por engano"
-                                      aria-label="Apagar contrato feito por engano"
-                                      className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
+                    {/* Metadados e status da moto */}
+                    <div className="flex items-center justify-between text-xs px-1">
+                      <span className="text-muted-foreground">Status atual:</span>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] font-semibold capitalize ${
+                          moto.status === 'locada'
+                            ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300'
+                            : moto.status === 'disponivel'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300'
+                              : moto.status === 'em_loja_detran'
+                                ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300'
+                                : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300'
+                        }`}
+                      >
+                        {moto.status === 'em_loja_detran' ? 'Em Loja / Detran' : moto.status}
+                      </Badge>
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </TabsContent>
 
-        {/* Tab 2: Motos Disponíveis */}
-        <TabsContent value="disponiveis" className="space-y-4">
-          {availableMotos.length === 0 ? (
-            <Card className="shadow-sm">
-              <CardContent className="py-12 text-center text-muted-foreground">
-                <CheckCircle className="w-10 h-10 mx-auto text-emerald-500 mb-2" />
-                <p className="font-semibold text-slate-800 dark:text-slate-200">
-                  100% da frota alugada ou em oficina!
-                </p>
-                <p className="text-xs">Nenhuma moto ociosa no momento.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {availableMotos.map((moto) => (
-                <Card key={moto.id} className="shadow-sm hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base font-bold">
-                      {moto.nome || moto.modelo}
-                    </CardTitle>
-                    <CardDescription className="flex items-center gap-2 mt-1">
-                      <span className="font-mono text-xs font-semibold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded border">
-                        {moto.placa}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{moto.modelo}</span>
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="text-xs text-muted-foreground">
-                      <p>
-                        Ano: {moto.ano} • Cor: {moto.cor}
-                      </p>
-                      <p className="font-bold text-slate-800 dark:text-slate-200 mt-1">
-                        Semanal: R${' '}
-                        {(moto.valor_semanal !== undefined && moto.valor_semanal !== null
-                          ? moto.valor_semanal
-                          : (moto.valor_diario || 0) * 7
-                        ).toFixed(2)}
-                      </p>
-                    </div>
+                  {/* Ações da moto na coluna esquerda */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 h-8 text-xs gap-1"
+                    >
+                      <Link to={`/motos/${moto.id}`}>Ver Ficha</Link>
+                    </Button>
                     <Button
                       size="sm"
-                      className="w-full text-xs"
+                      variant="default"
+                      className="flex-1 h-8 text-xs gap-1"
                       onClick={() => handleOpenNewContract(moto.id)}
                     >
-                      <KeyRound className="w-3.5 h-3.5 mr-1.5" />
-                      Alugar Esta Moto
+                      <Plus className="w-3.5 h-3.5" />
+                      Novo Contrato
                     </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Tab 3: Recebimentos */}
-        <TabsContent value="recebimentos" className="space-y-4">
-          <Card className="shadow-sm">
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-4">
-              <div>
-                <CardTitle className="text-base font-bold">Cobranças & Recebimentos</CardTitle>
-                <CardDescription>
-                  Controle de parcelas em dia, em atraso e pagas pelos locatários vinculadas aos
-                  contratos
-                </CardDescription>
-              </div>
-              <span className="text-xs text-muted-foreground bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md">
-                {recebimentos.length} lançamento(s)
-              </span>
-            </CardHeader>
-            <CardContent>
-              {recebimentos.length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground">
-                  <CreditCard className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-                  <p className="font-semibold text-slate-800 dark:text-slate-200">
-                    Nenhum recebimento registrado
-                  </p>
-                  <p className="text-xs mt-1">
-                    Ao criar um contrato de locação, as parcelas semanais aparecem aqui.
-                  </p>
+                  </div>
                 </div>
-              ) : (
-                <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {recebimentos.map((r) => {
-                    const statusColors = {
-                      em_dia: 'bg-blue-50 text-blue-700 border-blue-200',
-                      em_atraso: 'bg-amber-50 text-amber-700 border-amber-300',
-                      pago: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                    }
-                    const relatedContrato = r.contrato
-                      ? contratos.find((c) => c.id === r.contrato)
-                      : null
-                    const moto = motos.find((m) => m.id === r.moto)
 
-                    return (
-                      <div
-                        key={r.id}
-                        className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-900/40 px-2 rounded-lg transition-colors"
+                {/* Coluna DIREITA: Quadradinhos de contratos da moto */}
+                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                  {motoContratos.length === 0 ? (
+                    <div className="py-6 px-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-center bg-slate-50/50 dark:bg-slate-950/40 flex flex-col items-center justify-center gap-2">
+                      <KeyRound className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                      <p className="text-xs text-muted-foreground">
+                        Nenhum contrato cadastrado para esta moto.
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 h-7 px-2.5"
+                        onClick={() => handleOpenNewContract(moto.id)}
                       >
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-sm text-slate-900 dark:text-white">
-                              {r.locatario_nome}
-                            </span>
-                            {moto && (
-                              <span className="font-mono text-[11px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded border text-muted-foreground">
-                                {moto.placa}
-                              </span>
-                            )}
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] capitalize ${statusColors[r.status]}`}
-                            >
-                              {r.status.replace('_', ' ')}
-                            </Badge>
-                            {relatedContrato && (
-                              <Badge variant="secondary" className="text-[10px]">
-                                Contrato: {relatedContrato.status.toUpperCase()}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            Vencimento: {formatDateDisplay(r.data_vencimento)}
-                            {r.data_pagamento
-                              ? ` • Pago em: ${formatDateDisplay(r.data_pagamento)}`
-                              : ''}
-                            {r.forma_pagamento ? ` (${r.forma_pagamento.toUpperCase()})` : ''}
-                          </p>
-                        </div>
+                        <Plus className="w-3.5 h-3.5 mr-1" />
+                        Criar Primeiro Contrato
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
+                      {motoContratos.map((contrato) => {
+                        const isAtivo = contrato.status === 'ativo'
+                        const semanal =
+                          contrato.valor_semanal !== undefined && contrato.valor_semanal !== null
+                            ? contrato.valor_semanal
+                            : contrato.valor_diario * 7
 
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-slate-900 dark:text-white">
-                            R$ {r.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
+                        return (
+                          <div
+                            key={contrato.id}
+                            className={`relative rounded-xl p-3 flex flex-col justify-between transition-all border text-left ${
+                              isAtivo
+                                ? 'bg-gradient-to-br from-white to-emerald-50/30 dark:from-slate-900 dark:to-emerald-950/20 border-emerald-500 dark:border-emerald-600 shadow-sm ring-1 ring-emerald-500/30'
+                                : 'bg-slate-50/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-90 hover:opacity-100 hover:border-slate-300 dark:hover:border-slate-700'
+                            }`}
+                          >
+                            {/* Topo do quadradinho: Locatário e Badges */}
+                            <div className="space-y-1.5">
+                              <div className="flex items-start justify-between gap-1.5">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1">
+                                    <User className="w-3.5 h-3.5 shrink-0 text-slate-500 dark:text-slate-400" />
+                                    <p
+                                      className="font-bold text-xs truncate text-slate-900 dark:text-white"
+                                      title={contrato.locatario_nome}
+                                    >
+                                      {contrato.locatario_nome}
+                                    </p>
+                                  </div>
+                                  {contrato.locatario_telefone && (
+                                    <p className="text-[10px] text-muted-foreground truncate pl-4">
+                                      {contrato.locatario_telefone}
+                                    </p>
+                                  )}
+                                </div>
 
-                          {r.status !== 'pago' ? (
-                            <Button
-                              size="sm"
-                              variant="default"
-                              className="text-xs h-8 bg-emerald-600 hover:bg-emerald-700"
-                              onClick={() => {
-                                setSelectedRecebimento(r)
-                                setPaymentDialogOpen(true)
-                              }}
-                            >
-                              <CreditCard className="w-3.5 h-3.5 mr-1" />
-                              Baixar / Pago
-                            </Button>
-                          ) : (
-                            <Badge
-                              variant="secondary"
-                              className="text-xs text-emerald-700 bg-emerald-50"
-                            >
-                              Confirmado no Caixa
-                            </Badge>
-                          )}
+                                {/* Status Badge */}
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[9px] px-1.5 py-0 leading-tight uppercase shrink-0 font-bold ${
+                                    isAtivo
+                                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-700'
+                                      : 'bg-slate-200/70 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                                  }`}
+                                >
+                                  {isAtivo ? 'ATIVO' : 'ENCERRADO'}
+                                </Badge>
+                              </div>
 
-                          {relatedContrato && (
-                            <div className="flex items-center">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleOpenEditContract(relatedContrato)}
-                                title="Editar contrato deste recebimento"
-                                aria-label="Editar contrato"
-                                className="h-8 w-8 text-slate-600 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-300 dark:hover:bg-blue-950/40 transition-colors"
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleOpenDeleteModal(relatedContrato)}
-                                title="Apagar contrato deste recebimento feito por engano"
-                                aria-label="Apagar contrato feito por engano"
-                                className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
+                              {/* Tipo de Contrato & Valor Semanal */}
+                              <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                                <Badge
+                                  variant="secondary"
+                                  className={`text-[9px] px-1.5 py-0 ${
+                                    contrato.tipo === 'plano_conquista'
+                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300'
+                                      : 'bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300'
+                                  }`}
+                                >
+                                  {contrato.tipo === 'plano_conquista' ? 'Conquista' : 'Normal'}
+                                </Badge>
+                                <span className="font-extrabold text-xs text-slate-900 dark:text-white">
+                                  R$ {semanal.toFixed(2)}
+                                  <span className="text-[9px] font-normal text-muted-foreground">
+                                    /sem
+                                  </span>
+                                </span>
+                              </div>
+
+                              {/* Período: Início e Fim */}
+                              <div className="space-y-0.5 text-[10px] bg-white/70 dark:bg-slate-950/40 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center justify-between text-muted-foreground">
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3 text-slate-400" />
+                                    Início:
+                                  </span>
+                                  <span className="font-medium text-slate-800 dark:text-slate-200">
+                                    {formatDateDisplay(contrato.data_inicio)}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-muted-foreground">
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3 text-slate-400" />
+                                    Fim:
+                                  </span>
+                                  <span className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[100px] text-right">
+                                    {contrato.data_entrega
+                                      ? formatDateDisplay(contrato.data_entrega)
+                                      : contrato.prazo_meses
+                                        ? `${contrato.prazo_meses} meses`
+                                        : 'Sem término'}
+                                  </span>
+                                </div>
+                                {(contrato.comissao_percentual ?? contrato.percentual_comissao) ? (
+                                  <div className="flex items-center justify-between text-[9px] text-purple-700 dark:text-purple-300 pt-0.5 border-t border-slate-100 dark:border-slate-800">
+                                    <span>Comissão:</span>
+                                    <span className="font-semibold">
+                                      {contrato.comissao_percentual ?? contrato.percentual_comissao}
+                                      %
+                                    </span>
+                                  </div>
+                                ) : null}
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
+
+                            {/* Barra de Ações Compactas no rodapé do Quadradinho */}
+                            <div className="mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1">
+                              {isAtivo ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenFinalizeModal(contrato)}
+                                  className="h-7 px-2 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 font-medium"
+                                  title="Finalizar contrato com data de encerramento"
+                                >
+                                  Finalizar
+                                </Button>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground italic px-1">
+                                  Finalizado
+                                </span>
+                              )}
+
+                              <div className="flex items-center gap-0.5">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenEditContract(contrato)}
+                                  title="Editar contrato"
+                                  aria-label="Editar contrato"
+                                  className="h-7 w-7 text-slate-600 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-300 dark:hover:bg-blue-950/40"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenDeleteModal(contrato)}
+                                  title="Apagar contrato feito por engano"
+                                  aria-label="Apagar contrato feito por engano"
+                                  className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* New / Edit Contract Modal */}
       <Dialog
@@ -1306,44 +1055,6 @@ export default function Rentals() {
             >
               <Trash2 className="w-4 h-4" />
               {deletingContract ? 'Apagando...' : 'Sim, Apagar Contrato'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirm Payment Dialog */}
-      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmar Recebimento de Aluguel</DialogTitle>
-            <DialogDescription>
-              Dar baixa no valor de R$ {selectedRecebimento?.valor.toFixed(2)} recebido de{' '}
-              {selectedRecebimento?.locatario_nome}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <Label>Forma de Pagamento Recebida</Label>
-            <Select value={formaPagamento} onValueChange={(val: any) => setFormaPagamento(val)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pix">PIX</SelectItem>
-                <SelectItem value="dinheiro">Dinheiro em Espécie</SelectItem>
-                <SelectItem value="cartao">Cartão de Débito / Crédito</SelectItem>
-                <SelectItem value="transferencia">Transferência Bancária</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleConfirmRecebimento}
-              className="bg-emerald-600 hover:bg-emerald-700"
-            >
-              Confirmar Recebimento e Salvar no Caixa
             </Button>
           </DialogFooter>
         </DialogContent>
