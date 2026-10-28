@@ -42,6 +42,7 @@ import { contratosService } from '@/services/contratos'
 import { motosService } from '@/services/motos'
 import { recebimentosService } from '@/services/recebimentos'
 import { FinalizeContractModal } from '@/components/FinalizeContractModal'
+import { MotoCardButton } from '@/components/MotoSelectorGrid'
 import { getTodayLocalDate, formatDateDisplay } from '@/lib/dateUtils'
 import { Contrato, Moto, TipoLocacao, Recebimento } from '@/types/database'
 
@@ -446,148 +447,286 @@ export default function Rentals() {
       {/* Tabs */}
       <Tabs defaultValue="locadas" className="space-y-4">
         <TabsList className="grid grid-cols-3 max-w-lg">
-          <TabsTrigger value="locadas">Motos Locadas ({activeContratos.length})</TabsTrigger>
+          <TabsTrigger value="locadas">Motos Locadas ({motos.length})</TabsTrigger>
           <TabsTrigger value="disponiveis">Disponíveis ({availableMotos.length})</TabsTrigger>
           <TabsTrigger value="recebimentos">Recebimentos</TabsTrigger>
         </TabsList>
 
-        {/* Tab 1: Motos Locadas */}
+        {/* Tab 1: Layout Duas Colunas por Moto */}
         <TabsContent value="locadas" className="space-y-4">
-          {activeContratos.length === 0 ? (
+          {motos.length === 0 ? (
             <Card className="shadow-sm">
               <CardContent className="py-12 text-center text-muted-foreground">
-                <Bike className="w-10 h-10 mx-auto text-slate-400 mb-2" />
-                <p className="font-semibold text-slate-800 dark:text-slate-200">
-                  Nenhuma moto alugada no momento
+                <Bike className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+                <p className="font-semibold text-base text-slate-800 dark:text-slate-200">
+                  Nenhuma moto cadastrada ainda
                 </p>
-                <p className="text-xs">Clique em "Novo Contrato de Locação" para iniciar.</p>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1 mb-4">
+                  Cadastre sua primeira moto para gerenciar aluguéis, gerar contratos e acompanhar
+                  recebimentos.
+                </p>
+                <Button asChild size="sm" className="gap-2">
+                  <Link to="/motos/nova">
+                    <Plus className="w-4 h-4" />
+                    Cadastrar Moto
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {activeContratos.map((contrato) => {
-                const moto = motos.find((m) => m.id === contrato.moto)
+            <div className="space-y-4">
+              {motos.map((moto) => {
+                // Contratos da moto ordenados: ativo primeiro, e por data_inicio decrescente
+                const motoContratos = contratos
+                  .filter((c) => c.moto === moto.id)
+                  .sort((a, b) => {
+                    const aIsAtivo = a.status === 'ativo' ? 1 : 0
+                    const bIsAtivo = b.status === 'ativo' ? 1 : 0
+                    if (aIsAtivo !== bIsAtivo) {
+                      return bIsAtivo - aIsAtivo // Ativo primeiro
+                    }
+                    const dateA = a.data_inicio || ''
+                    const dateB = b.data_inicio || ''
+                    return dateB.localeCompare(dateA) // Mais recente primeiro
+                  })
+
+                const hasActiveContract = motoContratos.some((c) => c.status === 'ativo')
+
                 return (
-                  <Card key={contrato.id} className="shadow-sm border-l-4 border-l-blue-600">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="text-base font-bold flex items-center gap-2">
-                            <span>{contrato.locatario_nome}</span>
-                          </CardTitle>
-                          <CardDescription className="text-xs mt-0.5 flex items-center gap-1.5">
-                            <span className="font-bold text-slate-800 dark:text-slate-200">
-                              {moto?.nome || moto?.modelo || 'Moto'}
-                            </span>
-                            {moto?.placa && (
-                              <span className="font-mono text-[11px] px-1.5 py-0.2 bg-slate-100 dark:bg-slate-800 rounded border">
-                                {moto.placa}
-                              </span>
-                            )}
-                          </CardDescription>
-                        </div>
-                        <Badge
-                          variant="secondary"
-                          className={
-                            contrato.tipo === 'plano_conquista'
-                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
-                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                          }
-                        >
-                          {contrato.tipo === 'plano_conquista'
-                            ? 'Plano Conquista'
-                            : 'Locação Normal'}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 dark:bg-slate-800/60 p-3 rounded-lg">
-                        <div>
-                          <span className="text-muted-foreground block">Início da Locação:</span>
-                          <span className="font-medium">
-                            {formatDateDisplay(contrato.data_inicio)}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground block">
-                            {contrato.tipo === 'plano_conquista'
-                              ? 'Fim do Contrato / Prazo:'
-                              : 'Fim do Contrato:'}
-                          </span>
-                          <span className="font-medium">
-                            {contrato.data_entrega ? (
-                              <span className="text-slate-900 dark:text-white font-semibold">
-                                {formatDateDisplay(contrato.data_entrega)}
-                                {contrato.prazo_meses ? ` (${contrato.prazo_meses} meses)` : ''}
-                              </span>
-                            ) : contrato.prazo_meses ? (
-                              `${contrato.prazo_meses} meses`
-                            ) : (
-                              'Contínuo / Sem data de término'
-                            )}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground block">Valor Semanal:</span>
-                          <span className="font-bold text-slate-900 dark:text-white">
-                            R$ {(contrato.valor_semanal || contrato.valor_diario * 7).toFixed(2)}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground block">Contato:</span>
-                          <span className="font-medium">
-                            {contrato.locatario_telefone || 'Não informado'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground block">Comissão:</span>
-                          <span className="font-medium text-purple-700 dark:text-purple-300">
-                            {(contrato.comissao_percentual ?? contrato.percentual_comissao)
-                              ? `${contrato.comissao_percentual ?? contrato.percentual_comissao}% sobre receitas`
-                              : 'Sem comissão'}
-                          </span>
+                  <div
+                    key={moto.id}
+                    className="p-3 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-stretch gap-3 sm:gap-4"
+                  >
+                    {/* Coluna ESQUERDA: Ícone/botão da moto com cor cadastrada, nome e placa */}
+                    <div className="w-full md:w-64 lg:w-72 shrink-0 flex flex-col justify-between gap-2.5 pb-3 md:pb-0 md:pr-4 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800">
+                      <div className="space-y-2">
+                        <Link to={`/motos/${moto.id}`} className="block group">
+                          <MotoCardButton
+                            moto={moto}
+                            isSelected={hasActiveContract}
+                            onClick={() => {}}
+                          />
+                        </Link>
+
+                        {/* Metadados e status da moto */}
+                        <div className="flex items-center justify-between text-xs px-1">
+                          <span className="text-muted-foreground">Status atual:</span>
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] font-semibold capitalize ${
+                              moto.status === 'locada'
+                                ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300'
+                                : moto.status === 'disponivel'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300'
+                                  : moto.status === 'em_loja_detran'
+                                    ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300'
+                                    : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300'
+                            }`}
+                          >
+                            {moto.status === 'em_loja_detran' ? 'Em Loja / Detran' : moto.status}
+                          </Badge>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-2">
-                        {moto && (
-                          <Button asChild variant="outline" size="sm" className="text-xs">
-                            <Link to={`/motos/${moto.id}`}>Ver Moto</Link>
-                          </Button>
-                        )}
-                        <div className="flex items-center gap-1">
+                      {/* Ações da moto na coluna esquerda */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 h-8 text-xs gap-1"
+                        >
+                          <Link to={`/motos/${moto.id}`}>Ver Ficha</Link>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="flex-1 h-8 text-xs gap-1"
+                          onClick={() => handleOpenNewContract(moto.id)}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Novo Contrato
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Coluna DIREITA: Quadradinhos de contratos da moto */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      {motoContratos.length === 0 ? (
+                        <div className="py-6 px-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-center bg-slate-50/50 dark:bg-slate-950/40 flex flex-col items-center justify-center gap-2">
+                          <KeyRound className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                          <p className="text-xs text-muted-foreground">
+                            Nenhum contrato cadastrado para esta moto.
+                          </p>
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenEditContract(contrato)}
-                            title="Editar contrato"
-                            aria-label="Editar contrato"
-                            className="h-8 w-8 text-slate-600 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-300 dark:hover:bg-blue-950/40 transition-colors"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
                             size="sm"
-                            onClick={() => handleOpenFinalizeModal(contrato)}
-                            className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            Finalizar Contrato
-                          </Button>
-                          <Button
                             variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenDeleteModal(contrato)}
-                            title="Apagar contrato feito por engano"
-                            aria-label="Apagar contrato feito por engano"
-                            className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 h-7 px-2.5"
+                            onClick={() => handleOpenNewContract(moto.id)}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Plus className="w-3.5 h-3.5 mr-1" />
+                            Criar Primeiro Contrato
                           </Button>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
+                          {motoContratos.map((contrato, idx) => {
+                            const isAtivo = contrato.status === 'ativo'
+                            const isFirst = idx === 0
+                            const semanal =
+                              contrato.valor_semanal !== undefined &&
+                              contrato.valor_semanal !== null
+                                ? contrato.valor_semanal
+                                : contrato.valor_diario * 7
+
+                            return (
+                              <div
+                                key={contrato.id}
+                                className={`relative rounded-xl p-3 flex flex-col justify-between transition-all border text-left ${
+                                  isAtivo
+                                    ? 'bg-gradient-to-br from-white to-emerald-50/30 dark:from-slate-900 dark:to-emerald-950/20 border-emerald-500 dark:border-emerald-600 shadow-sm ring-1 ring-emerald-500/30'
+                                    : 'bg-slate-50/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-90 hover:opacity-100 hover:border-slate-300 dark:hover:border-slate-700'
+                                }`}
+                              >
+                                {/* Topo do quadradinho: Locatário e Badges */}
+                                <div className="space-y-1.5">
+                                  <div className="flex items-start justify-between gap-1.5">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1">
+                                        <User className="w-3.5 h-3.5 shrink-0 text-slate-500 dark:text-slate-400" />
+                                        <p
+                                          className="font-bold text-xs truncate text-slate-900 dark:text-white"
+                                          title={contrato.locatario_nome}
+                                        >
+                                          {contrato.locatario_nome}
+                                        </p>
+                                      </div>
+                                      {contrato.locatario_telefone && (
+                                        <p className="text-[10px] text-muted-foreground truncate pl-4">
+                                          {contrato.locatario_telefone}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    {/* Status Badge */}
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-[9px] px-1.5 py-0 leading-tight uppercase shrink-0 font-bold ${
+                                        isAtivo
+                                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-700'
+                                          : 'bg-slate-200/70 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                                      }`}
+                                    >
+                                      {isAtivo ? 'ATIVO' : 'ENCERRADO'}
+                                    </Badge>
+                                  </div>
+
+                                  {/* Tipo de Contrato & Valor Semanal */}
+                                  <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                                    <Badge
+                                      variant="secondary"
+                                      className={`text-[9px] px-1.5 py-0 ${
+                                        contrato.tipo === 'plano_conquista'
+                                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300'
+                                          : 'bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300'
+                                      }`}
+                                    >
+                                      {contrato.tipo === 'plano_conquista' ? 'Conquista' : 'Normal'}
+                                    </Badge>
+                                    <span className="font-extrabold text-xs text-slate-900 dark:text-white">
+                                      R$ {semanal.toFixed(2)}
+                                      <span className="text-[9px] font-normal text-muted-foreground">
+                                        /sem
+                                      </span>
+                                    </span>
+                                  </div>
+
+                                  {/* Período: Início e Fim */}
+                                  <div className="space-y-0.5 text-[10px] bg-white/70 dark:bg-slate-950/40 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center justify-between text-muted-foreground">
+                                      <span className="flex items-center gap-1">
+                                        <Calendar className="w-3 h-3 text-slate-400" />
+                                        Início:
+                                      </span>
+                                      <span className="font-medium text-slate-800 dark:text-slate-200">
+                                        {formatDateDisplay(contrato.data_inicio)}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-muted-foreground">
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="w-3 h-3 text-slate-400" />
+                                        Fim:
+                                      </span>
+                                      <span className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[100px] text-right">
+                                        {contrato.data_entrega
+                                          ? formatDateDisplay(contrato.data_entrega)
+                                          : contrato.prazo_meses
+                                            ? `${contrato.prazo_meses} meses`
+                                            : 'Sem término'}
+                                      </span>
+                                    </div>
+                                    {(contrato.comissao_percentual ??
+                                    contrato.percentual_comissao) ? (
+                                      <div className="flex items-center justify-between text-[9px] text-purple-700 dark:text-purple-300 pt-0.5 border-t border-slate-100 dark:border-slate-800">
+                                        <span>Comissão:</span>
+                                        <span className="font-semibold">
+                                          {contrato.comissao_percentual ??
+                                            contrato.percentual_comissao}
+                                          %
+                                        </span>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </div>
+
+                                {/* Barra de Ações Compactas no rodapé do Quadradinho */}
+                                <div className="mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1">
+                                  {isAtivo ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleOpenFinalizeModal(contrato)}
+                                      className="h-7 px-2 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 font-medium"
+                                      title="Finalizar contrato com data de encerramento"
+                                    >
+                                      Finalizar
+                                    </Button>
+                                  ) : (
+                                    <span className="text-[10px] text-muted-foreground italic px-1">
+                                      Finalizado
+                                    </span>
+                                  )}
+
+                                  <div className="flex items-center gap-0.5">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleOpenEditContract(contrato)}
+                                      title="Editar contrato"
+                                      aria-label="Editar contrato"
+                                      className="h-7 w-7 text-slate-600 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-300 dark:hover:bg-blue-950/40"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleOpenDeleteModal(contrato)}
+                                      title="Apagar contrato feito por engano"
+                                      aria-label="Apagar contrato feito por engano"
+                                      className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )
               })}
             </div>
