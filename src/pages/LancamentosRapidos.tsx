@@ -297,10 +297,10 @@ export default function LancamentosRapidos() {
             )}
           </div>
 
-          {/* Bloco PREÇO + DATA (lado a lado na mesma linha) */}
+          {/* 2. Bloco PREÇO + DATA (lado a lado na mesma linha) */}
           <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* 2. Campo de PREÇO */}
+              {/* Campo de PREÇO */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label
@@ -337,7 +337,7 @@ export default function LancamentosRapidos() {
                 )}
               </div>
 
-              {/* 3. Data do Lançamento (ao lado do Preço) */}
+              {/* Data do Lançamento (ao lado do Preço) */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label
@@ -345,7 +345,7 @@ export default function LancamentosRapidos() {
                     className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5"
                   >
                     <Calendar className="w-4 h-4 text-blue-600" />
-                    3. Data
+                    Data
                   </Label>
                   <div className="flex items-center gap-1.5">
                     {dataInput === getTodayLocalDate() ? (
@@ -396,42 +396,15 @@ export default function LancamentosRapidos() {
                 </p>
               </div>
             </div>
-
-            {/* Campo de OBSERVAÇÃO (opcional, entre preço/data e os botões de ação final) */}
-            <div className="space-y-1.5 pt-1">
-              <div className="flex items-center justify-between">
-                <Label
-                  htmlFor="observacaoInput"
-                  className="text-xs font-semibold text-slate-700 dark:text-slate-300"
-                >
-                  Observação <span className="font-normal text-muted-foreground">(opcional)</span>
-                </Label>
-                {observacaoInput.trim() && (
-                  <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">
-                    Acrescenta após o nome da moto
-                  </span>
-                )}
-              </div>
-
-              <Input
-                id="observacaoInput"
-                type="text"
-                placeholder="Ex: troca com filtro, dianteiro, traseiro..."
-                value={observacaoInput}
-                onChange={(e) => setObservacaoInput(e.target.value)}
-                maxLength={100}
-                className="h-10 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
-              />
-            </div>
           </div>
 
-          {/* 4. Os Botões Rápidos (Ação Final para Confirmar o Lançamento) */}
+          {/* 3. Os Botões Rápidos (Ação Final para Confirmar o Lançamento) */}
           <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                4. Toque no Botão para Lançar
+                3. Toque no Botão para Lançar
               </Label>
-              <span className="text-xs text-muted-foreground">Ação final</span>
+              <span className="text-xs text-muted-foreground">Ação de lançamento</span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
@@ -479,6 +452,36 @@ export default function LancamentosRapidos() {
                 )
               })}
             </div>
+          </div>
+
+          {/* 4. Campo de OBSERVAÇÃO (item 4, após os botões, raramente usado) */}
+          <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between">
+              <Label
+                htmlFor="observacaoInput"
+                className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+              >
+                4. Observação{' '}
+                <span className="font-normal text-muted-foreground">
+                  (opcional — preencha antes de tocar no botão se desejar)
+                </span>
+              </Label>
+              {observacaoInput.trim() && (
+                <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">
+                  Acrescenta após o nome da moto
+                </span>
+              )}
+            </div>
+
+            <Input
+              id="observacaoInput"
+              type="text"
+              placeholder="Ex: troca com filtro, dianteiro, traseiro..."
+              value={observacaoInput}
+              onChange={(e) => setObservacaoInput(e.target.value)}
+              maxLength={100}
+              className="h-10 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+            />
           </div>
 
           {/* Status / Orientações */}
