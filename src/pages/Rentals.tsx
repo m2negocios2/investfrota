@@ -768,7 +768,7 @@ export default function Rentals() {
                   Nenhuma moto cadastrada.
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[170px] overflow-y-auto p-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-950/30">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-950/30">
                   {motos.map((m) => (
                     <MotoCardButton
                       key={m.id}
@@ -895,22 +895,48 @@ export default function Rentals() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="diaPagamento">Dia de Pagamento Semanal no Painel Semana</Label>
-              <Select value={diaSemana} onValueChange={(val: any) => setDiaSemana(val)}>
-                <SelectTrigger id="diaPagamento">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="SEG">SEG — Segunda-feira</SelectItem>
-                  <SelectItem value="TER">TER — Terça-feira</SelectItem>
-                  <SelectItem value="QUA">QUA — Quarta-feira</SelectItem>
-                  <SelectItem value="QUI">QUI — Quinta-feira</SelectItem>
-                  <SelectItem value="SEX">SEX — Sexta-feira</SelectItem>
-                  <SelectItem value="SAB">SAB — Sábado</SelectItem>
-                  <SelectItem value="DOM">DOM — Domingo</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Dia de Pagamento e Preço (Valor Semanal) lado a lado */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="diaPagamento">Dia de Pagamento</Label>
+                <Select value={diaSemana} onValueChange={(val: any) => setDiaSemana(val)}>
+                  <SelectTrigger id="diaPagamento">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SEG">SEG — Segunda-feira</SelectItem>
+                    <SelectItem value="TER">TER — Terça-feira</SelectItem>
+                    <SelectItem value="QUA">QUA — Quarta-feira</SelectItem>
+                    <SelectItem value="QUI">QUI — Quinta-feira</SelectItem>
+                    <SelectItem value="SEX">SEX — Sexta-feira</SelectItem>
+                    <SelectItem value="SAB">SAB — Sábado</SelectItem>
+                    <SelectItem value="DOM">DOM — Domingo</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className="text-[11px] text-muted-foreground block">
+                  Dia de cobrança semanal no painel.
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="valorSemanalContrato">Preço / Valor Semanal (R$)</Label>
+                <Input
+                  id="valorSemanalContrato"
+                  type="number"
+                  step="0.01"
+                  min={1}
+                  value={valorSemanalContrato}
+                  onChange={(e) => {
+                    const val = Number(e.target.value)
+                    setValorSemanalContrato(val)
+                    setValorDiario(Number((val / 7).toFixed(2)))
+                  }}
+                  required
+                />
+                <span className="text-[11px] text-muted-foreground block">
+                  Equivale a ~R$ {(valorSemanalContrato / 7).toFixed(2)}/dia.
+                </span>
+              </div>
             </div>
 
             {tipoContrato === 'plano_conquista' ? (
@@ -972,27 +998,6 @@ export default function Rentals() {
                 </p>
               </div>
             )}
-
-            <div className="space-y-2">
-              <Label htmlFor="valorSemanalContrato">Valor Semanal de Aluguel (R$)</Label>
-              <Input
-                id="valorSemanalContrato"
-                type="number"
-                step="0.01"
-                min={1}
-                value={valorSemanalContrato}
-                onChange={(e) => {
-                  const val = Number(e.target.value)
-                  setValorSemanalContrato(val)
-                  setValorDiario(Number((val / 7).toFixed(2)))
-                }}
-                required
-              />
-              <span className="text-[11px] text-muted-foreground">
-                Valor pago semanalmente (equivale a ~R$ {(valorSemanalContrato / 7).toFixed(2)}
-                /dia).
-              </span>
-            </div>
 
             <div className="space-y-1.5 p-3 bg-purple-50/60 dark:bg-purple-950/30 rounded-lg border border-purple-200/80 dark:border-purple-900/50">
               <div className="flex items-center justify-between">
