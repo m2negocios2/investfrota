@@ -397,6 +397,41 @@ export default function Dashboard() {
               </Button>
             </CardContent>
           </Card>
+
+          {/* Atalho Rápido para Relatórios */}
+          <Card className="shadow-sm border-blue-200/80 dark:border-blue-900/60 bg-gradient-to-br from-blue-50/50 to-white dark:from-blue-950/20 dark:to-slate-900">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  Relatórios Gerenciais
+                </CardTitle>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-300"
+                >
+                  5 Disponíveis
+                </Badge>
+              </div>
+              <CardDescription>Acesse Payback, Indicadores, DREs e Balanço</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Consulte a apuração contábil, retorno de investimento por moto e indicadores da
+                frota.
+              </p>
+              <Button
+                asChild
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                size="sm"
+              >
+                <Link to="/relatorios">
+                  <TrendingUp className="w-4 h-4" />
+                  Abrir Relatórios
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

@@ -293,182 +293,222 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Duas Colunas de Navegação: Administrativos à Esquerda | Contábeis à Direita */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Coluna 1: Administrativos (Gerencial / Frota / Retorno de Investimento) */}
-        <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 flex flex-col">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
-                  <TrendingUp className="w-4 h-4" />
+      {/* Lista Visível de Relatórios Disponíveis */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+            <Layers className="w-4 h-4 text-primary" />
+            Lista de Relatórios Disponíveis (Clique para Visualizar)
+          </h2>
+          <span className="text-xs text-muted-foreground hidden sm:inline">
+            5 relatórios disponíveis
+          </span>
+        </div>
+
+        {/* Duas Colunas: Administrativos à Esquerda | Contábeis à Direita (itens em lista vertical um abaixo do outro com botões de tamanho uniforme) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Coluna 1: Administrativos (Esquerda) */}
+          <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950">
+            <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                      Administrativos
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Gestão operacional, retorno por moto e indicadores
+                    </CardDescription>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                    Administrativos (Esquerda)
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Gestão operacional, retorno por moto e indicadores de frota
-                  </CardDescription>
-                </div>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-semibold bg-white dark:bg-slate-900"
+                >
+                  2 relatórios
+                </Badge>
               </div>
-              <Badge
-                variant="outline"
-                className="text-[10px] font-semibold bg-white dark:bg-slate-900"
-              >
-                Gerencial
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0 flex-1 flex flex-col justify-end">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveReportTab('payback')}
-                className={`h-12 px-3 rounded-xl border flex items-center gap-2.5 text-left transition-all ${
-                  activeReportTab === 'payback'
-                    ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/50 shadow-sm ring-1 ring-blue-500'
-                    : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-slate-900'
-                }`}
-              >
-                <div
-                  className={`p-1.5 rounded-lg shrink-0 ${
+            </CardHeader>
+            <CardContent className="pt-3 pb-3">
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveReportTab('payback')}
+                  className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
                     activeReportTab === 'payback'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      ? 'border-blue-600 bg-blue-50/90 dark:bg-blue-950/60 shadow-sm ring-2 ring-blue-500 text-blue-900 dark:text-blue-100'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
                   }`}
                 >
-                  <TrendingUp className="w-4 h-4" />
-                </div>
-                <span className="text-xs sm:text-sm font-bold truncate text-slate-900 dark:text-white">
-                  Payback por Moto
-                </span>
-              </button>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`p-2 rounded-lg shrink-0 ${
+                        activeReportTab === 'payback'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-bold truncate">Payback por Moto</span>
+                  </div>
+                  {activeReportTab === 'payback' && (
+                    <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px] font-bold shrink-0">
+                      Visualizando
+                    </Badge>
+                  )}
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveReportTab('indices')}
-                className={`h-12 px-3 rounded-xl border flex items-center gap-2.5 text-left transition-all ${
-                  activeReportTab === 'indices'
-                    ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/50 shadow-sm ring-1 ring-blue-500'
-                    : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-slate-900'
-                }`}
-              >
-                <div
-                  className={`p-1.5 rounded-lg shrink-0 ${
+                <button
+                  type="button"
+                  onClick={() => setActiveReportTab('indices')}
+                  className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
                     activeReportTab === 'indices'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      ? 'border-blue-600 bg-blue-50/90 dark:bg-blue-950/60 shadow-sm ring-2 ring-blue-500 text-blue-900 dark:text-blue-100'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
                   }`}
                 >
-                  <Activity className="w-4 h-4" />
-                </div>
-                <span className="text-xs sm:text-sm font-bold truncate text-slate-900 dark:text-white">
-                  Índices & Indicadores
-                </span>
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Coluna 2: Contábeis (Demonstrações Financeiras / Contabilidade / Balanço) */}
-        <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 flex flex-col">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
-                  <FileSpreadsheet className="w-4 h-4" />
-                </div>
-                <div>
-                  <CardTitle className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                    Contábeis (Direita)
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Demonstração contábil formal, apuração de resultado e patrimônio
-                  </CardDescription>
-                </div>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`p-2 rounded-lg shrink-0 ${
+                        activeReportTab === 'indices'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      <Activity className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-bold truncate">Índices & Indicadores</span>
+                  </div>
+                  {activeReportTab === 'indices' && (
+                    <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px] font-bold shrink-0">
+                      Visualizando
+                    </Badge>
+                  )}
+                </button>
               </div>
-              <Badge
-                variant="outline"
-                className="text-[10px] font-semibold bg-white dark:bg-slate-900"
-              >
-                Financeiro
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0 flex-1 flex flex-col justify-end">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveReportTab('dre-mensal')}
-                className={`h-12 px-3 rounded-xl border flex items-center gap-2.5 text-left transition-all ${
-                  activeReportTab === 'dre-mensal'
-                    ? 'border-emerald-600 bg-emerald-50/80 dark:bg-emerald-950/50 shadow-sm ring-1 ring-emerald-500'
-                    : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 bg-white dark:bg-slate-900'
-                }`}
-              >
-                <div
-                  className={`p-1.5 rounded-lg shrink-0 ${
+            </CardContent>
+          </Card>
+
+          {/* Coluna 2: Contábeis (Direita) */}
+          <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950">
+            <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                    <FileSpreadsheet className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                      Contábeis
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Demonstrações financeiras, DRE e balanço
+                    </CardDescription>
+                  </div>
+                </div>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-semibold bg-white dark:bg-slate-900"
+                >
+                  3 relatórios
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-3 pb-3">
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveReportTab('dre-mensal')}
+                  className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
                     activeReportTab === 'dre-mensal'
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      ? 'border-emerald-600 bg-emerald-50/90 dark:bg-emerald-950/60 shadow-sm ring-2 ring-emerald-500 text-emerald-900 dark:text-emerald-100'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
                   }`}
                 >
-                  <FileSpreadsheet className="w-4 h-4" />
-                </div>
-                <span className="text-xs sm:text-sm font-bold truncate text-slate-900 dark:text-white">
-                  DRE Mensal
-                </span>
-              </button>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`p-2 rounded-lg shrink-0 ${
+                        activeReportTab === 'dre-mensal'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      <FileSpreadsheet className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-bold truncate">DRE Mensal</span>
+                  </div>
+                  {activeReportTab === 'dre-mensal' && (
+                    <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] font-bold shrink-0">
+                      Visualizando
+                    </Badge>
+                  )}
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveReportTab('dre-anual')}
-                className={`h-12 px-3 rounded-xl border flex items-center gap-2.5 text-left transition-all ${
-                  activeReportTab === 'dre-anual'
-                    ? 'border-emerald-600 bg-emerald-50/80 dark:bg-emerald-950/50 shadow-sm ring-1 ring-emerald-500'
-                    : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 bg-white dark:bg-slate-900'
-                }`}
-              >
-                <div
-                  className={`p-1.5 rounded-lg shrink-0 ${
+                <button
+                  type="button"
+                  onClick={() => setActiveReportTab('dre-anual')}
+                  className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
                     activeReportTab === 'dre-anual'
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      ? 'border-emerald-600 bg-emerald-50/90 dark:bg-emerald-950/60 shadow-sm ring-2 ring-emerald-500 text-emerald-900 dark:text-emerald-100'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
                   }`}
                 >
-                  <Calendar className="w-4 h-4" />
-                </div>
-                <span className="text-xs sm:text-sm font-bold truncate text-slate-900 dark:text-white">
-                  DRE Anual
-                </span>
-              </button>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`p-2 rounded-lg shrink-0 ${
+                        activeReportTab === 'dre-anual'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-bold truncate">DRE Anual</span>
+                  </div>
+                  {activeReportTab === 'dre-anual' && (
+                    <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] font-bold shrink-0">
+                      Visualizando
+                    </Badge>
+                  )}
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveReportTab('balanco')}
-                className={`h-12 px-3 rounded-xl border flex items-center gap-2.5 text-left transition-all ${
-                  activeReportTab === 'balanco'
-                    ? 'border-emerald-600 bg-emerald-50/80 dark:bg-emerald-950/50 shadow-sm ring-1 ring-emerald-500'
-                    : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 bg-white dark:bg-slate-900'
-                }`}
-              >
-                <div
-                  className={`p-1.5 rounded-lg shrink-0 ${
+                <button
+                  type="button"
+                  onClick={() => setActiveReportTab('balanco')}
+                  className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
                     activeReportTab === 'balanco'
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      ? 'border-emerald-600 bg-emerald-50/90 dark:bg-emerald-950/60 shadow-sm ring-2 ring-emerald-500 text-emerald-900 dark:text-emerald-100'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
                   }`}
                 >
-                  <Scale className="w-4 h-4" />
-                </div>
-                <span className="text-xs sm:text-sm font-bold truncate text-slate-900 dark:text-white">
-                  Balanço
-                </span>
-              </button>
-            </div>
-          </CardContent>
-        </Card>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`p-2 rounded-lg shrink-0 ${
+                        activeReportTab === 'balanco'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-bold truncate">
+                      Balanço Patrimonial Simplificado
+                    </span>
+                  </div>
+                  {activeReportTab === 'balanco' && (
+                    <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] font-bold shrink-0">
+                      Visualizando
+                    </Badge>
+                  )}
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Visão do Relatório Ativo selecionado pelas duas colunas */}
