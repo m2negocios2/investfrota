@@ -4,8 +4,15 @@ import {
   ContaAPagarPagamento,
   ContaAPagarComProgresso,
   CaixaLancamento,
+  ItemParcela,
 } from '@/types/database'
 import { dateToApiMidday } from '@/lib/dateUtils'
+import {
+  resolverParcelasConta,
+  obterValorSugeridoParcela,
+  gerarParcelasIguais,
+  round2,
+} from '@/lib/parcelasUtils'
 
 export const contasAPagarService = {
   /**
@@ -34,11 +41,23 @@ export const contasAPagarService = {
 
     for (const conta of contas) {
       const pagamentos = pagamentosPorConta.get(conta.id) || []
-      const totalPago = pagamentos.reduce((acc, p) => acc + (Number(p.valor) || 0), 0)
-      const saldoRestante = Math.max(0, conta.valor_total - totalPago)
+      const totalPago = round2(pagamentos.reduce((acc, p) => acc + (Number(p.valor) || 0), 0))
+      const saldoRestante = round2(Math.max(0, conta.valor_total - totalPago))
       const quantidadePaga = pagamentos.length
       const percentualPago =
         conta.valor_total > 0 ? Math.min(100, Math.round((totalPago / conta.valor_total) * 100)) : 0
+
+      // Resolver lista de parcelas calculadas/customizadas
+      const parcelasCalculadas = resolverParcelasConta(conta)
+
+      // Identificar o próximo número de parcela a pagar
+      const proximaParcelaNumero = quantidadePaga + 1
+      const proximaParcelaValorSugerido = obterValorSugeridoParcela(
+        parcelasCalculadas,
+        proximaParcelaNumero,
+        saldoRestante,
+        conta.valor_parcela,
+      )
 
       // Se pagou tudo ou mais, e ainda não está marcada como concluída, sincronizar flag
       const quitadaAuto = totalPago >= conta.valor_total && conta.valor_total > 0
@@ -60,6 +79,9 @@ export const contasAPagarService = {
         quantidadePaga,
         percentualPago,
         pagamentos,
+        parcelasCalculadas,
+        proximaParcelaNumero,
+        proximaParcelaValorSugerido,
       })
     }
 
@@ -80,11 +102,24 @@ export const contasAPagarService = {
     data_inicio: string
     dia_vencimento?: number
     observacao?: string
+    parcelas_customizadas?: ItemParcela[]
   }): Promise<ContaAPagar> {
+    // Se parcelas_customizadas não for passada, gera a divisão igual padrão
+    const parcelas =
+      data.parcelas_customizadas && data.parcelas_customizadas.length === data.quantidade_parcelas
+        ? data.parcelas_customizadas
+        : gerarParcelasIguais({
+            valorTotal: data.valor_total,
+            quantidadeParcelas: data.quantidade_parcelas,
+            dataInicio: data.data_inicio,
+            diaVencimento: data.dia_vencimento,
+          })
+
     const payload = {
       ...data,
       data_inicio: dateToApiMidday(data.data_inicio),
       concluida: false,
+      parcelas_customizadas: parcelas,
     }
     return await pb.collection('contas_a_pagar').create<ContaAPagar>(payload)
   },
@@ -93,7 +128,7 @@ export const contasAPagarService = {
     id: string,
     data: Partial<Omit<ContaAPagar, 'id' | 'created' | 'updated'>>,
   ): Promise<ContaAPagar> {
-    const payload = {
+    const payload: any = {
       ...data,
       ...(data.data_inicio ? { data_inicio: dateToApiMidday(data.data_inicio) } : {}),
     }
@@ -139,6 +174,7 @@ export const contasAPagarService = {
     data: string
     valor: number
     observacao?: string
+    numeroParcela?: number
   }): Promise<ContaAPagarPagamento> {
     const conta = await pb.collection('contas_a_pagar').getOne<ContaAPagar>(params.contaId)
 
@@ -148,7 +184,7 @@ export const contasAPagarService = {
       .getFullList<ContaAPagarPagamento>({
         filter: `conta = "${conta.id}"`,
       })
-    const numeroParcela = pagamentosExistentes.length + 1
+    const numeroParcela = params.numeroParcela || pagamentosExistentes.length + 1
 
     const safeDate = dateToApiMidday(params.data)
 

@@ -51,8 +51,15 @@ import {
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import { contasAPagarService } from '@/services/contasAPagar'
-import { ContaAPagarComProgresso, ContaAPagarTipo, ContaAPagarPagamento } from '@/types/database'
+import {
+  ContaAPagarComProgresso,
+  ContaAPagarTipo,
+  ContaAPagarPagamento,
+  ItemParcela,
+} from '@/types/database'
 import { getTodayLocalDate, normalizeDateInput, formatDateDisplay } from '@/lib/dateUtils'
+import { gerarParcelasIguais, resolverParcelasConta } from '@/lib/parcelasUtils'
+import { ParcelasEditor } from '@/components/contas/ParcelasEditor'
 
 const TIPOS_CONFIG: Record<ContaAPagarTipo, { label: string; cor: string }> = {
   financiamento: {
@@ -95,11 +102,13 @@ export default function ContasAPagar() {
   const [formDataInicio, setFormDataInicio] = useState(getTodayLocalDate())
   const [formDiaVencimento, setFormDiaVencimento] = useState<string>('')
   const [formObservacao, setFormObservacao] = useState('')
+  const [formParcelas, setFormParcelas] = useState<ItemParcela[]>([])
   const [submittingConta, setSubmittingConta] = useState(false)
 
   // Modal Registrar Pagamento
   const [pagamentoModalOpen, setPagamentoModalOpen] = useState(false)
   const [pagamentoConta, setPagamentoConta] = useState<ContaAPagarComProgresso | null>(null)
+  const [pagNumeroParcela, setPagNumeroParcela] = useState<number>(1)
   const [pagData, setPagData] = useState(getTodayLocalDate())
   const [pagValor, setPagValor] = useState<string>('')
   const [pagObs, setPagObs] = useState('')
@@ -133,27 +142,89 @@ export default function ContasAPagar() {
     setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
+  // Recalcula lista de parcelas iguais (ajuste de centavos na última)
+  const recalcularParcelasIguais = (
+    totalStr: string,
+    qtdStr: string,
+    dataIni: string,
+    diaVencStr?: string,
+  ) => {
+    const vTotal = parseFloat(totalStr.replace(',', '.'))
+    const qtd = parseInt(qtdStr, 10)
+    const diaV = diaVencStr ? parseInt(diaVencStr, 10) : undefined
+
+    if (!isNaN(vTotal) && vTotal > 0 && !isNaN(qtd) && qtd > 0) {
+      const lista = gerarParcelasIguais({
+        valorTotal: vTotal,
+        quantidadeParcelas: qtd,
+        dataInicio: dataIni,
+        diaVencimento: diaV,
+      })
+      setFormParcelas(lista)
+      // O valor da parcela de referência (1ª parcela padrão)
+      setFormValorParcela(lista[0]?.valor ? lista[0].valor.toFixed(2) : (vTotal / qtd).toFixed(2))
+    } else {
+      setFormParcelas([])
+    }
+  }
+
   // Cálculos automáticos do formulário de conta
   const handleValorTotalChange = (valStr: string) => {
     setFormValorTotal(valStr)
-    const vTotal = parseFloat(valStr.replace(',', '.'))
-    const qtd = parseInt(formQtdParcelas, 10)
-    if (!isNaN(vTotal) && vTotal > 0 && !isNaN(qtd) && qtd > 0) {
-      setFormValorParcela((vTotal / qtd).toFixed(2))
-    }
+    recalcularParcelasIguais(valStr, formQtdParcelas, formDataInicio, formDiaVencimento)
   }
 
   const handleQtdParcelasChange = (valStr: string) => {
     setFormQtdParcelas(valStr)
-    const qtd = parseInt(valStr, 10)
-    const vTotal = parseFloat(formValorTotal.replace(',', '.'))
-    if (!isNaN(vTotal) && vTotal > 0 && !isNaN(qtd) && qtd > 0) {
-      setFormValorParcela((vTotal / qtd).toFixed(2))
-    }
+    recalcularParcelasIguais(formValorTotal, valStr, formDataInicio, formDiaVencimento)
   }
 
   const handleValorParcelaChange = (valStr: string) => {
     setFormValorParcela(valStr)
+  }
+
+  const handleDataInicioChange = (valStr: string) => {
+    setFormDataInicio(valStr)
+    if (formParcelas.length > 0) {
+      const vTotal = parseFloat(formValorTotal.replace(',', '.'))
+      const qtd = parseInt(formQtdParcelas, 10)
+      const diaV = formDiaVencimento ? parseInt(formDiaVencimento, 10) : undefined
+      if (!isNaN(vTotal) && !isNaN(qtd)) {
+        const novas = gerarParcelasIguais({
+          valorTotal: vTotal,
+          quantidadeParcelas: qtd,
+          dataInicio: valStr,
+          diaVencimento: diaV,
+        })
+        setFormParcelas((prev) =>
+          prev.length === novas.length
+            ? prev.map((p, i) => ({ ...p, data_vencimento: novas[i].data_vencimento }))
+            : novas,
+        )
+      }
+    }
+  }
+
+  const handleDiaVencimentoChange = (valStr: string) => {
+    setFormDiaVencimento(valStr)
+    if (formParcelas.length > 0) {
+      const vTotal = parseFloat(formValorTotal.replace(',', '.'))
+      const qtd = parseInt(formQtdParcelas, 10)
+      const diaV = valStr ? parseInt(valStr, 10) : undefined
+      if (!isNaN(vTotal) && !isNaN(qtd)) {
+        const novas = gerarParcelasIguais({
+          valorTotal: vTotal,
+          quantidadeParcelas: qtd,
+          dataInicio: formDataInicio,
+          diaVencimento: diaV,
+        })
+        setFormParcelas((prev) =>
+          prev.length === novas.length
+            ? prev.map((p, i) => ({ ...p, data_vencimento: novas[i].data_vencimento }))
+            : novas,
+        )
+      }
+    }
   }
 
   const handleOpenNovaConta = () => {
@@ -167,6 +238,7 @@ export default function ContasAPagar() {
     setFormDataInicio(getTodayLocalDate())
     setFormDiaVencimento('')
     setFormObservacao('')
+    setFormParcelas([])
     setContaModalOpen(true)
   }
 
@@ -181,6 +253,8 @@ export default function ContasAPagar() {
     setFormDataInicio(normalizeDateInput(conta.data_inicio))
     setFormDiaVencimento(conta.dia_vencimento ? String(conta.dia_vencimento) : '')
     setFormObservacao(conta.observacao || '')
+    const parcelas = resolverParcelasConta(conta)
+    setFormParcelas(parcelas)
     setContaModalOpen(true)
   }
 
@@ -215,6 +289,16 @@ export default function ContasAPagar() {
 
     setSubmittingConta(true)
     try {
+      const parcelasParaSalvar =
+        formParcelas.length === qtd
+          ? formParcelas
+          : gerarParcelasIguais({
+              valorTotal: vTotal,
+              quantidadeParcelas: qtd,
+              dataInicio: formDataInicio,
+              diaVencimento: diaVenc,
+            })
+
       if (editingContaId) {
         await contasAPagarService.update(editingContaId, {
           descricao: formDescricao.trim(),
@@ -226,6 +310,7 @@ export default function ContasAPagar() {
           data_inicio: formDataInicio,
           dia_vencimento: diaVenc,
           observacao: formObservacao.trim() || '',
+          parcelas_customizadas: parcelasParaSalvar,
         })
         toast.success('Conta a pagar atualizada!')
       } else {
@@ -239,6 +324,7 @@ export default function ContasAPagar() {
           data_inicio: formDataInicio,
           dia_vencimento: diaVenc,
           observacao: formObservacao.trim() || '',
+          parcelas_customizadas: parcelasParaSalvar,
         })
         toast.success('Conta a pagar cadastrada com sucesso!')
       }
@@ -255,8 +341,14 @@ export default function ContasAPagar() {
   const handleOpenRegistrarPagamento = (conta: ContaAPagarComProgresso) => {
     setPagamentoConta(conta)
     setPagData(getTodayLocalDate())
-    // Padrão: valor da parcela ou saldo restante se for menor
-    const sugestao = Math.min(conta.valor_parcela, conta.saldoRestante)
+    setPagNumeroParcela(conta.proximaParcelaNumero)
+
+    // Sugestão baseada no valor da parcela daquela posição específica
+    const sugestao =
+      conta.proximaParcelaValorSugerido > 0
+        ? conta.proximaParcelaValorSugerido
+        : Math.min(conta.valor_parcela, conta.saldoRestante)
+
     setPagValor(String(sugestao > 0 ? sugestao : conta.valor_parcela))
     setPagObs('')
     setPagamentoModalOpen(true)
@@ -278,6 +370,7 @@ export default function ContasAPagar() {
         contaId: pagamentoConta.id,
         data: pagData,
         valor: vPag,
+        numeroParcela: pagNumeroParcela,
         observacao: pagObs.trim(),
       })
       toast.success(
@@ -643,18 +736,20 @@ export default function ContasAPagar() {
                   {/* Progresso de Parcelas */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground flex items-center gap-1">
+                      <span className="text-muted-foreground flex items-center gap-1 flex-wrap">
                         Parcelas:{' '}
                         <strong>
                           {conta.quantidadePaga} de {conta.quantidade_parcelas}
                         </strong>
-                        <span className="text-[11px] text-muted-foreground">
-                          (R${' '}
-                          {conta.valor_parcela.toLocaleString('pt-BR', {
-                            minimumFractionDigits: 2,
-                          })}
-                          /mês)
-                        </span>
+                        {!isQuitada && (
+                          <span className="text-[11px] text-muted-foreground">
+                            (Próxima: {conta.proximaParcelaNumero}ª • R${' '}
+                            {conta.proximaParcelaValorSugerido.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                            })}
+                            )
+                          </span>
+                        )}
                       </span>
                       <span className="font-bold text-slate-800 dark:text-slate-200">
                         {conta.percentualPago}% pago
@@ -680,13 +775,12 @@ export default function ContasAPagar() {
                     >
                       {isExpanded ? (
                         <>
-                          <ChevronUp className="w-3.5 h-3.5" /> Ocultar Pagamentos (
-                          {conta.pagamentos.length})
+                          <ChevronUp className="w-3.5 h-3.5" /> Ocultar Detalhes
                         </>
                       ) : (
                         <>
-                          <ChevronDown className="w-3.5 h-3.5" /> Ver Pagamentos (
-                          {conta.pagamentos.length})
+                          <ChevronDown className="w-3.5 h-3.5" /> Ver Cronograma & Pagamentos (
+                          {conta.pagamentos.length}/{conta.quantidade_parcelas})
                         </>
                       )}
                     </Button>
@@ -698,64 +792,120 @@ export default function ContasAPagar() {
                         className="text-xs gap-1.5 bg-rose-600 hover:bg-rose-700 h-8"
                       >
                         <Receipt className="w-3.5 h-3.5" />
-                        Registrar Pagamento
+                        Pagar {conta.proximaParcelaNumero}ª Parcela
                       </Button>
                     )}
                   </div>
 
-                  {/* Histórico de Pagamentos expandido */}
+                  {/* Seção expandida: Cronograma de Parcelas e Histórico */}
                   {isExpanded && (
-                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
-                      <span className="text-[11px] font-bold uppercase text-muted-foreground block">
-                        Histórico de Pagamentos Lançados
-                      </span>
+                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 space-y-4">
+                      {/* Cronograma de Parcelas Planejadas */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold uppercase text-muted-foreground block">
+                            Cronograma de Parcelas Planejadas
+                          </span>
+                          <span className="text-[11px] text-muted-foreground">
+                            {conta.parcelasCalculadas.length} parcelas
+                          </span>
+                        </div>
 
-                      {conta.pagamentos.length === 0 ? (
-                        <p className="text-xs text-muted-foreground italic py-2 text-center">
-                          Nenhum pagamento registrado ainda para esta conta.
-                        </p>
-                      ) : (
-                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                          {conta.pagamentos.map((pag, idx) => (
-                            <div
-                              key={pag.id}
-                              className="flex items-center justify-between p-2 rounded bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-xs"
-                            >
-                              <div>
-                                <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-                                  <span>
-                                    Parcela {pag.numero_parcela || conta.pagamentos.length - idx}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-40 overflow-y-auto pr-1">
+                          {conta.parcelasCalculadas.map((parc) => {
+                            const jaPaga = parc.numero <= conta.quantidadePaga
+                            return (
+                              <div
+                                key={parc.numero}
+                                className={`p-1.5 rounded border text-[11px] flex flex-col justify-between ${
+                                  jaPaga
+                                    ? 'bg-emerald-50/70 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800'
+                                    : parc.numero === conta.proximaParcelaNumero
+                                      ? 'bg-amber-50/70 border-amber-300 dark:bg-amber-950/30 dark:border-amber-800'
+                                      : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-bold">
+                                    {parc.numero}ª {jaPaga ? '✓' : ''}
                                   </span>
-                                  <span className="text-muted-foreground font-normal">•</span>
-                                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                  <span
+                                    className={`font-semibold ${
+                                      jaPaga
+                                        ? 'text-emerald-700 dark:text-emerald-400'
+                                        : 'text-slate-800 dark:text-slate-200'
+                                    }`}
+                                  >
                                     R${' '}
-                                    {pag.valor.toLocaleString('pt-BR', {
+                                    {parc.valor.toLocaleString('pt-BR', {
                                       minimumFractionDigits: 2,
                                     })}
                                   </span>
                                 </div>
-                                <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
-                                  <span>Data: {formatDateDisplay(pag.data)}</span>
-                                  {pag.observacao && <span>• {pag.observacao}</span>}
-                                </div>
+                                {parc.data_vencimento && (
+                                  <span className="text-[10px] text-muted-foreground mt-0.5">
+                                    Venc: {formatDateDisplay(parc.data_vencimento)}
+                                  </span>
+                                )}
                               </div>
-
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                title="Excluir este pagamento (estorna do caixa)"
-                                onClick={() => {
-                                  setDeletePagId(pag.id)
-                                  setDeletePagContaId(conta.id)
-                                }}
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          ))}
+                            )
+                          })}
                         </div>
-                      )}
+                      </div>
+
+                      {/* Histórico de Pagamentos Lançados */}
+                      <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <span className="text-[11px] font-bold uppercase text-muted-foreground block">
+                          Histórico de Pagamentos Lançados ({conta.pagamentos.length})
+                        </span>
+
+                        {conta.pagamentos.length === 0 ? (
+                          <p className="text-xs text-muted-foreground italic py-2 text-center">
+                            Nenhum pagamento registrado ainda para esta conta.
+                          </p>
+                        ) : (
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                            {conta.pagamentos.map((pag, idx) => (
+                              <div
+                                key={pag.id}
+                                className="flex items-center justify-between p-2 rounded bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-xs"
+                              >
+                                <div>
+                                  <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                    <span>
+                                      Parcela {pag.numero_parcela || conta.pagamentos.length - idx}
+                                    </span>
+                                    <span className="text-muted-foreground font-normal">•</span>
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                      R${' '}
+                                      {pag.valor.toLocaleString('pt-BR', {
+                                        minimumFractionDigits: 2,
+                                      })}
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
+                                    <span>Data: {formatDateDisplay(pag.data)}</span>
+                                    {pag.observacao && <span>• {pag.observacao}</span>}
+                                  </div>
+                                </div>
+
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  title="Excluir este pagamento (estorna do caixa)"
+                                  onClick={() => {
+                                    setDeletePagId(pag.id)
+                                    setDeletePagContaId(conta.id)
+                                  }}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </CardContent>
@@ -767,7 +917,7 @@ export default function ContasAPagar() {
 
       {/* Modal Nova / Editar Conta */}
       <Dialog open={contaModalOpen} onOpenChange={setContaModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingContaId ? 'Editar Conta a Pagar' : 'Nova Conta a Pagar'}
@@ -825,7 +975,7 @@ export default function ContasAPagar() {
                   id="valorTotal"
                   type="number"
                   step="0.01"
-                  placeholder="Ex: 24000.00"
+                  placeholder="Ex: 53630.00"
                   value={formValorTotal}
                   onChange={(e) => handleValorTotalChange(e.target.value)}
                   required
@@ -840,7 +990,7 @@ export default function ContasAPagar() {
                   id="qtdParcelas"
                   type="number"
                   step="1"
-                  placeholder="Ex: 24"
+                  placeholder="Ex: 11"
                   value={formQtdParcelas}
                   onChange={(e) => handleQtdParcelasChange(e.target.value)}
                   required
@@ -848,7 +998,7 @@ export default function ContasAPagar() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="valorParcela">Valor da Parcela (R$) *</Label>
+                <Label htmlFor="valorParcela">Valor Padrão da Parcela (R$) *</Label>
                 <Input
                   id="valorParcela"
                   type="number"
@@ -859,7 +1009,7 @@ export default function ContasAPagar() {
                   required
                 />
                 <span className="text-[10px] text-muted-foreground block">
-                  Calculado automaticamente (permite ajuste manual de juros/taxas).
+                  Divisão igual por padrão.
                 </span>
               </div>
             </div>
@@ -871,7 +1021,7 @@ export default function ContasAPagar() {
                   id="dataInicio"
                   type="date"
                   value={formDataInicio}
-                  onChange={(e) => setFormDataInicio(e.target.value)}
+                  onChange={(e) => handleDataInicioChange(e.target.value)}
                   required
                 />
               </div>
@@ -885,10 +1035,27 @@ export default function ContasAPagar() {
                   max="31"
                   placeholder="Ex: 10"
                   value={formDiaVencimento}
-                  onChange={(e) => setFormDiaVencimento(e.target.value)}
+                  onChange={(e) => handleDiaVencimentoChange(e.target.value)}
                 />
               </div>
             </div>
+
+            {/* Editor de Parcelas Individuais */}
+            {formParcelas.length > 0 && (
+              <ParcelasEditor
+                parcelas={formParcelas}
+                valorTotal={parseFloat(formValorTotal.replace(',', '.')) || 0}
+                onChangeParcelas={setFormParcelas}
+                onRedefinirIguais={() =>
+                  recalcularParcelasIguais(
+                    formValorTotal,
+                    formQtdParcelas,
+                    formDataInicio,
+                    formDiaVencimento,
+                  )
+                }
+              />
+            )}
 
             <div className="space-y-1">
               <Label htmlFor="observacao">Observações (opcional)</Label>
@@ -954,7 +1121,33 @@ export default function ContasAPagar() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="pagNumeroParcela">Nº da Parcela *</Label>
+                  <Input
+                    id="pagNumeroParcela"
+                    type="number"
+                    min="1"
+                    max={pagamentoConta.quantidade_parcelas}
+                    value={pagNumeroParcela}
+                    onChange={(e) => {
+                      const n = parseInt(e.target.value, 10)
+                      setPagNumeroParcela(n)
+                      // Ao mudar o número da parcela, sugerir o valor cadastrado para ela
+                      const parcelaItem = pagamentoConta.parcelasCalculadas.find(
+                        (p) => p.numero === n,
+                      )
+                      if (parcelaItem && parcelaItem.valor > 0) {
+                        setPagValor(String(parcelaItem.valor))
+                      }
+                    }}
+                    required
+                  />
+                  <span className="text-[10px] text-muted-foreground block">
+                    De 1 a {pagamentoConta.quantidade_parcelas}
+                  </span>
+                </div>
+
                 <div className="space-y-1">
                   <Label htmlFor="pagData">Data do Pagamento *</Label>
                   <Input
@@ -977,6 +1170,9 @@ export default function ContasAPagar() {
                     onChange={(e) => setPagValor(e.target.value)}
                     required
                   />
+                  <span className="text-[10px] text-muted-foreground block">
+                    Sugerido da {pagNumeroParcela}ª parcela.
+                  </span>
                 </div>
               </div>
 

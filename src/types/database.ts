@@ -170,6 +170,12 @@ export interface Pendencia {
 
 export type ContaAPagarTipo = 'parcelamento' | 'consorcio' | 'financiamento' | 'outro'
 
+export interface ItemParcela {
+  numero: number // 1, 2, ...
+  valor: number
+  data_vencimento?: string // YYYY-MM-DD
+}
+
 export interface ContaAPagar {
   id: string
   descricao: string
@@ -182,6 +188,7 @@ export interface ContaAPagar {
   dia_vencimento?: number
   observacao?: string
   concluida?: boolean
+  parcelas_customizadas?: ItemParcela[] | string | null
   created: string
   updated: string
 }
@@ -208,4 +215,7 @@ export interface ContaAPagarComProgresso extends ContaAPagar {
   quantidadePaga: number
   percentualPago: number
   pagamentos: ContaAPagarPagamento[]
+  parcelasCalculadas: ItemParcela[]
+  proximaParcelaNumero: number
+  proximaParcelaValorSugerido: number
 }

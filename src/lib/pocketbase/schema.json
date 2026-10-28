@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T16:47:38.931Z",
+  "generatedAt": "2026-10-28T16:53:57.403Z",
   "collections": [
     {
       "name": "users",
@@ -974,6 +974,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "parcelas_customizadas",
+          "type": "json",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
