@@ -119,7 +119,7 @@ export function FinalizeContractModal({
             <div className="flex justify-between">
               <span className="text-muted-foreground">Locatário:</span>
               <span className="font-bold text-slate-800 dark:text-slate-100">
-                {contrato.locatario_nome}
+                {contrato.locatario_nome?.trim() || 'Sem locatário'}
               </span>
             </div>
             {moto && (

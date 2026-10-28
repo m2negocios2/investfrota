@@ -83,7 +83,8 @@ export const caixaService = {
 
       // 3. Montar descrição clara
       // Descrição exata solicitada: "Comissão — {locatário} ({moto})"
-      const nomeFinal = (locatarioNome || contrato.locatario_nome || 'Locatário').trim()
+      const locatarioRaw = (locatarioNome || contrato.locatario_nome || '').trim()
+      const nomeFinal = locatarioRaw || ''
       let identificadorMoto = motoIdentificacao?.trim()
       if (!identificadorMoto && motoId) {
         try {
@@ -93,7 +94,9 @@ export const caixaService = {
           identificadorMoto = 'Moto'
         }
       }
-      const descricaoComissao = `Comissão — ${nomeFinal}${identificadorMoto ? ` (${identificadorMoto})` : ''}`
+      const descricaoComissao = nomeFinal
+        ? `Comissão — ${nomeFinal}${identificadorMoto ? ` (${identificadorMoto})` : ''}`
+        : `Comissão — ${identificadorMoto || 'Moto'}`
 
       // 4. Verificação de idempotência estrita por ID do recebimento
       // NUNCA descartar por data/valor aproximado, pois contratos recebem valores idênticos em datas próximas

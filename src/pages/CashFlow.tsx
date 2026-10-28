@@ -232,7 +232,7 @@ export default function CashFlow() {
                 motoId,
                 valorReceita: Number(valor),
                 dataReceita: data,
-                locatarioNome: activeContrato.locatario_nome,
+                locatarioNome: activeContrato.locatario_nome || '',
                 motoIdentificacao: motoNome,
                 formaPagamento,
               })

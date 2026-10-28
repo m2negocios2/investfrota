@@ -265,7 +265,7 @@ export default function Semana() {
         const newRec = await recebimentosService.create({
           moto: cellTarget.moto.id,
           contrato: cellTarget.contrato.id,
-          locatario_nome: cellTarget.contrato.locatario_nome,
+          locatario_nome: cellTarget.contrato.locatario_nome || '',
           data_vencimento: cellTarget.dateStr,
           data_pagamento: todayStr,
           valor: cellTarget.valor,
@@ -281,7 +281,7 @@ export default function Semana() {
         recebimentoId,
         cellTarget.moto.id,
         cellTarget.valor,
-        cellTarget.contrato.locatario_nome,
+        cellTarget.contrato.locatario_nome || '',
         formaPagamento,
         todayStr,
         cellTarget.contrato.id,
@@ -655,7 +655,7 @@ export default function Semana() {
                                 </span>
                               </div>
                               <div className="text-[9px] text-muted-foreground truncate font-normal leading-tight">
-                                {contrato.locatario_nome}
+                                {contrato.locatario_nome?.trim() || '—'}
                               </div>
                             </td>
 
@@ -814,7 +814,9 @@ export default function Semana() {
             <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border space-y-1 text-xs">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Locatário:</span>
-                <span className="font-bold">{cellTarget?.contrato.locatario_nome}</span>
+                <span className="font-bold">
+                  {cellTarget?.contrato.locatario_nome?.trim() || 'Sem locatário'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Dia da Semana:</span>
@@ -886,7 +888,8 @@ export default function Semana() {
 
           <div className="space-y-3 py-2">
             <div className="text-xs text-muted-foreground">
-              Locatário: <strong>{changeDayTarget?.locatario_nome}</strong>
+              Locatário:{' '}
+              <strong>{changeDayTarget?.locatario_nome?.trim() || 'Sem locatário'}</strong>
             </div>
 
             <div className="space-y-2">

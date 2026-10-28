@@ -49,7 +49,7 @@ export type DiaSemana = 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB' | 'DOM'
 export interface Contrato {
   id: string
   moto: string
-  locatario_nome: string
+  locatario_nome?: string
   locatario_documento?: string
   locatario_telefone?: string
   tipo: TipoLocacao
@@ -77,7 +77,7 @@ export interface Recebimento {
   id: string
   moto: string
   contrato?: string
-  locatario_nome: string
+  locatario_nome?: string
   data_vencimento: string
   data_pagamento?: string
   valor: number

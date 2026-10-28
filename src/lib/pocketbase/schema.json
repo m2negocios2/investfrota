@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T18:39:27.885Z",
+  "generatedAt": "2026-10-28T20:44:19.771Z",
   "collections": [
     {
       "name": "users",
@@ -192,7 +192,7 @@
         {
           "name": "locatario_nome",
           "type": "text",
-          "required": true,
+          "required": false,
           "system": false
         },
         {
@@ -324,7 +324,7 @@
         {
           "name": "locatario_nome",
           "type": "text",
-          "required": true,
+          "required": false,
           "system": false
         },
         {

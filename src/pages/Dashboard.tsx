@@ -325,7 +325,7 @@ export default function Dashboard() {
                     >
                       <div>
                         <p className="font-semibold text-sm text-slate-900 dark:text-white">
-                          {rec.locatario_nome}
+                          {rec.locatario_nome?.trim() || 'Sem locatário'}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Vencimento: {formatDateDisplay(rec.data_vencimento)}

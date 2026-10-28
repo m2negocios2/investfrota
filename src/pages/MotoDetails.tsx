@@ -201,8 +201,8 @@ export default function MotoDetails() {
 
   const handleSaveEditContract = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!contractToEdit || !editLocatarioNome.trim() || !editDataInicio) {
-      toast.error('Preencha os campos obrigatórios')
+    if (!contractToEdit || !editDataInicio) {
+      toast.error('Preencha a data de início do contrato')
       return
     }
 
@@ -575,7 +575,9 @@ export default function MotoDetails() {
             </div>
             <p className="text-xs text-muted-foreground mt-2">
               {activeContract
-                ? `Locada para ${activeContract.locatario_nome}`
+                ? activeContract.locatario_nome?.trim()
+                  ? `Locada para ${activeContract.locatario_nome}`
+                  : 'Locada (sem locatário cadastrado)'
                 : moto.status === 'em_loja_detran'
                   ? 'Veículo em loja / aguardando Detran'
                   : 'Nenhum contrato ativo no momento'}
@@ -753,8 +755,14 @@ export default function MotoDetails() {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-primary" />
-                          <span className="font-semibold text-slate-900 dark:text-white">
-                            {contrato.locatario_nome}
+                          <span
+                            className={`font-semibold ${
+                              contrato.locatario_nome?.trim()
+                                ? 'text-slate-900 dark:text-white'
+                                : 'text-muted-foreground italic font-normal'
+                            }`}
+                          >
+                            {contrato.locatario_nome?.trim() || 'Sem locatário'}
                           </span>
                           <Badge
                             variant="outline"
@@ -912,12 +920,15 @@ export default function MotoDetails() {
           {contractToEdit && (
             <form onSubmit={handleSaveEditContract} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="editLocatario">Nome Completo do Locatário *</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="editLocatario">Nome do Locatário</Label>
+                  <span className="text-[10px] text-muted-foreground">Opcional</span>
+                </div>
                 <Input
                   id="editLocatario"
+                  placeholder="Ex: João Silva de Almeida (ou deixe em branco)"
                   value={editLocatarioNome}
                   onChange={(e) => setEditLocatarioNome(e.target.value)}
-                  required
                 />
               </div>
 
@@ -1127,7 +1138,7 @@ export default function MotoDetails() {
                 <div className="flex justify-between items-start">
                   <span className="text-xs text-muted-foreground">Locatário:</span>
                   <span className="font-semibold text-slate-900 dark:text-white text-right">
-                    {contractToDelete.locatario_nome}
+                    {contractToDelete.locatario_nome?.trim() || 'Sem locatário'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">

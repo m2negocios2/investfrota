@@ -10,7 +10,9 @@ import {
   Trash2,
   AlertTriangle,
   Pencil,
+  ChevronDown,
 } from 'lucide-react'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -97,7 +99,7 @@ export default function Rentals() {
   // Auto-populate weekly value when moto is selected
   const [valorSemanalContrato, setValorSemanalContrato] = useState<number>(245)
 
-  // Calculate projected end date for Plano Conquista
+  // Calculate projected end date (months ahead)
   const calculateEndDate = (startDate: string, months: number): string => {
     if (!startDate || !months) return ''
     try {
@@ -105,12 +107,18 @@ export default function Rentals() {
       const y = parseInt(yearStr, 10)
       const m = parseInt(monthStr, 10) - 1
       const d = parseInt(dayStr, 10)
+      // Ajuste para fim de mês se necessário (ex: 31 de janeiro + 1 mês)
       const targetDate = new Date(y, m + months, d)
-      return targetDate.toISOString().split('T')[0]
+      const resY = targetDate.getFullYear()
+      const resM = String(targetDate.getMonth() + 1).padStart(2, '0')
+      const resD = String(targetDate.getDate()).padStart(2, '0')
+      return `${resY}-${resM}-${resD}`
     } catch {
       return ''
     }
   }
+
+  const [dadosLocatarioOpen, setDadosLocatarioOpen] = useState(false)
 
   const handleOpenNewContract = (motoId?: string) => {
     setEditingContract(null)
@@ -122,6 +130,7 @@ export default function Rentals() {
     setLocatarioTel('')
     setComissaoPercentual('')
     setObservacoes('')
+    setDadosLocatarioOpen(false)
     const today = getTodayLocalDate()
     setDataInicio(today)
 
@@ -137,7 +146,11 @@ export default function Rentals() {
     const tipo = found?.tipo_locacao_padrao || 'normal'
     setTipoContrato(tipo)
     setPrazoMeses(12)
-    setDataEntrega(tipo === 'plano_conquista' ? calculateEndDate(today, 12) : '')
+    // Para locação NORMAL, preencher automaticamente 1 mês à frente da data de início
+    // Para Plano Conquista, preencher com o prazo (12 meses)
+    setDataEntrega(
+      tipo === 'plano_conquista' ? calculateEndDate(today, 12) : calculateEndDate(today, 1),
+    )
     setDataFimContratoManual(false)
 
     // Derive dia da semana
@@ -159,6 +172,12 @@ export default function Rentals() {
   const handleOpenEditContract = (contrato: Contrato) => {
     setEditingContract(contrato)
     setMotoSelected(contrato.moto)
+    const hasLocatarioData = Boolean(
+      contrato.locatario_nome?.trim() ||
+      contrato.locatario_documento?.trim() ||
+      contrato.locatario_telefone?.trim(),
+    )
+    setDadosLocatarioOpen(hasLocatarioData)
     setLocatarioNome(contrato.locatario_nome || '')
     setLocatarioDoc(contrato.locatario_documento || '')
     setLocatarioTel(contrato.locatario_telefone || '')
@@ -225,30 +244,36 @@ export default function Rentals() {
       setValorSemanalContrato(sem)
       setValorDiario(Number((sem / 7).toFixed(2)))
       setTipoContrato(found.tipo_locacao_padrao)
-      if (found.tipo_locacao_padrao === 'plano_conquista' && !dataFimContratoManual) {
-        setDataEntrega(calculateEndDate(dataInicio, prazoMeses))
+      if (!dataFimContratoManual) {
+        if (found.tipo_locacao_padrao === 'plano_conquista') {
+          setDataEntrega(calculateEndDate(dataInicio, prazoMeses))
+        } else {
+          setDataEntrega(calculateEndDate(dataInicio, 1))
+        }
       }
     }
   }
 
   const handleTipoContratoChange = (newTipo: TipoLocacao) => {
     setTipoContrato(newTipo)
-    if (newTipo === 'plano_conquista') {
-      if (!dataFimContratoManual) {
+    if (!dataFimContratoManual) {
+      if (newTipo === 'plano_conquista') {
         setDataEntrega(calculateEndDate(dataInicio, prazoMeses))
-      }
-    } else {
-      // If switching back to normal and wasn't manually set, keep or clear
-      if (!dataFimContratoManual) {
-        setDataEntrega('')
+      } else {
+        // Se mudou para normal e não foi alterado manualmente, colocar 1 mês à frente
+        setDataEntrega(calculateEndDate(dataInicio, 1))
       }
     }
   }
 
   const handleDataInicioChange = (newDate: string) => {
     setDataInicio(newDate)
-    if (tipoContrato === 'plano_conquista' && !dataFimContratoManual) {
-      setDataEntrega(calculateEndDate(newDate, prazoMeses))
+    if (!dataFimContratoManual) {
+      if (tipoContrato === 'plano_conquista') {
+        setDataEntrega(calculateEndDate(newDate, prazoMeses))
+      } else {
+        setDataEntrega(calculateEndDate(newDate, 1))
+      }
     }
   }
 
@@ -261,8 +286,8 @@ export default function Rentals() {
 
   const handleSaveContract = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!motoSelected || !locatarioNome.trim() || !dataInicio) {
-      toast.error('Preencha os campos obrigatórios')
+    if (!motoSelected || !dataInicio) {
+      toast.error('Selecione a moto e a data de início')
       return
     }
 
@@ -272,9 +297,10 @@ export default function Rentals() {
         ? Number(comissaoPercentual.replace(',', '.'))
         : 0
 
+      const finalLocatarioNome = locatarioNome.trim()
       const payload: any = {
         moto: motoSelected,
-        locatario_nome: locatarioNome.trim(),
+        locatario_nome: finalLocatarioNome,
         locatario_documento: locatarioDoc.trim(),
         locatario_telefone: locatarioTel.trim(),
         tipo: tipoContrato,
@@ -315,7 +341,7 @@ export default function Rentals() {
         await recebimentosService.create({
           moto: motoSelected,
           contrato: created.id,
-          locatario_nome: locatarioNome.trim(),
+          locatario_nome: finalLocatarioNome,
           data_vencimento: nextDue,
           valor: Number(valorSemanalContrato),
           status: 'em_dia',
@@ -539,10 +565,14 @@ export default function Rentals() {
                                   <div className="flex items-center gap-1">
                                     <User className="w-3.5 h-3.5 shrink-0 text-slate-500 dark:text-slate-400" />
                                     <p
-                                      className="font-bold text-xs truncate text-slate-900 dark:text-white"
-                                      title={contrato.locatario_nome}
+                                      className={`font-bold text-xs truncate ${
+                                        contrato.locatario_nome?.trim()
+                                          ? 'text-slate-900 dark:text-white'
+                                          : 'text-muted-foreground italic font-normal'
+                                      }`}
+                                      title={contrato.locatario_nome || 'Sem locatário'}
                                     >
-                                      {contrato.locatario_nome}
+                                      {contrato.locatario_nome?.trim() || 'Sem locatário'}
                                     </p>
                                   </div>
                                   {contrato.locatario_telefone && (
@@ -697,62 +727,143 @@ export default function Rentals() {
           </DialogHeader>
 
           <form onSubmit={handleSaveContract} className="space-y-4">
+            {/* Escolha da Moto por Botões-Ícone Pequenos (cor cadastrada + nome dentro) */}
             <div className="space-y-2">
-              <Label htmlFor="motoSelect">Selecione a Moto *</Label>
-              <Select
-                value={motoSelected}
-                onValueChange={handleMotoChange}
-                disabled={Boolean(editingContract)}
-              >
-                <SelectTrigger id="motoSelect">
-                  <SelectValue placeholder="Escolha a moto" />
-                </SelectTrigger>
-                <SelectContent>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Selecione a Moto *
+                </Label>
+                {motoSelected && (
+                  <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 truncate max-w-[200px]">
+                    {(() => {
+                      const sel = motos.find((m) => m.id === motoSelected)
+                      return sel ? `${sel.nome || sel.modelo} (${sel.placa})` : ''
+                    })()}
+                  </span>
+                )}
+              </div>
+
+              {editingContract ? (
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60">
+                  {(() => {
+                    const sel = motos.find((m) => m.id === motoSelected)
+                    return sel ? (
+                      <MotoCardButton
+                        moto={sel}
+                        isSelected={true}
+                        onClick={() => {}}
+                        compact={true}
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Moto vinculada</span>
+                    )
+                  })()}
+                  <p className="text-[11px] text-muted-foreground mt-1.5">
+                    A moto vinculada ao contrato não pode ser trocada na edição (se necessário, crie
+                    um novo contrato).
+                  </p>
+                </div>
+              ) : motos.length === 0 ? (
+                <div className="p-4 text-center text-xs text-muted-foreground bg-slate-50 dark:bg-slate-800/50 rounded-xl border">
+                  Nenhuma moto cadastrada.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[170px] overflow-y-auto p-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-950/30">
                   {motos.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.nome || m.modelo} — {m.placa} ({m.status.toUpperCase()})
-                    </SelectItem>
+                    <MotoCardButton
+                      key={m.id}
+                      moto={m}
+                      isSelected={motoSelected === m.id}
+                      onClick={() => handleMotoChange(m.id)}
+                      compact={true}
+                    />
                   ))}
-                </SelectContent>
-              </Select>
-              {editingContract && (
-                <p className="text-[11px] text-muted-foreground">
-                  A moto vinculada ao contrato não pode ser trocada na edição (se necessário, crie
-                  um novo contrato).
-                </p>
+                </div>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="locatario">Nome Completo do Locatário *</Label>
-              <Input
-                id="locatario"
-                placeholder="Ex: João Silva de Almeida"
-                value={locatarioNome}
-                onChange={(e) => setLocatarioNome(e.target.value)}
-                required
-              />
-            </div>
+            {/* Item Recolhível: DADOS LOCATÁRIO (fechado por padrão) */}
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 overflow-hidden">
+              <Collapsible open={dadosLocatarioOpen} onOpenChange={setDadosLocatarioOpen}>
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full p-3 flex items-center justify-between text-left hover:bg-slate-100/70 dark:hover:bg-slate-800/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-slate-500" />
+                      <div>
+                        <span className="font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                          DADOS LOCATÁRIO
+                        </span>
+                        <span className="ml-2 text-[10px] text-muted-foreground font-normal">
+                          (opcional)
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-muted-foreground">
+                        {locatarioNome.trim()
+                          ? locatarioNome.trim()
+                          : dadosLocatarioOpen
+                            ? 'aberto'
+                            : 'clique para informar'}
+                      </span>
+                      <ChevronDown
+                        className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${
+                          dadosLocatarioOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </div>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="p-3 pt-1 space-y-3 border-t border-slate-200/70 dark:border-slate-800 bg-white/70 dark:bg-slate-900/80">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="locatario" className="text-xs font-medium">
+                          Nome do Locatário
+                        </Label>
+                        <span className="text-[10px] text-muted-foreground">Opcional</span>
+                      </div>
+                      <Input
+                        id="locatario"
+                        placeholder="Ex: João Silva de Almeida (ou deixe em branco)"
+                        value={locatarioNome}
+                        onChange={(e) => setLocatarioNome(e.target.value)}
+                        className="bg-white dark:bg-slate-900"
+                      />
+                    </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="cpf">CPF / Documento</Label>
-                <Input
-                  id="cpf"
-                  placeholder="000.000.000-00"
-                  value={locatarioDoc}
-                  onChange={(e) => setLocatarioDoc(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="tel">Telefone / WhatsApp</Label>
-                <Input
-                  id="tel"
-                  placeholder="(11) 90000-0000"
-                  value={locatarioTel}
-                  onChange={(e) => setLocatarioTel(e.target.value)}
-                />
-              </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="cpf" className="text-xs font-medium">
+                          CPF / Documento
+                        </Label>
+                        <Input
+                          id="cpf"
+                          placeholder="000.000.000-00"
+                          value={locatarioDoc}
+                          onChange={(e) => setLocatarioDoc(e.target.value)}
+                          className="bg-white dark:bg-slate-900"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="tel" className="text-xs font-medium">
+                          Telefone / WhatsApp
+                        </Label>
+                        <Input
+                          id="tel"
+                          placeholder="(11) 90000-0000"
+                          value={locatarioTel}
+                          onChange={(e) => setLocatarioTel(e.target.value)}
+                          className="bg-white dark:bg-slate-900"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -974,7 +1085,7 @@ export default function Rentals() {
                 <div className="flex justify-between items-start">
                   <span className="text-xs text-muted-foreground">Locatário:</span>
                   <span className="font-semibold text-slate-900 dark:text-white text-right">
-                    {contractToDelete.locatario_nome}
+                    {contractToDelete.locatario_nome?.trim() || 'Sem locatário'}
                   </span>
                 </div>
                 {(() => {
