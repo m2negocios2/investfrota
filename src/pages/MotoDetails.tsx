@@ -8,7 +8,8 @@ import {
   Receipt,
   Edit,
   Plus,
-  CheckCircle,
+  CircleDot,
+  CircleCheckBig,
   Clock,
   Wrench,
   TrendingUp,
@@ -124,6 +125,19 @@ export default function MotoDetails() {
 
   // Active Contract
   const activeContract = contratos.find((c) => c.status === 'ativo')
+
+  // Símbolos dos selos de status: Locada = círculo preenchido, Disponível = novo ícone próprio
+  const statusBadgeConfig: Record<string, { label: string; icon: typeof Bike }> = {
+    disponivel: { label: 'Disponível', icon: CircleCheckBig },
+    locada: { label: 'Locada', icon: CircleDot },
+    manutencao: { label: 'Em Manutenção', icon: Wrench },
+    em_loja_detran: { label: 'Em Loja/Detran', icon: Clock },
+  }
+  const statusBadge = statusBadgeConfig[moto.status] || {
+    label: moto.status,
+    icon: Bike,
+  }
+  const StatusIcon = statusBadge.icon
 
   // Financial summary for this moto
   const totalReceitas = caixa
@@ -564,13 +578,8 @@ export default function MotoDetails() {
                         : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300'
                 }`}
               >
-                {moto.status === 'em_loja_detran'
-                  ? 'Em Loja/Detran'
-                  : moto.status === 'disponivel'
-                    ? 'Disponível'
-                    : moto.status === 'locada'
-                      ? 'Locada'
-                      : 'Em Manutenção'}
+                <StatusIcon className="w-3.5 h-3.5 shrink-0" />
+                {statusBadge.label}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
