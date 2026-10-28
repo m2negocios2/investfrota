@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { caixaService } from '@/services/caixa'
 import { motosService } from '@/services/motos'
@@ -28,6 +29,7 @@ export default function LancamentoAluguel() {
   const [selectedMotoId, setSelectedMotoId] = useState<string>('')
   const [valorInput, setValorInput] = useState<string>('')
   const [dataInput, setDataInput] = useState<string>(getTodayLocalDate())
+  const [semComissao, setSemComissao] = useState<boolean>(false)
   const [loading, setLoading] = useState<boolean>(true)
   const [submitting, setSubmitting] = useState<boolean>(false)
   const [recentLancamentos, setRecentLancamentos] = useState<CaixaLancamento[]>([])
@@ -158,7 +160,7 @@ export default function LancamentoAluguel() {
 
       let comissaoCriada: CaixaLancamento | null = null
 
-      if (percentualComissao > 0) {
+      if (!semComissao && percentualComissao > 0) {
         // Reusar serviço existente de comissão do caixa (mantendo deduplicação, data e descrição exatas)
         comissaoCriada = await caixaService.registrarComissaoSeAplicavel({
           contratoId: activeContract.id,
@@ -177,7 +179,12 @@ export default function LancamentoAluguel() {
         maximumFractionDigits: 2,
       })
 
-      if (percentualComissao > 0 && comissaoCriada) {
+      if (semComissao) {
+        toast.success(
+          `Receita de aluguel de R$ ${valorFormatado} lançada com sucesso no Caixa da ${motoNomeDisplay} (sem comissão)!`,
+          { duration: 5000 },
+        )
+      } else if (percentualComissao > 0 && comissaoCriada) {
         const comissaoFormatada = Number(comissaoCriada.valor).toLocaleString('pt-BR', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
@@ -197,6 +204,7 @@ export default function LancamentoAluguel() {
       // 4. Limpar campos e redefinir data para 'hoje' prontos para o próximo lançamento
       setValorInput('')
       setDataInput(getTodayLocalDate())
+      setSemComissao(false)
 
       // 5. Atualizar lista recente
       const novosItens: CaixaLancamento[] = [{ ...receitaCriada, expand: { moto: selectedMoto } }]
@@ -419,7 +427,7 @@ export default function LancamentoAluguel() {
             </div>
           </div>
 
-          {/* 4. Resumo da Ação e Botão LANÇAR */}
+          {/* 4. Resumo da Ação, Checkbox sem comissão e Botão LANÇAR */}
           <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
             {isFormReady && activeContract && (
               <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 text-xs space-y-1">
@@ -432,9 +440,14 @@ export default function LancamentoAluguel() {
                     + R$ {valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
-                {Number(
-                  activeContract.comissao_percentual ?? activeContract.percentual_comissao ?? 0,
-                ) > 0 ? (
+                {semComissao ? (
+                  <div className="flex items-center justify-between text-slate-500 italic text-[11px] pt-0.5">
+                    <span>2. Despesa de Comissão:</span>
+                    <span className="font-medium">Ignorada (opção sem comissão marcada)</span>
+                  </div>
+                ) : Number(
+                    activeContract.comissao_percentual ?? activeContract.percentual_comissao ?? 0,
+                  ) > 0 ? (
                   <div className="flex items-center justify-between text-red-600 font-semibold">
                     <span>
                       2. Despesa de Comissão (
@@ -461,6 +474,22 @@ export default function LancamentoAluguel() {
                 )}
               </div>
             )}
+
+            {/* Checkbox: Lançar aluguel sem comissão */}
+            <div className="flex items-center space-x-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition-colors cursor-pointer select-none">
+              <Checkbox
+                id="semComissaoCheckbox"
+                checked={semComissao}
+                onCheckedChange={(checked) => setSemComissao(Boolean(checked))}
+                className="h-5 w-5 border-2 border-slate-400 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+              />
+              <label
+                htmlFor="semComissaoCheckbox"
+                className="text-sm font-semibold text-slate-800 dark:text-slate-200 cursor-pointer flex-1 leading-snug"
+              >
+                Lançar aluguel sem comissão
+              </label>
+            </div>
 
             <Button
               type="button"
