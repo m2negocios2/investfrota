@@ -11,6 +11,8 @@ import {
   Building2,
   User,
   Users,
+  CheckCircle2,
+  LayoutGrid,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -47,6 +49,7 @@ import {
   Contrato,
   EntidadeTipo,
 } from '@/types/database'
+import { MotoCardButton, MotoGridSelector } from '@/components/MotoSelectorGrid'
 
 export const ENTIDADES_CONFIG: Record<
   EntidadeTipo,
@@ -456,81 +459,236 @@ export default function CashFlow() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card className="shadow-sm">
-        <CardContent className="pt-6">
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                {isEntidadeSelected ? (
-                  <Building2 className="w-5 h-5 text-indigo-600" />
-                ) : (
-                  <Bike className="w-5 h-5 text-blue-600" />
-                )}
-                <div>
-                  <span className="text-sm font-bold text-slate-900 dark:text-white">
-                    Fluxo Individual: Motos ou Entidades
-                  </span>
-                  <p className="text-xs text-muted-foreground">
-                    Selecione uma moto ou uma entidade geral para visualizar a tabela de fluxo e
-                    saldo
+      {/* Seletor em Grade de Motos e Entidades */}
+      <Card className="shadow-sm border-2 border-slate-200/80 dark:border-slate-800">
+        <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Bike className="w-5 h-5 text-blue-600" />
+                Escolha a Moto ou Entidade para ver o Fluxo
+              </CardTitle>
+              <CardDescription>
+                Toque no botão da moto ou entidade para atualizar a tabela de fluxo de caixa e
+                saldo.
+              </CardDescription>
+            </div>
+
+            {/* Botão de Visão Geral (Todas) */}
+            <button
+              type="button"
+              onClick={() => setTargetFilter('todas')}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 ${
+                targetFilter === 'todas'
+                  ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+                  : 'border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              Todas (Visão Geral)
+            </button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="pt-4 space-y-5">
+          {/* Grade de Motos da Frota com ícone colorido e nome */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Bike className="w-4 h-4 text-blue-600" />
+                Motos da Frota
+              </span>
+              {selectedMoto && (
+                <span className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Selecionada:{' '}
+                  {selectedMoto.nome?.trim() || selectedMoto.modelo?.trim() || selectedMoto.placa}
+                </span>
+              )}
+            </div>
+
+            {loading ? (
+              <div className="p-6 text-center text-sm text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                Carregando motos...
+              </div>
+            ) : motos.length === 0 ? (
+              <div className="p-6 text-center text-sm text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                Nenhuma moto cadastrada.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                {motos.map((m) => (
+                  <MotoCardButton
+                    key={m.id}
+                    moto={m}
+                    isSelected={targetFilter === m.id}
+                    onClick={() => setTargetFilter(m.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Grupo das 3 Entidades Gerais da Empresa */}
+          <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Building2 className="w-4 h-4 text-indigo-600" />
+                Entidades Gerais da Empresa
+              </span>
+              {isEntidadeSelected && (
+                <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Selecionada: {ENTIDADES_CONFIG[selectedEntidadeKey!].chipLabel}
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+              {/* EMPRESA */}
+              <button
+                type="button"
+                onClick={() => setTargetFilter('entidade:empresa')}
+                className={`relative min-h-[64px] sm:min-h-[72px] p-2.5 sm:p-3 rounded-2xl border-2 transition-all text-left flex items-center gap-2.5 sm:gap-3 cursor-pointer select-none active:scale-[0.98] ${
+                  targetFilter === 'entidade:empresa'
+                    ? 'border-amber-600 dark:border-amber-500 bg-amber-50/90 dark:bg-amber-950/60 ring-2 ring-amber-600/30 shadow-md'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 shadow-sm'
+                }`}
+              >
+                <div
+                  className={`w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center border transition-colors ${
+                    targetFilter === 'entidade:empresa'
+                      ? 'bg-white dark:bg-slate-900 border-amber-300 dark:border-amber-700 text-amber-600 shadow-sm'
+                      : 'bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-900 text-amber-600'
+                  }`}
+                >
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={`font-black text-sm sm:text-base leading-tight truncate ${
+                      targetFilter === 'entidade:empresa'
+                        ? 'text-amber-950 dark:text-amber-100'
+                        : 'text-slate-900 dark:text-white'
+                    }`}
+                  >
+                    🏢 EMPRESA
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate leading-none mt-0.5">
+                    Custos Gerais (ponto, luz, etc.)
                   </p>
                 </div>
-              </div>
-              <div className="w-full sm:w-80">
-                <Select value={targetFilter} onValueChange={setTargetFilter}>
-                  <SelectTrigger className="font-medium bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
-                    <SelectValue placeholder="Selecione moto ou entidade..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todas">Todas as Motos e Entidades (Visão Geral)</SelectItem>
+                {targetFilter === 'entidade:empresa' && (
+                  <div className="absolute top-1.5 right-1.5 bg-amber-600 text-white rounded-full p-0.5 shadow-sm">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  </div>
+                )}
+              </button>
 
-                    {/* Grupo: ENTIDADES GERAIS */}
-                    <div className="px-2 py-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider bg-slate-50 dark:bg-slate-900 border-y border-slate-100 dark:border-slate-800 my-1">
-                      Entidades Gerais da Empresa
-                    </div>
-                    <SelectItem value="entidade:empresa">🏢 EMPRESA (Custos Gerais)</SelectItem>
-                    <SelectItem value="entidade:socia">
-                      👤 EU / SÓCIA (Retiradas / Pró-labore)
-                    </SelectItem>
-                    <SelectItem value="entidade:terceiros">🤝 DÍVIDAS COM TERCEIROS</SelectItem>
+              {/* SÓCIA */}
+              <button
+                type="button"
+                onClick={() => setTargetFilter('entidade:socia')}
+                className={`relative min-h-[64px] sm:min-h-[72px] p-2.5 sm:p-3 rounded-2xl border-2 transition-all text-left flex items-center gap-2.5 sm:gap-3 cursor-pointer select-none active:scale-[0.98] ${
+                  targetFilter === 'entidade:socia'
+                    ? 'border-purple-600 dark:border-purple-500 bg-purple-50/90 dark:bg-purple-950/60 ring-2 ring-purple-600/30 shadow-md'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 shadow-sm'
+                }`}
+              >
+                <div
+                  className={`w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center border transition-colors ${
+                    targetFilter === 'entidade:socia'
+                      ? 'bg-white dark:bg-slate-900 border-purple-300 dark:border-purple-700 text-purple-600 shadow-sm'
+                      : 'bg-purple-50 dark:bg-purple-950/50 border-purple-200 dark:border-purple-900 text-purple-600'
+                  }`}
+                >
+                  <User className="w-6 h-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={`font-black text-sm sm:text-base leading-tight truncate ${
+                      targetFilter === 'entidade:socia'
+                        ? 'text-purple-950 dark:text-purple-100'
+                        : 'text-slate-900 dark:text-white'
+                    }`}
+                  >
+                    👤 EU / SÓCIA
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate leading-none mt-0.5">
+                    Retiradas / Pró-labore
+                  </p>
+                </div>
+                {targetFilter === 'entidade:socia' && (
+                  <div className="absolute top-1.5 right-1.5 bg-purple-600 text-white rounded-full p-0.5 shadow-sm">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  </div>
+                )}
+              </button>
 
-                    {/* Grupo: MOTOS */}
-                    <div className="px-2 py-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wider bg-slate-50 dark:bg-slate-900 border-y border-slate-100 dark:border-slate-800 my-1">
-                      Motos da Frota
-                    </div>
-                    {motos.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        🏍️ {m.nome ? m.nome : m.modelo} {m.placa ? `(${m.placa})` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* DÍVIDAS COM TERCEIROS */}
+              <button
+                type="button"
+                onClick={() => setTargetFilter('entidade:terceiros')}
+                className={`relative min-h-[64px] sm:min-h-[72px] p-2.5 sm:p-3 rounded-2xl border-2 transition-all text-left flex items-center gap-2.5 sm:gap-3 cursor-pointer select-none active:scale-[0.98] ${
+                  targetFilter === 'entidade:terceiros'
+                    ? 'border-rose-600 dark:border-rose-500 bg-rose-50/90 dark:bg-rose-950/60 ring-2 ring-rose-600/30 shadow-md'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 shadow-sm'
+                }`}
+              >
+                <div
+                  className={`w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-xl flex items-center justify-center border transition-colors ${
+                    targetFilter === 'entidade:terceiros'
+                      ? 'bg-white dark:bg-slate-900 border-rose-300 dark:border-rose-700 text-rose-600 shadow-sm'
+                      : 'bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-900 text-rose-600'
+                  }`}
+                >
+                  <Users className="w-6 h-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={`font-black text-sm sm:text-base leading-tight truncate ${
+                      targetFilter === 'entidade:terceiros'
+                        ? 'text-rose-950 dark:text-rose-100'
+                        : 'text-slate-900 dark:text-white'
+                    }`}
+                  >
+                    🤝 TERCEIROS
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate leading-none mt-0.5">
+                    Dívidas com Terceiros
+                  </p>
+                </div>
+                {targetFilter === 'entidade:terceiros' && (
+                  <div className="absolute top-1.5 right-1.5 bg-rose-600 text-white rounded-full p-0.5 shadow-sm">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  </div>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Busca e Filtro de Tipo para o Extrato */}
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar descrição ou categoria..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-10"
+              />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar descrição ou categoria..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-
-              <Select value={tipoFilter} onValueChange={setTipoFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tipo de Movimentação" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todas as Movimentações</SelectItem>
-                  <SelectItem value="entrada">Apenas Entradas (Receitas)</SelectItem>
-                  <SelectItem value="saida">Apenas Saídas (Despesas)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Select value={tipoFilter} onValueChange={setTipoFilter}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Tipo de Movimentação" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as Movimentações</SelectItem>
+                <SelectItem value="entrada">Apenas Entradas (Receitas)</SelectItem>
+                <SelectItem value="saida">Apenas Saídas (Despesas)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -903,7 +1061,7 @@ export default function CashFlow() {
 
       {/* New Entry Modal */}
       <Dialog open={newModalOpen} onOpenChange={setNewModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Novo Lançamento no Caixa</DialogTitle>
             <DialogDescription>
@@ -971,22 +1129,39 @@ export default function CashFlow() {
               </div>
             </div>
 
-            {/* Campo condicional: Seletor de Moto OU Seletor de Entidade */}
+            {/* Campo condicional: Grade de Motos OU Seletor de Entidade */}
             {vinculoTipo === 'moto' ? (
               <div className="space-y-2">
-                <Label htmlFor="motoId">Moto Relacionada *</Label>
-                <Select value={motoId} onValueChange={setMotoId}>
-                  <SelectTrigger id="motoId">
-                    <SelectValue placeholder="Selecione a moto" />
-                  </SelectTrigger>
-                  <SelectContent>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Moto Relacionada *</Label>
+                  {motoId && (
+                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      {(() => {
+                        const m = motos.find((item) => item.id === motoId)
+                        return m ? m.nome?.trim() || m.modelo?.trim() || m.placa : ''
+                      })()}
+                    </span>
+                  )}
+                </div>
+                <div className="max-h-56 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-2 gap-2">
                     {motos.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.nome || m.modelo} — {m.placa}
-                      </SelectItem>
+                      <MotoCardButton
+                        key={m.id}
+                        moto={m}
+                        isSelected={motoId === m.id}
+                        onClick={() => setMotoId(m.id)}
+                        compact
+                      />
                     ))}
-                  </SelectContent>
-                </Select>
+                  </div>
+                </div>
+                {!motoId && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Toque na moto que receberá este lançamento.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="space-y-2">
@@ -1134,7 +1309,7 @@ export default function CashFlow() {
 
       {/* Edit Entry Modal */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Alterar Lançamento</DialogTitle>
             <DialogDescription>
@@ -1204,19 +1379,36 @@ export default function CashFlow() {
 
             {editVinculoTipo === 'moto' ? (
               <div className="space-y-2">
-                <Label htmlFor="editMotoId">Moto Relacionada *</Label>
-                <Select value={editMotoId} onValueChange={setEditMotoId}>
-                  <SelectTrigger id="editMotoId">
-                    <SelectValue placeholder="Selecione a moto" />
-                  </SelectTrigger>
-                  <SelectContent>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Moto Relacionada *</Label>
+                  {editMotoId && (
+                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      {(() => {
+                        const m = motos.find((item) => item.id === editMotoId)
+                        return m ? m.nome?.trim() || m.modelo?.trim() || m.placa : ''
+                      })()}
+                    </span>
+                  )}
+                </div>
+                <div className="max-h-56 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-2 gap-2">
                     {motos.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.nome || m.modelo} — {m.placa}
-                      </SelectItem>
+                      <MotoCardButton
+                        key={m.id}
+                        moto={m}
+                        isSelected={editMotoId === m.id}
+                        onClick={() => setEditMotoId(m.id)}
+                        compact
+                      />
                     ))}
-                  </SelectContent>
-                </Select>
+                  </div>
+                </div>
+                {!editMotoId && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Toque na moto desejada.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="space-y-2">
