@@ -73,7 +73,7 @@ export default function Semana() {
 
   // Payment Confirmation Dialog (when clicking neutral or overdue cell)
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
-  const [submittingPayment, setSubmittingPayment] = useState(false)
+  const [submittingAction, setSubmittingAction] = useState(false)
   const [cellTarget, setCellTarget] = useState<{
     moto: Moto
     contrato: Contrato
@@ -243,14 +243,25 @@ export default function Semana() {
     const cellState = getCellStatus(contrato, weekCode, cellDateStr)
 
     if (cellState.status === 'pago' && cellState.recebimento) {
+      const rec = cellState.recebimento
+      const isApenasColorido =
+        rec.observacoes === 'apenas_colorido' ||
+        Boolean(rec.observacoes && rec.observacoes.includes('apenas_colorido'))
+
       // Estornar / Desmarcar pagamento
-      const confirmed = window.confirm(
-        `A moto ${moto.nome || moto.modelo} já consta como PAGA nesta semana.\n\nDeseja estornar o pagamento? O lançamento de aluguel e a comissão correspondente serão retirados do Caixa.`,
-      )
+      const msg = isApenasColorido
+        ? `A moto ${moto.nome || moto.modelo} está apenas marcada como COLORIDA nesta semana (sem lançamentos no caixa).\n\nDeseja desmarcar e voltar para pendente?`
+        : `A moto ${moto.nome || moto.modelo} já consta como PAGA nesta semana.\n\nDeseja estornar o pagamento? O lançamento de aluguel e a comissão correspondente serão retirados do Caixa.`
+
+      const confirmed = window.confirm(msg)
       if (confirmed) {
         try {
-          await recebimentosService.estornarPagamento(cellState.recebimento.id, 'em_dia')
-          toast.success('Pagamento estornado com sucesso! Lançamentos retirados do Caixa.')
+          await recebimentosService.estornarPagamento(rec.id, 'em_dia')
+          toast.success(
+            isApenasColorido
+              ? 'Marcação removida com sucesso!'
+              : 'Pagamento estornado com sucesso! Lançamentos retirados do Caixa.',
+          )
           await loadData()
         } catch (err) {
           console.error('Erro ao estornar pagamento no painel Semana:', err)
@@ -273,10 +284,54 @@ export default function Semana() {
     setPaymentModalOpen(true)
   }
 
-  // Confirm payment in modal
-  const handleConfirmPayment = async () => {
-    if (!cellTarget || submittingPayment) return
-    setSubmittingPayment(true)
+  // Opção 1: APENAS COLORIR (pinta de verde sem lançar nada no caixa)
+  const handleApenasColorir = async () => {
+    if (!cellTarget || submittingAction) return
+    setSubmittingAction(true)
+    try {
+      const todayStr = getTodayLocalDate()
+      const weekCode = cellTarget.weekCode
+
+      let recebimentoId = cellTarget.recebimento?.id
+
+      if (!recebimentoId) {
+        await recebimentosService.create({
+          moto: cellTarget.moto.id,
+          contrato: cellTarget.contrato.id,
+          locatario_nome: cellTarget.contrato.locatario_nome || '',
+          data_vencimento: cellTarget.dateStr,
+          data_pagamento: todayStr,
+          valor: cellTarget.valor,
+          status: 'pago',
+          forma_pagamento: formaPagamento,
+          semana_ano: weekCode,
+          observacoes: 'apenas_colorido',
+        })
+      } else {
+        await recebimentosService.update(recebimentoId, {
+          status: 'pago',
+          data_pagamento: todayStr,
+          forma_pagamento: formaPagamento,
+          observacoes: 'apenas_colorido',
+        })
+      }
+
+      toast.success('Célula colorida com sucesso (sem lançamentos no Caixa)!')
+      setPaymentModalOpen(false)
+      setCellTarget(null)
+      await loadData()
+    } catch (err) {
+      console.error('Erro ao apenas colorir célula no painel Semana:', err)
+      toast.error('Erro ao marcar como colorida')
+    } finally {
+      setSubmittingAction(false)
+    }
+  }
+
+  // Opção 2: COLORIR E LANÇAR PAGAMENTO (comportamento completo: colore + Caixa + Comissão)
+  const handleColorirELancarPagamento = async () => {
+    if (!cellTarget || submittingAction) return
+    setSubmittingAction(true)
     try {
       const todayStr = getTodayLocalDate()
       const weekCode = cellTarget.weekCode
@@ -297,6 +352,11 @@ export default function Semana() {
           semana_ano: weekCode,
         })
         recebimentoId = newRec.id
+      }
+
+      // Se tinha observação de 'apenas_colorido', limpa para virar lançamento regular
+      if (cellTarget.recebimento?.observacoes === 'apenas_colorido') {
+        await recebimentosService.update(recebimentoId, { observacoes: '' })
       }
 
       // Marcar como pago, gerar receita no caixa e comissão automática se configurada
@@ -320,7 +380,7 @@ export default function Semana() {
       console.error('Erro ao registrar pagamento no painel Semana:', err)
       toast.error('Erro ao registrar pagamento e lançar no caixa')
     } finally {
-      setSubmittingPayment(false)
+      setSubmittingAction(false)
     }
   }
 
@@ -607,19 +667,22 @@ export default function Semana() {
                           <span>MOTO</span>
                         </div>
                       </th>
-                      {DIAS_SEMANA.map((d) => (
-                        <th
-                          key={d.key}
-                          className="p-0.5 sm:p-1 text-center font-bold text-slate-700 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700 w-[9%] sm:w-[9.5%]"
-                        >
-                          <div className="font-black text-slate-900 dark:text-white uppercase text-[10px] leading-tight">
-                            {d.short}
-                          </div>
-                          <div className="text-[9px] text-muted-foreground font-normal leading-tight hidden xs:block">
-                            {weekDates[d.key].dateStr.split('-')[2]}
-                          </div>
-                        </th>
-                      ))}
+                      {DIAS_SEMANA.map((d) => {
+                        const diaNumero = weekDates[d.key].dateStr.split('-')[2]
+                        return (
+                          <th
+                            key={d.key}
+                            className="p-0.5 sm:p-1 text-center font-bold text-slate-700 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700 w-[9%] sm:w-[9.5%]"
+                          >
+                            <div className="text-[10px] sm:text-[11px] font-black text-blue-700 dark:text-blue-300 font-mono leading-none tracking-tight">
+                              {diaNumero}
+                            </div>
+                            <div className="font-extrabold text-slate-800 dark:text-slate-200 uppercase text-[9px] sm:text-[10px] leading-tight mt-0.5">
+                              {d.short}
+                            </div>
+                          </th>
+                        )
+                      })}
                       <th className="p-1 text-right font-bold text-slate-700 dark:text-slate-200 w-[13%] sm:w-[11.5%] bg-slate-100/60 dark:bg-slate-800/40 text-[10px]">
                         TOTAL
                       </th>
@@ -828,20 +891,23 @@ export default function Semana() {
         })}
       </div>
 
-      {/* Modal: Confirm Payment */}
+      {/* Modal: Confirm Payment ou Apenas Colorir */}
       <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Confirmar Pagamento Semanal</DialogTitle>
-            <DialogDescription>
-              Dar baixa no valor de R$ {cellTarget?.valor.toFixed(2)} para a moto{' '}
-              <strong>{cellTarget?.moto.nome || cellTarget?.moto.modelo}</strong> ({cellTarget?.dia}
-              ).
+            <DialogTitle className="text-base font-bold text-slate-900 dark:text-white">
+              O que deseja fazer com esta célula?
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Moto <strong>{cellTarget?.moto.nome || cellTarget?.moto.modelo}</strong> •{' '}
+              {cellTarget?.dia} ({cellTarget?.dateStr ? formatDateDisplay(cellTarget.dateStr) : '-'}
+              )
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border space-y-1 text-xs">
+          <div className="space-y-3.5 py-1 text-xs">
+            {/* Dados do Contrato */}
+            <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border space-y-1">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Locatário:</span>
                 <span className="font-bold">
@@ -849,27 +915,20 @@ export default function Semana() {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Dia da Semana:</span>
-                <span className="font-bold">{cellTarget?.dia}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Data Prevista:</span>
-                <span className="font-bold">
-                  {cellTarget?.dateStr ? formatDateDisplay(cellTarget.dateStr) : '-'}
-                </span>
-              </div>
-              <div className="flex justify-between pt-1 border-t">
-                <span className="text-muted-foreground font-semibold">Valor a Baixar:</span>
-                <span className="font-black text-emerald-600 text-sm">
+                <span className="text-muted-foreground">Valor Semanal:</span>
+                <span className="font-black text-emerald-600 dark:text-emerald-400">
                   R$ {cellTarget?.valor.toFixed(2)}
                 </span>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Forma de Pagamento</Label>
+            {/* Forma de Pagamento (usada ao Lançar) */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">
+                Forma de Pagamento (para opção com lançamento):
+              </Label>
               <Select value={formaPagamento} onValueChange={(val: any) => setFormaPagamento(val)}>
-                <SelectTrigger>
+                <SelectTrigger className="h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -881,26 +940,72 @@ export default function Semana() {
               </Select>
             </div>
 
-            <p className="text-[11px] text-muted-foreground">
-              Esta confirmação mudará o fundo da célula para <strong>VERDE</strong> e lançará a
-              entrada no Livro Caixa automaticamente.
-            </p>
+            {/* Bloco explicativo das duas opções pedidas pela usuária */}
+            <div className="space-y-2 pt-1">
+              {/* 1) APENAS COLORIR */}
+              <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="font-bold text-slate-800 dark:text-slate-100 text-xs block">
+                      1) APENAS COLORIR?
+                    </span>
+                    <span className="text-[11px] text-muted-foreground block mt-0.5">
+                      Pinta a célula de verde como paga, <strong>SEM</strong> lançar nada no Fluxo
+                      de Caixa (sem receita nem comissão).
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleApenasColorir}
+                    disabled={submittingAction}
+                    className="h-8 text-xs font-bold border-emerald-500 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 shrink-0"
+                  >
+                    Colorir
+                  </Button>
+                </div>
+              </div>
+
+              {/* 2) Colorir e Lançar pagamento */}
+              <div className="p-3 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/30 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="font-bold text-emerald-900 dark:text-emerald-200 text-xs block">
+                      2) Colorir e Lançar pagamento
+                    </span>
+                    <span className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80 block mt-0.5">
+                      Colore a célula de verde <strong>E LANÇA</strong> a receita no Fluxo de Caixa
+                      mais a comissão automática do contrato.
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleColorirELancarPagamento}
+                    disabled={submittingAction}
+                    className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+                  >
+                    Colorir e Lançar
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="pt-1">
             <Button
-              variant="outline"
-              onClick={() => setPaymentModalOpen(false)}
-              disabled={submittingPayment}
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setPaymentModalOpen(false)
+                setCellTarget(null)
+              }}
+              disabled={submittingAction}
+              className="text-xs"
             >
               Cancelar
-            </Button>
-            <Button
-              onClick={handleConfirmPayment}
-              disabled={submittingPayment}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-            >
-              {submittingPayment ? 'Registrando...' : 'Confirmar Pagamento e Pintar de Verde'}
             </Button>
           </DialogFooter>
         </DialogContent>
