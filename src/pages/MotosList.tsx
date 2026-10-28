@@ -173,7 +173,7 @@ export default function MotosList() {
               locada: {
                 label: 'Locada',
                 color:
-                  'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300',
+                  'bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950/50 dark:text-orange-300 dark:border-orange-800',
                 icon: Clock,
               },
               manutencao: {

@@ -20,6 +20,7 @@ import CashFlow from './pages/CashFlow'
 import Mes from './pages/Mes'
 import ContasAPagar from './pages/ContasAPagar'
 import LancamentosRapidos from './pages/LancamentosRapidos'
+import LancamentoAluguel from './pages/LancamentoAluguel'
 import ExpenseCategories from './pages/ExpenseCategories'
 import Cadastros from './pages/Cadastros'
 import Reports from './pages/Reports'
@@ -62,6 +63,7 @@ const App = () => (
             <Route path="/caixa" element={<CashFlow />} />
             <Route path="/mes" element={<Mes />} />
             <Route path="/contas-a-pagar" element={<ContasAPagar />} />
+            <Route path="/lancamento-aluguel" element={<LancamentoAluguel />} />
             <Route path="/lancamentos-rapidos" element={<LancamentosRapidos />} />
             <Route path="/cadastros" element={<Cadastros />} />
             <Route path="/categorias-gastos" element={<Navigate to="/cadastros" replace />} />

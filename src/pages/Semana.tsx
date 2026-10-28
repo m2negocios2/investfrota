@@ -100,9 +100,20 @@ export default function Semana() {
         contratosService.getAll(),
         recebimentosService.getAll(),
       ])
+
+      // IDs de contratos válidos existentes no banco
+      const validContractIds = new Set(cList.map((c) => c.id))
+
+      // Filtrar recebimentos órfãos: se o recebimento aponta para um contrato que foi excluído/apagado,
+      // ele não deve influenciar o status do painel Semana
+      const filteredRecebimentos = rList.filter((r) => {
+        if (!r.contrato) return true
+        return validContractIds.has(r.contrato)
+      })
+
       setMotos(mList)
       setContratos(cList)
-      setRecebimentos(rList)
+      setRecebimentos(filteredRecebimentos)
     } catch (err) {
       console.error(err)
       toast.error('Erro ao carregar dados da semana')
@@ -143,10 +154,20 @@ export default function Semana() {
     return [...weeks].sort((a, b) => b.weekOfMonth - a.weekOfMonth)
   }, [selectedYear, selectedMonth, todayWeek.code])
 
-  // Função auxiliar para filtrar contratos ativos para uma semana específica
+  // Função auxiliar para filtrar contratos válidos para uma semana específica.
+  // Regra da usuária:
+  // - Contrato ENCERRADO (finalizado) CONTINUA aparecendo na página Semana durante seu período de vigência.
+  // - Contratos CANCELADOS ou APAGADOS (excluídos) NÃO devem aparecer.
+  // - Blindagem: A moto vinculada deve existir no cadastro atual.
   const getActiveContratosForWeek = (weekStartStr: string, weekEndStr: string) => {
     return contratos.filter((c) => {
-      if (c.status !== 'ativo') return false
+      // Permitir contratos 'ativo' e 'finalizado'; excluir explicitamente 'cancelado' ou status inválidos
+      if (c.status !== 'ativo' && c.status !== 'finalizado') return false
+
+      // Moto deve existir no cadastro ativo
+      const motoExists = motos.some((m) => m.id === c.moto)
+      if (!motoExists) return false
+
       const inicio = c.data_inicio ? c.data_inicio.split('T')[0] : ''
       if (inicio && inicio > weekEndStr) return false
       if (c.data_entrega) {
@@ -177,10 +198,12 @@ export default function Semana() {
     status: 'pago' | 'pendente' | 'atraso'
     recebimento?: Recebimento
   } => {
-    // Look for a payment registered for this moto in this week or date
+    // Look for a payment registered for this specific contract (or matching moto only if contract matches or is unset)
+    // Blindagem contra recibos órfãos de contratos apagados: se o recibo tiver 'contrato', deve bater com o contrato atual
     const found = recebimentos.find(
       (r) =>
         r.moto === contrato.moto &&
+        (!r.contrato || r.contrato === contrato.id) &&
         (r.semana_ano === weekCode ||
           (r.data_vencimento && r.data_vencimento.startsWith(cellDateStr))),
     )
@@ -606,7 +629,7 @@ export default function Semana() {
                     {activeContratosThisWeek.length === 0 ? (
                       <tr>
                         <td colSpan={9} className="p-4 text-center text-xs text-muted-foreground">
-                          Nenhuma moto com contrato ativo nesta semana.
+                          Nenhuma moto com contrato vigente nesta semana.
                         </td>
                       </tr>
                     ) : (
@@ -654,8 +677,15 @@ export default function Semana() {
                                   {diaPgto}
                                 </span>
                               </div>
-                              <div className="text-[9px] text-muted-foreground truncate font-normal leading-tight">
-                                {contrato.locatario_nome?.trim() || '—'}
+                              <div className="text-[9px] text-muted-foreground truncate font-normal leading-tight flex items-center gap-1">
+                                <span className="truncate">
+                                  {contrato.locatario_nome?.trim() || '—'}
+                                </span>
+                                {contrato.status === 'finalizado' && (
+                                  <span className="text-[8px] px-1 py-0 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded font-semibold uppercase shrink-0">
+                                    Encerrado
+                                  </span>
+                                )}
                               </div>
                             </td>
 

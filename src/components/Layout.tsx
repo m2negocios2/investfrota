@@ -50,6 +50,7 @@ export default function Layout() {
     { name: 'PAINEL GERAL', href: '/', icon: LayoutDashboard },
     { name: 'MOTOS', href: '/motos', icon: Bike },
     { name: 'ALUGUÉIS & CONTRATOS', href: '/alugueis', icon: KeyRound },
+    { name: 'LANÇAMENTO ALUGUEL', href: '/lancamento-aluguel', icon: Zap },
     { name: 'LANÇAMENTOS RÁPIDOS', href: '/lancamentos-rapidos', icon: Zap },
     { name: 'FLUXO DE CAIXA', href: '/caixa', icon: Wallet },
     { name: 'MÊS', href: '/mes', icon: CalendarRange },
