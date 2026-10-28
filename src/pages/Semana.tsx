@@ -163,46 +163,66 @@ export default function Semana() {
   }
 
   // Função auxiliar para filtrar contratos válidos para uma semana específica (DOM a SAB).
-  // Regra da usuária:
-  // "NA PLANILHA SEMANA. DEIXAR APENAS O CONTRATO ATIVO NAS RESPECTIVAS SEMANAS.
-  // E DEIXAR OS CONTRATOS ENCERRADOS MOSTRANDO DURANTE O PERIODO que eram ativos. Não sempre"
-  // 1. Contrato ENCERRADO (finalizado):
-  //    - Aparece SOMENTE nas semanas que intersectam seu período ativo: data_inicio até data_entrega (data de encerramento).
-  //    - Se a semana for posterior ao encerramento (weekStartStr > fim), NÃO aparece.
-  //    - Se a semana for anterior ao início (weekEndStr < inicio), NÃO aparece.
-  // 2. Contrato ATIVO:
-  //    - Aparece a partir da semana de início (weekEndStr >= inicio).
-  //    - Se a semana for anterior ao início (weekEndStr < inicio), NÃO aparece.
-  //    - Nota sobre data_entrega em contratos ativos: alguns contratos ativos (ex.: plano conquista de 28 meses)
-  //      possuem data_entrega preenchida com a previsão de encerramento/quitação no futuro (ex.: 2028, 2029).
-  //      Por isso, para contratos com status 'ativo', a data_entrega futura NÃO deve escondê-lo hoje ou nas semanas seguintes,
-  //      mas caso um contrato ativo tenha uma data de entrega definida e a semana esteja depois dela, respeita a vigência.
-  // 3. Contratos CANCELADOS ou excluídos: NÃO aparecem.
-  // 4. Blindagem: A moto vinculada deve existir no cadastro de motos.
-  const getActiveContratosForWeek = (weekStartStr: string, weekEndStr: string) => {
+  // Regra definida pela usuária:
+  // "Mostre nas tabelas atuais os contratos ATIVOS. Mostre nas tabelas do passado os contratos vigentes na época".
+  //
+  // 1. TABELA DA SEMANA ATUAL (e de semanas futuras, se exibidas):
+  //    - Mostrar APENAS os contratos com status ATIVO.
+  //    - Contratos encerrados/finalizados NÃO aparecem de jeito nenhum, mesmo que a semana caiba dentro
+  //      do antigo período deles: NENHUM encerrado invade a semana atual.
+  //    - Para contratos ativos: aparecem a partir do início (weekEndStr >= inicio).
+  //
+  // 2. TABELAS DE SEMANAS PASSADAS:
+  //    - Mostrar os contratos que estavam VIGENTES NAQUELA ÉPOCA — ou seja, contratos cujo intervalo
+  //      [data_inicio, data_fim/entrega/finalização] cobre (ao menos em parte) aquela semana:
+  //      * Ativos na época e ainda ativos hoje: aparecem nas semanas desde o início até a semana atual.
+  //      * Já encerrados: aparecem SOMENTE nas semanas entre o início e a data de fim/entrega registrada;
+  //        nas semanas posteriores à entrega (weekStartStr > fim), NÃO aparecem.
+  //      * Para contratos sem data de fim registrada, considerar o dia de hoje como limite do período exibido.
+  // 3. Blindagem: a moto vinculada deve existir no cadastro de motos.
+  const getActiveContratosForWeek = (
+    weekStartStr: string,
+    weekEndStr: string,
+    isCurrentOrFutureWeek: boolean,
+  ) => {
+    const todayStr = getTodayLocalDate()
+
     return contratos.filter((c) => {
+      // Apenas contratos 'ativo' ou 'finalizado' são elegíveis
       if (c.status !== 'ativo' && c.status !== 'finalizado') return false
 
       const motoExists = motos.some((m) => m.id === c.moto)
       if (!motoExists) return false
 
+      // REGRA 1: Na semana atual ou semanas futuras, MOSTRAR APENAS CONTRATOS ATIVOS.
+      // Contratos encerrados não aparecem de jeito nenhum na semana atual ou futura.
+      if (isCurrentOrFutureWeek) {
+        if (c.status !== 'ativo') return false
+
+        const inicio = parseDateStr(c.data_inicio)
+        // Se a semana terminar antes do início do contrato ativo, ele ainda não começou
+        if (inicio && inicio > weekEndStr) return false
+
+        return true
+      }
+
+      // REGRA 2: Semanas passadas.
+      // Mostrar contratos vigentes na época daquela semana.
       const inicio = parseDateStr(c.data_inicio)
-      // Se a semana inteira terminar antes do início do contrato, ele ainda não existia nesta semana
+      // Se a semana terminou antes do início do contrato, ele não existia nesta semana
       if (inicio && inicio > weekEndStr) return false
 
       if (c.status === 'finalizado') {
-        // Contrato encerrado: vigência termina obrigatoriamente na data_entrega
-        const fim = parseDateStr(c.data_entrega)
-        if (fim && fim < weekStartStr) {
-          // A semana começou depois do contrato ter sido encerrado -> NÃO aparece nesta semana
+        // Já encerrados: aparecem SOMENTE nas semanas entre o início e a data de fim/entrega registrada;
+        // para contratos sem data de fim registrada, considerar o dia de hoje como limite.
+        const fim = parseDateStr(c.data_entrega) || todayStr
+        // Se a semana começou após a data de encerramento (weekStartStr > fim), NÃO aparece
+        if (weekStartStr > fim) {
           return false
         }
       } else if (c.status === 'ativo') {
-        // Contrato ativo: se houver data_entrega e ela já passou antes do início desta semana
-        const fim = parseDateStr(c.data_entrega)
-        if (fim && fim < weekStartStr) {
-          return false
-        }
+        // Ativos na época e ainda ativos hoje: aparecem nas semanas desde o início até a semana atual.
+        // O início já foi validado acima (inicio <= weekEndStr).
       }
 
       return true
@@ -210,25 +230,27 @@ export default function Semana() {
   }
 
   // Verifica se o contrato estava vigente em um dia específico (YYYY-MM-DD).
-  // Regra 4 da usuária: "A célula do dia só é exibida/actionável quando o contrato estava vigente NAQUELE dia específico".
-  // Para contratos encerrados: dias após a data_entrega não estavam vigentes.
-  // Para qualquer contrato: dias antes de data_inicio não estavam vigentes.
-  // Exceção preservada: se já houver um recebimento 'pago' ou 'apenas_colorido' registrado para este contrato nesta célula,
-  // mantemos visível para não apagar histórico financeiro preexistente.
-  const isContractActiveOnDate = (contrato: Contrato, cellDateStr: string): boolean => {
+  // - Na semana atual/futura: somente contratos ativos.
+  // - Dias antes de data_inicio: não estava vigente.
+  // - Para contrato finalizado: dias posteriores à data de entrega/fim não estavam vigentes.
+  const isContractActiveOnDate = (
+    contrato: Contrato,
+    cellDateStr: string,
+    isCurrentOrFutureWeek: boolean,
+  ): boolean => {
+    if (isCurrentOrFutureWeek && contrato.status !== 'ativo') {
+      return false
+    }
+
     const inicio = parseDateStr(contrato.data_inicio)
     if (inicio && cellDateStr < inicio) {
       return false
     }
 
     if (contrato.status === 'finalizado') {
-      const fim = parseDateStr(contrato.data_entrega)
-      if (fim && cellDateStr > fim) {
-        return false
-      }
-    } else if (contrato.status === 'ativo') {
-      const fim = parseDateStr(contrato.data_entrega)
-      if (fim && cellDateStr > fim) {
+      const todayStr = getTodayLocalDate()
+      const fim = parseDateStr(contrato.data_entrega) || todayStr
+      if (cellDateStr > fim) {
         return false
       }
     }
@@ -261,15 +283,17 @@ export default function Semana() {
     status: 'pago' | 'pendente' | 'atraso'
     recebimento?: Recebimento
   } => {
-    // Look for a payment registered for this specific contract (or matching moto only if contract matches or is unset)
-    // Blindagem contra recibos órfãos de contratos apagados: se o recibo tiver 'contrato', deve bater com o contrato atual
-    const found = recebimentos.find(
-      (r) =>
-        r.moto === contrato.moto &&
-        (!r.contrato || r.contrato === contrato.id) &&
-        (r.semana_ano === weekCode ||
-          (r.data_vencimento && r.data_vencimento.startsWith(cellDateStr))),
-    )
+    // Busca pagamento registrado especificamente para este contrato
+    // Deve pertencer obrigatoriamente a este contrato (para não misturar com contratos anteriores da mesma moto)
+    // ou pertencer à mesma moto com contrato não preenchido
+    const found = recebimentos.find((r) => {
+      if (r.moto !== contrato.moto) return false
+      if (r.contrato && r.contrato !== contrato.id) return false
+
+      if (r.semana_ano && r.semana_ano === weekCode) return true
+      if (r.data_vencimento && r.data_vencimento.startsWith(cellDateStr)) return true
+      return false
+    })
 
     if (found) {
       if (found.status === 'pago') {
@@ -636,8 +660,19 @@ export default function Semana() {
           const weekStartStr = weekDates['DOM'].dateStr
           const weekEndStr = weekDates['SAB'].dateStr
 
-          // Contratos ativos específicos desta semana
-          const activeContratosThisWeek = getActiveContratosForWeek(weekStartStr, weekEndStr)
+          // Determina se a semana é a atual, futura ou passada em relação à semana de hoje
+          // weekInfo.isCurrent identifica precisamente a semana atual.
+          // weekStartStr > todayWeekEndStr identifica semanas futuras.
+          const todayWeekDates = getWeekDatesFromSunday(todayWeek.sundayDate)
+          const todayWeekStartStr = todayWeekDates['DOM'].dateStr
+          const isCurrentOrFutureWeek = weekInfo.isCurrent || weekStartStr >= todayWeekStartStr
+
+          // Contratos ativos específicos desta semana (respeitando regra da usuária)
+          const activeContratosThisWeek = getActiveContratosForWeek(
+            weekStartStr,
+            weekEndStr,
+            isCurrentOrFutureWeek,
+          )
 
           // Totais diários e totais gerais da semana (DOM a SAB)
           // Somente contratos com vigência no respectivo dia (ou com recebimento pago registrado na célula)
@@ -655,10 +690,15 @@ export default function Semana() {
           activeContratosThisWeek.forEach((contrato) => {
             const dia = getContractDay(contrato)
             const cellDateStr = weekDates[dia].dateStr
-            const isVigenteNoDia = isContractActiveOnDate(contrato, cellDateStr)
+            const isVigenteNoDia = isContractActiveOnDate(
+              contrato,
+              cellDateStr,
+              isCurrentOrFutureWeek,
+            )
             const cellState = getCellStatus(contrato, weekInfo.code, cellDateStr)
             const hasPagoRecord = cellState.status === 'pago'
 
+            // Apenas contratos visíveis que estejam vigentes no respectivo dia ou tenham recebimento pago confirmado
             if (isVigenteNoDia || hasPagoRecord) {
               const valor =
                 contrato.valor_semanal || (contrato.valor_diario ? contrato.valor_diario * 7 : 0)
@@ -840,9 +880,13 @@ export default function Semana() {
 
                               const cellDateStr = weekDates[d.key].dateStr
                               const cellState = getCellStatus(contrato, weekInfo.code, cellDateStr)
-                              const isVigenteNoDia = isContractActiveOnDate(contrato, cellDateStr)
+                              const isVigenteNoDia = isContractActiveOnDate(
+                                contrato,
+                                cellDateStr,
+                                isCurrentOrFutureWeek,
+                              )
 
-                              // Regra 4: "A célula do dia só é exibida/actionável quando o contrato estava vigente NAQUELE dia específico".
+                              // A célula do dia só é exibida/actionável quando o contrato estava vigente NAQUELE dia específico.
                               // Preservação: Se já existe um recebimento 'pago' ou 'apenas_colorido' registrado para este contrato,
                               // exibimos como pago (histórico). Se não estava vigente e não foi pago, a célula fica desativada (traço).
                               if (!isVigenteNoDia && cellState.status !== 'pago') {

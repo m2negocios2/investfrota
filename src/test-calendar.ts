@@ -145,6 +145,95 @@ export function runCalendarTests(): { success: boolean; results: TestResult[] } 
   const dez2026 = getMonthWeeks(2026, 11)
   assertEqual('Dezembro/2026 deve ter exatamente 5 semanas', dez2026.length, 5)
 
+  // 5. Testes unitários das regras de competência de contratos (/semana)
+  // Regra 1: Na semana atual, contrato encerrado não aparece mesmo com data_entrega no futuro
+  const mockContratoEncerradoFuturo: any = {
+    id: 'c_encerrado',
+    moto: 'm1',
+    status: 'finalizado',
+    data_inicio: '2026-06-04 12:00:00.000Z',
+    data_entrega: '2027-06-11 12:00:00.000Z',
+  }
+  const mockContratoAtivo: any = {
+    id: 'c_ativo',
+    moto: 'm1',
+    status: 'ativo',
+    data_inicio: '2026-09-23 12:00:00.000Z',
+  }
+
+  // Simulação da função getActiveContratosForWeek
+  const filterHelper = (
+    cList: any[],
+    weekStart: string,
+    weekEnd: string,
+    isCurrentOrFuture: boolean,
+  ) => {
+    return cList.filter((c) => {
+      if (c.status !== 'ativo' && c.status !== 'finalizado') return false
+      const parse = (s: string) => s?.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || ''
+      const inicio = parse(c.data_inicio)
+      if (inicio && inicio > weekEnd) return false
+
+      if (isCurrentOrFuture) {
+        if (c.status !== 'ativo') return false
+        return true
+      }
+
+      if (c.status === 'finalizado') {
+        const fim = parse(c.data_entrega) || '2026-10-28'
+        if (weekStart > fim) return false
+      }
+      return true
+    })
+  }
+
+  // Semana Atual (isCurrentOrFuture = true)
+  const currentWeekFiltered = filterHelper(
+    [mockContratoEncerradoFuturo, mockContratoAtivo],
+    '2026-10-25',
+    '2026-10-31',
+    true,
+  )
+  assertEqual(
+    'Semana atual: apenas contrato ativo deve aparecer',
+    currentWeekFiltered.map((c) => c.id),
+    ['c_ativo'],
+  )
+
+  // Semana passada quando o encerrado estava vigente (ex.: 2026-06-07 a 2026-06-13)
+  const pastWeekFiltered = filterHelper(
+    [mockContratoEncerradoFuturo, mockContratoAtivo],
+    '2026-06-07',
+    '2026-06-13',
+    false,
+  )
+  assertEqual(
+    'Semana passada em Jun/2026: contrato encerrado deve aparecer, ativo ainda não iniciado não aparece',
+    pastWeekFiltered.map((c) => c.id),
+    ['c_encerrado'],
+  )
+
+  // Contrato encerrado com entrega em 2026-07-03
+  const mockContratoEncerradoJulho: any = {
+    id: 'c_encerrado_jul',
+    moto: 'm2',
+    status: 'finalizado',
+    data_inicio: '2026-06-16 12:00:00.000Z',
+    data_entrega: '2026-07-03 12:00:00.000Z',
+  }
+  // Semana após entrega (2026-07-05 a 2026-07-11)
+  const afterDeliveryFiltered = filterHelper(
+    [mockContratoEncerradoJulho],
+    '2026-07-05',
+    '2026-07-11',
+    false,
+  )
+  assertEqual(
+    'Semana posterior à entrega: contrato encerrado NÃO deve aparecer',
+    afterDeliveryFiltered.map((c) => c.id),
+    [],
+  )
+
   const allPassed = results.every((r) => r.passed)
   return { success: allPassed, results }
 }
