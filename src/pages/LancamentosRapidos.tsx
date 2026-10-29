@@ -1,16 +1,40 @@
 import React, { useState, useEffect } from 'react'
-import { Zap, Bike, CheckCircle2, History, AlertCircle, Calendar } from 'lucide-react'
+import {
+  Zap,
+  Bike,
+  CheckCircle2,
+  History,
+  AlertCircle,
+  Calendar,
+  FilePlus2,
+  ArrowDownRight,
+} from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toast } from 'sonner'
 import { caixaService } from '@/services/caixa'
 import { motosService } from '@/services/motos'
 import { categoriasService } from '@/services/categorias'
 import { getTodayLocalDate, formatDateDisplay } from '@/lib/dateUtils'
-import { Moto, CaixaLancamento, CategoriaGasto } from '@/types/database'
+import { Moto, CaixaLancamento, CategoriaGasto, FormaPagamento } from '@/types/database'
 import { MotoCardButton } from '@/components/MotoSelectorGrid'
 
 interface QuickButtonConfig {
@@ -22,7 +46,8 @@ interface QuickButtonConfig {
   colorClasses: string
 }
 
-const QUICK_BUTTONS: QuickButtonConfig[] = [
+// Item 3 — Botões de custo operacionais (Manutenção e Segurança)
+const QUICK_BUTTONS_ITEM3: QuickButtonConfig[] = [
   {
     id: 'oleo',
     label: 'ÓLEO',
@@ -75,6 +100,40 @@ const QUICK_BUTTONS: QuickButtonConfig[] = [
   },
 ]
 
+// Item 5 — Novos botões de taxas e impostos anuais/legais
+const QUICK_BUTTONS_ITEM5: QuickButtonConfig[] = [
+  {
+    id: 'licenciamento',
+    label: 'LICENCIAMENTO',
+    emoji: '📄',
+    categoriaNome: 'LICENCIAMENTO',
+    descricaoPrefix: 'Licenciamento',
+    // Tom Ciano / Azul-petróleo marcante
+    colorClasses:
+      'bg-cyan-600 hover:bg-cyan-700 active:bg-cyan-800 text-white border-cyan-700 shadow-cyan-600/30',
+  },
+  {
+    id: 'ipva',
+    label: 'IPVA',
+    emoji: '🏛️',
+    categoriaNome: 'IPVA',
+    descricaoPrefix: 'IPVA',
+    // Tom Laranja vivo / Terracota
+    colorClasses:
+      'bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white border-orange-700 shadow-orange-600/30',
+  },
+  {
+    id: 'bombeiros',
+    label: 'BOMBEIROS',
+    emoji: '🚒',
+    categoriaNome: 'BOMBEIROS',
+    descricaoPrefix: 'Taxa Bombeiros',
+    // Tom Vermelho escarlate / Carmesim
+    colorClasses:
+      'bg-red-700 hover:bg-red-800 active:bg-red-900 text-white border-red-800 shadow-red-700/30',
+  },
+]
+
 export default function LancamentosRapidos() {
   const [motos, setMotos] = useState<Moto[]>([])
   const [selectedMotoId, setSelectedMotoId] = useState<string>('')
@@ -85,6 +144,16 @@ export default function LancamentosRapidos() {
   const [submittingButton, setSubmittingButton] = useState<string | null>(null)
   const [recentLancamentos, setRecentLancamentos] = useState<CaixaLancamento[]>([])
   const [categorias, setCategorias] = useState<CategoriaGasto[]>([])
+
+  // Estado do Modal do Item 6 (OUTROS LANÇAMENTOS - apenas SAÍDAS)
+  const [outrosModalOpen, setOutrosModalOpen] = useState<boolean>(false)
+  const [outroDescricao, setOutroDescricao] = useState<string>('')
+  const [outroCategoria, setOutroCategoria] = useState<string>('')
+  const [outroValor, setOutroValor] = useState<number | ''>('')
+  const [outroData, setOutroData] = useState<string>(getTodayLocalDate())
+  const [outroFormaPagamento, setOutroFormaPagamento] = useState<FormaPagamento>('pix')
+  const [outroObservacoes, setOutroObservacoes] = useState<string>('')
+  const [submittingOutro, setSubmittingOutro] = useState<boolean>(false)
 
   const loadData = async () => {
     try {
@@ -152,6 +221,92 @@ export default function LancamentosRapidos() {
   const selectedMoto = motos.find((m) => m.id === selectedMotoId)
   const valorNumerico = parsePreco(precoInput)
   const isFormReady = Boolean(selectedMotoId && valorNumerico > 0)
+
+  const handleOpenOutrosLancamentos = () => {
+    if (!selectedMotoId) {
+      toast.error('Selecione primeiro a Moto (no item 1) antes de abrir Outros Lançamentos!')
+      return
+    }
+    // Inicializar campos com valor/data atuais se já digitados ou defaults
+    setOutroDescricao('')
+    setOutroCategoria(categorias[0]?.nome || 'MANUTENÇÃO')
+    setOutroValor(valorNumerico > 0 ? valorNumerico : '')
+    setOutroData(dataInput || getTodayLocalDate())
+    setOutroFormaPagamento('pix')
+    setOutroObservacoes(observacaoInput || '')
+    setOutrosModalOpen(true)
+  }
+
+  const handleSubmitOutroLancamento = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!selectedMotoId) {
+      toast.error('Nenhuma moto selecionada!')
+      return
+    }
+
+    if (!outroDescricao.trim()) {
+      toast.error('Informe a descrição do lançamento!')
+      return
+    }
+
+    const valorFinal = typeof outroValor === 'number' ? outroValor : parsePreco(String(outroValor))
+    if (!valorFinal || valorFinal <= 0) {
+      toast.error('Informe um valor válido maior que zero!')
+      return
+    }
+
+    const motoNomeDisplay = selectedMoto?.nome?.trim() || selectedMoto?.modelo?.trim() || 'Moto'
+    const catFinal = outroCategoria.trim() || 'Outros'
+
+    setSubmittingOutro(true)
+    try {
+      const createdEntry = await caixaService.create({
+        moto: selectedMotoId,
+        tipo: 'saida',
+        descricao: outroDescricao.trim(),
+        categoria: catFinal,
+        valor: valorFinal,
+        data: outroData || getTodayLocalDate(),
+        forma_pagamento: outroFormaPagamento,
+        observacoes: outroObservacoes.trim() || undefined,
+      })
+
+      const valorFormatado = valorFinal.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+
+      toast.success(`Saída de R$ ${valorFormatado} registrada no caixa da ${motoNomeDisplay}!`, {
+        duration: 4000,
+      })
+
+      // Limpar campos e fechar modal
+      setOutroDescricao('')
+      setOutroValor('')
+      setOutroObservacoes('')
+      setOutrosModalOpen(false)
+
+      // Também limpar o preço e observação da tela principal prontos para o próximo
+      setPrecoInput('')
+      setDataInput(getTodayLocalDate())
+      setObservacaoInput('')
+
+      // Atualizar lista rápida de recentes
+      setRecentLancamentos((prev) => [
+        {
+          ...createdEntry,
+          expand: { moto: selectedMoto },
+        },
+        ...prev.slice(0, 9),
+      ])
+    } catch (err) {
+      console.error('Erro ao registrar outro lançamento de saída:', err)
+      toast.error('Não foi possível gravar o lançamento. Tente novamente.')
+    } finally {
+      setSubmittingOutro(false)
+    }
+  }
 
   const handleQuickLaunch = async (btn: QuickButtonConfig) => {
     if (!selectedMotoId) {
@@ -410,7 +565,7 @@ export default function LancamentosRapidos() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-              {QUICK_BUTTONS.map((btn) => {
+              {QUICK_BUTTONS_ITEM3.map((btn) => {
                 const isThisLoading = submittingButton === btn.id
                 return (
                   <button
@@ -465,7 +620,7 @@ export default function LancamentosRapidos() {
               >
                 4. Observação{' '}
                 <span className="font-normal text-muted-foreground">
-                  (opcional — preencha antes de tocar no botão se desejar)
+                  (opcional — também serve para os botões do item 5)
                 </span>
               </Label>
               {observacaoInput.trim() && (
@@ -486,10 +641,92 @@ export default function LancamentosRapidos() {
             />
           </div>
 
+          {/* 5. Novos Botões: LICENCIAMENTO, IPVA e BOMBEIROS */}
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                5. Licenciamento, IPVA e Bombeiros
+              </Label>
+              <span className="text-xs text-muted-foreground">
+                Usa o Preço (item 2), Data (item 2) e Observação (item 4)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              {QUICK_BUTTONS_ITEM5.map((btn) => {
+                const isThisLoading = submittingButton === btn.id
+                return (
+                  <button
+                    key={btn.id}
+                    type="button"
+                    disabled={!isFormReady || submittingButton !== null}
+                    onClick={() => handleQuickLaunch(btn)}
+                    className={`h-24 sm:h-28 rounded-2xl flex flex-col items-center justify-center gap-1 p-3 border-2 transition-all select-none ${
+                      !isFormReady
+                        ? 'opacity-35 cursor-not-allowed bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-400'
+                        : `${btn.colorClasses} shadow-md hover:shadow-lg active:scale-95 cursor-pointer`
+                    }`}
+                  >
+                    {isThisLoading ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                        <span className="text-sm font-bold text-white">Lançando...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <span
+                          className="text-2xl sm:text-3xl filter drop-shadow-sm leading-none"
+                          role="img"
+                          aria-label={btn.label}
+                        >
+                          {btn.emoji}
+                        </span>
+                        <span className="text-base sm:text-lg font-black uppercase tracking-wide leading-tight">
+                          {btn.label}
+                        </span>
+                        <span
+                          className={`text-[11px] font-medium leading-none ${
+                            !isFormReady ? 'text-slate-400' : 'text-white/85'
+                          }`}
+                        >
+                          {btn.categoriaNome}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 6. OUTROS LANÇAMENTOS (abre modal tradicional sendo apenas SAÍDAS) */}
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                6. Lançamento Detalhado
+              </Label>
+              <span className="text-xs text-muted-foreground">Apenas saídas</span>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleOpenOutrosLancamentos}
+              className="w-full h-14 sm:h-16 text-base font-black tracking-wide uppercase border-2 border-slate-300 dark:border-slate-700 hover:border-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 text-slate-800 dark:text-slate-100 rounded-2xl gap-2.5 shadow-sm transition-all"
+            >
+              <FilePlus2 className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+              OUTROS LANÇAMENTOS
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              Abre as caixas de lançamento tradicionais (descrição, categoria, valor, data etc.)
+              sendo apenas <strong>SAÍDAS</strong> vinculadas à moto.
+            </p>
+          </div>
+
           {/* Status / Orientações */}
           <div className="p-3 bg-slate-100 dark:bg-slate-800/60 rounded-xl text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between">
             <span>
-              <strong>Data do lançamento:</strong>{' '}
+              <strong>Data do lançamento rápido:</strong>{' '}
               {formatDateDisplay(dataInput || getTodayLocalDate())}
               {dataInput === getTodayLocalDate() ? ' (Hoje)' : ''}
             </span>
@@ -555,6 +792,161 @@ export default function LancamentosRapidos() {
           )}
         </CardContent>
       </Card>
+
+      {/* Modal Item 6: OUTROS LANÇAMENTOS (Apenas SAÍDAS) */}
+      <Dialog open={outrosModalOpen} onOpenChange={setOutrosModalOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <span className="p-2 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400">
+                <ArrowDownRight className="w-5 h-5" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold">
+                  OUTROS LANÇAMENTOS — Nova Saída
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Registro de despesa tradicional no Fluxo de Caixa vinculada à moto selecionada.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {selectedMoto && (
+            <div className="p-3 bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bike className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Moto vinculada:
+                </span>
+                <span className="text-xs font-black text-blue-700 dark:text-blue-300">
+                  {selectedMoto.nome?.trim() || selectedMoto.modelo?.trim() || selectedMoto.placa}
+                </span>
+              </div>
+              <Badge
+                variant="outline"
+                className="text-[10px] font-bold text-red-600 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800"
+              >
+                Apenas Saída (Custo)
+              </Badge>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmitOutroLancamento} className="space-y-4">
+            {/* Descrição do Lançamento */}
+            <div className="space-y-2">
+              <Label htmlFor="outroDesc">Descrição do Lançamento *</Label>
+              <Input
+                id="outroDesc"
+                placeholder="Ex: Troca de guidão, Guincho, Manete, Lavagem..."
+                value={outroDescricao}
+                onChange={(e) => setOutroDescricao(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+
+            {/* Categoria */}
+            <div className="space-y-2">
+              <Label htmlFor="outroCategoriaSelect">Categoria *</Label>
+              <Select value={outroCategoria} onValueChange={setOutroCategoria}>
+                <SelectTrigger id="outroCategoriaSelect">
+                  <SelectValue placeholder="Selecione a categoria de saída" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categorias.map((c) => (
+                    <SelectItem key={c.id} value={c.nome}>
+                      {c.nome}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="Custos Gerais">Custos Gerais</SelectItem>
+                  <SelectItem value="Outros">Outros</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Valor e Data lado a lado */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="outroValorInput">Valor (R$) *</Label>
+                <Input
+                  id="outroValorInput"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="0,00"
+                  value={outroValor}
+                  onChange={(e) =>
+                    setOutroValor(e.target.value === '' ? '' : Number(e.target.value))
+                  }
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="outroDataInput">Data *</Label>
+                <Input
+                  id="outroDataInput"
+                  type="date"
+                  value={outroData}
+                  onChange={(e) => setOutroData(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Forma de Pagamento */}
+            <div className="space-y-2">
+              <Label htmlFor="outroFormaSelect">Forma de Pagamento</Label>
+              <Select
+                value={outroFormaPagamento}
+                onValueChange={(val: FormaPagamento) => setOutroFormaPagamento(val)}
+              >
+                <SelectTrigger id="outroFormaSelect">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="cartao">Cartão</SelectItem>
+                  <SelectItem value="transferencia">Transferência</SelectItem>
+                  <SelectItem value="outro">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Observações */}
+            <div className="space-y-2">
+              <Label htmlFor="outroObs">Observações / Detalhes (opcional)</Label>
+              <Input
+                id="outroObs"
+                placeholder="Ex: Nota fiscal 1234, fornecedor Oficina Central..."
+                value={outroObservacoes}
+                onChange={(e) => setOutroObservacoes(e.target.value)}
+                maxLength={150}
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOutrosModalOpen(false)}
+                disabled={submittingOutro}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={submittingOutro}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold"
+              >
+                {submittingOutro ? 'Gravando Saída...' : 'Confirmar Saída no Caixa'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
