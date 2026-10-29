@@ -59,12 +59,13 @@ export default function Dashboard() {
     loadData()
   }, [])
 
-  // Metrics
-  const totalMotos = motos.length
-  const motosLocadas = motos.filter((m) => m.status === 'locada').length
-  const motosDisponiveis = motos.filter((m) => m.status === 'disponivel').length
-  const motosManutencao = motos.filter((m) => m.status === 'manutencao').length
-  const motosLojaDetran = motos.filter((m) => m.status === 'em_loja_detran').length
+  // Metrics - Frota Operacional (exclui vendidas e cedidas)
+  const motosOperacionais = motos.filter((m) => m.status !== 'vendida' && m.status !== 'cedida')
+  const totalMotos = motosOperacionais.length
+  const motosLocadas = motosOperacionais.filter((m) => m.status === 'locada').length
+  const motosDisponiveis = motosOperacionais.filter((m) => m.status === 'disponivel').length
+  const motosManutencao = motosOperacionais.filter((m) => m.status === 'manutencao').length
+  const motosLojaDetran = motosOperacionais.filter((m) => m.status === 'em_loja_detran').length
   const taxaOcupacao = totalMotos > 0 ? Math.round((motosLocadas / totalMotos) * 100) : 0
 
   // Weekly Revenue Forecast (Active Contracts weekly value or daily * 7)
@@ -240,86 +241,113 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {motos.map((moto) => {
-                    const statusConfig = {
-                      disponivel: {
-                        label: 'Disponível',
-                        color:
-                          'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300',
-                        icon: Circle,
-                      },
-                      locada: {
-                        label: 'Locada',
-                        color:
-                          'bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950/50 dark:text-orange-300 dark:border-orange-800',
-                        icon: CircleCheck,
-                      },
-                      manutencao: {
-                        label: 'Em Manutenção',
-                        color:
-                          'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300',
-                        icon: Wrench,
-                      },
-                      em_loja_detran: {
-                        label: 'Em Loja/Detran',
-                        color:
-                          'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300',
-                        icon: Clock,
-                      },
-                    }
-                    const statusInfo = statusConfig[moto.status] || {
-                      label: moto.status,
-                      color: 'bg-slate-100 text-slate-700 border-slate-200',
-                      icon: Bike,
-                    }
-                    const StatusIcon = statusInfo.icon
+                  {motos
+                    .slice()
+                    .sort((a, b) => {
+                      const aInativa = a.status === 'vendida' || a.status === 'cedida'
+                      const bInativa = b.status === 'vendida' || b.status === 'cedida'
+                      if (aInativa && !bInativa) return 1
+                      if (!aInativa && bInativa) return -1
+                      return (a.nome || a.modelo).localeCompare(b.nome || b.modelo)
+                    })
+                    .map((moto) => {
+                      const statusConfig: Record<
+                        string,
+                        { label: string; color: string; icon: typeof Bike }
+                      > = {
+                        disponivel: {
+                          label: 'Disponível',
+                          color:
+                            'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300',
+                          icon: Circle,
+                        },
+                        locada: {
+                          label: 'Locada',
+                          color:
+                            'bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950/50 dark:text-orange-300 dark:border-orange-800',
+                          icon: CircleCheck,
+                        },
+                        manutencao: {
+                          label: 'Em Manutenção',
+                          color:
+                            'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300',
+                          icon: Wrench,
+                        },
+                        em_loja_detran: {
+                          label: 'Em Loja/Detran',
+                          color:
+                            'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300',
+                          icon: Clock,
+                        },
+                        vendida: {
+                          label: 'VENDIDA',
+                          color:
+                            'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+                          icon: CircleCheck,
+                        },
+                        cedida: {
+                          label: 'CEDIDA',
+                          color:
+                            'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+                          icon: CircleCheck,
+                        },
+                      }
+                      const statusInfo = statusConfig[moto.status] || {
+                        label: moto.status,
+                        color: 'bg-slate-100 text-slate-700 border-slate-200',
+                        icon: Bike,
+                      }
+                      const StatusIcon = statusInfo.icon
+                      const isCinza = moto.status === 'vendida' || moto.status === 'cedida'
 
-                    const valorSem =
-                      moto.valor_semanal !== undefined && moto.valor_semanal !== null
-                        ? moto.valor_semanal
-                        : (moto.valor_diario || 0) * 7
+                      const valorSem =
+                        moto.valor_semanal !== undefined && moto.valor_semanal !== null
+                          ? moto.valor_semanal
+                          : (moto.valor_diario || 0) * 7
 
-                    return (
-                      <div
-                        key={moto.id}
-                        className="py-3 flex items-center justify-between gap-3 sm:gap-4"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300 shrink-0">
-                            <Bike className="w-5 h-5" />
+                      return (
+                        <div
+                          key={moto.id}
+                          className={`py-3 flex items-center justify-between gap-3 sm:gap-4 ${
+                            isCinza ? 'opacity-60 grayscale' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300 shrink-0">
+                              <Bike className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                                {moto.nome || moto.modelo}
+                              </p>
+                              <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                                <span className="font-mono font-semibold px-1 py-0.2 bg-slate-100 dark:bg-slate-800 rounded border shrink-0">
+                                  {moto.placa}
+                                </span>
+                                <span className="truncate">• {moto.modelo}</span>
+                              </p>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                              {moto.nome || moto.modelo}
-                            </p>
-                            <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                              <span className="font-mono font-semibold px-1 py-0.2 bg-slate-100 dark:bg-slate-800 rounded border shrink-0">
-                                {moto.placa}
-                              </span>
-                              <span className="truncate">• {moto.modelo}</span>
-                            </p>
+                          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 hidden sm:inline">
+                              R$ {valorSem.toFixed(0)}/sem
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={`text-[11px] sm:text-xs px-2 py-0.5 font-medium flex items-center gap-1 shrink-0 ${statusInfo.color}`}
+                            >
+                              <StatusIcon className="w-3 h-3" />
+                              <span>{statusInfo.label}</span>
+                            </Badge>
+                            <Button asChild variant="ghost" size="sm" className="h-8 px-2">
+                              <Link to={`/motos/${moto.id}`} title="Ver ficha da moto">
+                                <ArrowRight className="w-4 h-4" />
+                              </Link>
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 hidden sm:inline">
-                            R$ {valorSem.toFixed(0)}/sem
-                          </span>
-                          <Badge
-                            variant="outline"
-                            className={`text-[11px] sm:text-xs px-2 py-0.5 font-medium flex items-center gap-1 shrink-0 ${statusInfo.color}`}
-                          >
-                            <StatusIcon className="w-3 h-3" />
-                            <span>{statusInfo.label}</span>
-                          </Badge>
-                          <Button asChild variant="ghost" size="sm" className="h-8 px-2">
-                            <Link to={`/motos/${moto.id}`} title="Ver ficha da moto">
-                              <ArrowRight className="w-4 h-4" />
-                            </Link>
-                          </Button>
-                        </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
                 </div>
               )}
             </CardContent>

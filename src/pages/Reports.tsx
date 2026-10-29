@@ -39,12 +39,14 @@ import { contratosService } from '@/services/contratos'
 import { caixaService } from '@/services/caixa'
 import { recebimentosService } from '@/services/recebimentos'
 import { contasAPagarService } from '@/services/contasAPagar'
+import { contasAReceberService } from '@/services/contasAReceber'
 import {
   Moto,
   Contrato,
   CaixaLancamento,
   Recebimento,
   ContaAPagarComProgresso,
+  ContaAReceber,
 } from '@/types/database'
 import { PaybackTab } from '@/components/PaybackTab'
 
@@ -54,6 +56,7 @@ export default function Reports() {
   const [caixa, setCaixa] = useState<CaixaLancamento[]>([])
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
   const [contasAPagar, setContasAPagar] = useState<ContaAPagarComProgresso[]>([])
+  const [contasAReceberAvulsas, setContasAReceberAvulsas] = useState<ContaAReceber[]>([])
   const [loading, setLoading] = useState(true)
 
   // Filters for DRE and Balanço
@@ -65,18 +68,20 @@ export default function Reports() {
 
   const loadData = async () => {
     try {
-      const [m, c, cx, r, cp] = await Promise.all([
+      const [m, c, cx, r, cp, cr] = await Promise.all([
         motosService.getAll(),
         contratosService.getAll(),
         caixaService.getAll(),
         recebimentosService.getAll(),
         contasAPagarService.getAllWithProgresso(),
+        contasAReceberService.getAll(),
       ])
       setMotos(m)
       setContratos(c)
       setCaixa(cx)
       setRecebimentos(r)
       setContasAPagar(cp)
+      setContasAReceberAvulsas(cr)
     } catch (err) {
       console.error(err)
     } finally {
@@ -92,14 +97,18 @@ export default function Reports() {
     window.print()
   }
 
-  // Cálculos Gerais do Negócio
-  const totalMotos = motos.length
-  const motosLocadas = motos.filter((m) => m.status === 'locada').length
+  // Cálculos Gerais do Negócio - Frota Operacional (exclui vendidas e cedidas)
+  const motosAtivas = motos.filter((m) => m.status !== 'vendida' && m.status !== 'cedida')
+  const totalMotos = motosAtivas.length
+  const motosLocadas = motosAtivas.filter((m) => m.status === 'locada').length
   const taxaOcupacao = totalMotos > 0 ? (motosLocadas / totalMotos) * 100 : 0
 
-  // Valor estimado do Patrimônio da Frota (preço médio de mercado aproximado por moto: R$ 13.500)
+  // Valor do Ativo Imobilizado da Frota:
+  // Usa a soma dos valores de compra reais das motos ativas quando disponível, ou o valor médio estimado
   const valorMedioMoto = 13500
-  const ativoFrotaTotal = totalMotos * valorMedioMoto
+  const ativoFrotaTotal = motosAtivas.reduce((acc, m) => {
+    return acc + (m.valor_compra && m.valor_compra > 0 ? m.valor_compra : valorMedioMoto)
+  }, 0)
 
   // Saldo total de Caixa acumulado
   const totalEntradasGerais = caixa
@@ -110,10 +119,16 @@ export default function Reports() {
     .reduce((acc, c) => acc + c.valor, 0)
   const saldoCaixaAtual = totalEntradasGerais - totalSaidasGerais
 
-  // Contas a Receber (Recebimentos pendentes ou em atraso)
-  const contasAReceber = recebimentos
+  // Contas a Receber (Aluguéis pendentes/em atraso + Vendas de motos aguardando recebimento)
+  const contasAReceberAlugueis = recebimentos
     .filter((r) => r.status === 'em_dia' || r.status === 'em_atraso')
     .reduce((acc, r) => acc + r.valor, 0)
+
+  const contasAReceberVendasEmAberto = contasAReceberAvulsas
+    .filter((c) => c.status === 'em_aberto')
+    .reduce((acc, c) => acc + Number(c.valor), 0)
+
+  const contasAReceber = contasAReceberAlugueis + contasAReceberVendasEmAberto
   const recebimentosAtrasados = recebimentos
     .filter((r) => r.status === 'em_atraso')
     .reduce((acc, r) => acc + r.valor, 0)
@@ -954,25 +969,40 @@ export default function Reports() {
                     <div className="flex justify-between items-center text-sm">
                       <span>Contas a Receber (Aluguéis a vencer/aberto):</span>
                       <span className="font-bold text-slate-800 dark:text-slate-200">
-                        R$ {contasAReceber.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R${' '}
+                        {contasAReceberAlugueis.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                        })}
                       </span>
                     </div>
+
+                    {contasAReceberVendasEmAberto > 0 && (
+                      <div className="flex justify-between items-center text-sm">
+                        <span>Contas a Receber (Vendas de motos em aberto):</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                          R${' '}
+                          {contasAReceberVendasEmAberto.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border space-y-3">
                     <span className="font-bold text-xs uppercase tracking-wider text-muted-foreground block">
-                      Ativo Imobilizado (Patrimônio em Motos)
+                      Ativo Imobilizado (Patrimônio em Motos Operacionais)
                     </span>
 
                     <div className="flex justify-between items-center text-sm border-b pb-2">
-                      <span>Frota de Veículos ({totalMotos} motos):</span>
+                      <span>Frota Ativa ({totalMotos} motos):</span>
                       <span className="font-bold text-slate-900 dark:text-white">
                         R$ {ativoFrotaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Base de avaliação estimada: ~R$ {valorMedioMoto.toLocaleString('pt-BR')} por
-                      moto.
+                      Base: valor de compra das motos ativas (motos vendidas ou cedidas são
+                      retiradas do ativo).
                     </p>
                   </div>
                 </div>

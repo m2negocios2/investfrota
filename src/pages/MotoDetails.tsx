@@ -66,6 +66,29 @@ export default function MotoDetails() {
   const [inputKmOleo, setInputKmOleo] = useState('')
   const [kmUpdating, setKmUpdating] = useState(false)
 
+  // Venda e Cessão modals
+  const [vendaModalOpen, setVendaModalOpen] = useState(false)
+  const [vendaData, setVendaData] = useState(getTodayLocalDate())
+  const [vendaValor, setVendaValor] = useState('')
+  const [vendaComprador, setVendaComprador] = useState('')
+  const [vendaFormaRecebimento, setVendaFormaRecebimento] = useState<
+    'pago_agora' | 'aguardando_recebimento'
+  >('pago_agora')
+  const [vendaFormaPagamento, setVendaFormaPagamento] = useState<
+    'pix' | 'dinheiro' | 'cartao' | 'transferencia' | 'outro'
+  >('pix')
+  const [vendaObservacao, setVendaObservacao] = useState('')
+  const [submittingVenda, setSubmittingVenda] = useState(false)
+
+  const [cessaoModalOpen, setCessaoModalOpen] = useState(false)
+  const [cessaoData, setCessaoData] = useState(getTodayLocalDate())
+  const [cessaoLocatario, setCessaoLocatario] = useState('')
+  const [cessaoObservacao, setCessaoObservacao] = useState('')
+  const [submittingCessao, setSubmittingCessao] = useState(false)
+
+  const [desfazerModalOpen, setDesfazerModalOpen] = useState(false)
+  const [submittingDesfazer, setSubmittingDesfazer] = useState(false)
+
   // Finalize contract modal
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false)
   const [contractToFinalize, setContractToFinalize] = useState<Contrato | null>(null)
@@ -132,6 +155,8 @@ export default function MotoDetails() {
     locada: { label: 'Locada', icon: CircleCheck },
     manutencao: { label: 'Em Manutenção', icon: Wrench },
     em_loja_detran: { label: 'Em Loja/Detran', icon: Clock },
+    vendida: { label: 'VENDIDA', icon: CircleCheck },
+    cedida: { label: 'CEDIDA', icon: CircleCheck },
   }
   const statusBadge = statusBadgeConfig[moto.status] || {
     label: moto.status,
@@ -152,6 +177,111 @@ export default function MotoDetails() {
   const kmProximaTrocaOleo = kmUltimoOleoVal > 0 ? kmUltimoOleoVal + 1000 : kmAtualVal + 1000
   const kmRodadosDesdeOleo = kmUltimoOleoVal > 0 ? Math.max(0, kmAtualVal - kmUltimoOleoVal) : 0
   const precisaTrocaOleo = kmUltimoOleoVal > 0 && kmAtualVal >= kmProximaTrocaOleo
+
+  const isSaidaFinal = moto.status === 'vendida' || moto.status === 'cedida'
+  const activePlanoConquista = contratos.find(
+    (c) => c.status === 'ativo' && c.tipo === 'plano_conquista',
+  )
+
+  const handleOpenVendaModal = () => {
+    setVendaData(getTodayLocalDate())
+    setVendaValor('')
+    setVendaComprador(activeContract?.locatario_nome || '')
+    setVendaFormaRecebimento('pago_agora')
+    setVendaFormaPagamento('pix')
+    setVendaObservacao('')
+    setVendaModalOpen(true)
+  }
+
+  const handleConfirmVenda = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!vendaValor || Number(vendaValor) <= 0) {
+      toast.error('Informe um valor de venda válido.')
+      return
+    }
+    if (!vendaComprador.trim()) {
+      toast.error('Informe o nome do comprador.')
+      return
+    }
+    setSubmittingVenda(true)
+    try {
+      await motosService.registrarVenda({
+        motoId: moto.id,
+        data: vendaData,
+        valor: Number(vendaValor),
+        comprador: vendaComprador.trim(),
+        formaRecebimento: vendaFormaRecebimento,
+        formaPagamento: vendaFormaPagamento,
+        observacao: vendaObservacao.trim(),
+      })
+      toast.success(
+        vendaFormaRecebimento === 'pago_agora'
+          ? 'Venda registrada e receita lançada no Caixa com sucesso!'
+          : 'Venda registrada com sucesso! Conta a receber gerada.',
+      )
+      setVendaModalOpen(false)
+      loadData()
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao registrar venda da moto')
+    } finally {
+      setSubmittingVenda(false)
+    }
+  }
+
+  const handleOpenCessaoModal = () => {
+    if (!activePlanoConquista) {
+      toast.error(
+        'A cessão só pode ser realizada para motos com contrato do tipo Plano Conquista ativo.',
+      )
+      return
+    }
+    setCessaoData(getTodayLocalDate())
+    setCessaoLocatario(activePlanoConquista.locatario_nome || '')
+    setCessaoObservacao('')
+    setCessaoModalOpen(true)
+  }
+
+  const handleConfirmCessao = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!cessaoLocatario.trim()) {
+      toast.error('Informe o nome do locatário beneficiário da cessão.')
+      return
+    }
+    setSubmittingCessao(true)
+    try {
+      await motosService.registrarCessao({
+        motoId: moto.id,
+        data: cessaoData,
+        locatarioNome: cessaoLocatario.trim(),
+        contratoId: activePlanoConquista?.id,
+        observacao: cessaoObservacao.trim(),
+      })
+      toast.success('Cessão da moto no Plano Conquista registrada com sucesso!')
+      setCessaoModalOpen(false)
+      loadData()
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao registrar cessão da moto')
+    } finally {
+      setSubmittingCessao(false)
+    }
+  }
+
+  const handleConfirmDesfazer = async () => {
+    setSubmittingDesfazer(true)
+    try {
+      await motosService.desfazerOperacaoSaida(moto.id)
+      toast.success('Operação de saída desfeita! A moto voltou ao status disponível.')
+      setDesfazerModalOpen(false)
+      loadData()
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao desfazer operação de saída')
+    } finally {
+      setSubmittingDesfazer(false)
+    }
+  }
 
   const openKmModal = () => {
     setInputKmAtual(moto.km_atual !== undefined ? String(moto.km_atual) : '')
@@ -536,25 +666,102 @@ export default function MotoDetails() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={openKmModal} className="gap-1.5">
-            <Gauge className="w-4 h-4 text-blue-600" />
-            Atualizar KM
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link to={`/motos/${moto.id}/editar`}>
-              <Edit className="w-4 h-4 mr-1.5" />
-              Editar Ficha
-            </Link>
-          </Button>
-          <Button asChild size="sm">
-            <Link to={`/alugueis?motoId=${moto.id}`}>
-              <Plus className="w-4 h-4 mr-1.5" />
-              Novo Aluguel
-            </Link>
-          </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {!isSaidaFinal && (
+            <>
+              <Button variant="outline" size="sm" onClick={openKmModal} className="gap-1.5">
+                <Gauge className="w-4 h-4 text-blue-600" />
+                Atualizar KM
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link to={`/motos/${moto.id}/editar`}>
+                  <Edit className="w-4 h-4 mr-1.5" />
+                  Editar Ficha
+                </Link>
+              </Button>
+              <Button asChild size="sm">
+                <Link to={`/alugueis?motoId=${moto.id}`}>
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  Novo Aluguel
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenVendaModal}
+                className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800"
+              >
+                Registrar Venda
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenCessaoModal}
+                className="text-purple-700 border-purple-300 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800"
+              >
+                Registrar Cessão (Plano Conquista)
+              </Button>
+            </>
+          )}
+          {isSaidaFinal && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDesfazerModalOpen(true)}
+              className="text-amber-700 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-800"
+            >
+              Desfazer Operação de Saída
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Banner de Operação Final (Vendida ou Cedida) */}
+      {isSaidaFinal && (
+        <div className="p-4 rounded-xl border border-slate-300 bg-slate-100 dark:bg-slate-800/80 dark:border-slate-700 text-slate-800 dark:text-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className="bg-slate-300 dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-extrabold text-xs"
+              >
+                {moto.status === 'vendida' ? 'MOTO VENDIDA' : 'MOTO CEDIDA (PLANO CONQUISTA)'}
+              </Badge>
+              {moto.data_saida && (
+                <span className="text-xs text-muted-foreground">
+                  Data da operação: {formatDateDisplay(moto.data_saida)}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {moto.status === 'vendida' ? (
+                <>
+                  Destinatário: <strong>{moto.destinatario_saida || 'Comprador'}</strong> • Valor:
+                  R$ {(moto.valor_venda || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}{' '}
+                  • Recebimento:{' '}
+                  {moto.forma_recebimento_venda === 'pago_agora'
+                    ? 'Pago na hora (no Caixa)'
+                    : 'Aguardando Recebimento (Contas a Receber)'}
+                </>
+              ) : (
+                <>
+                  Locatário beneficiário: <strong>{moto.destinatario_saida || 'Locatário'}</strong>{' '}
+                  (Quitação do Plano Conquista — sem receita lançada).
+                </>
+              )}{' '}
+              O bem foi removido do Ativo Imobilizado e não figura mais na frota operacional.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDesfazerModalOpen(true)}
+            className="shrink-0 text-xs"
+          >
+            Desfazer Saída
+          </Button>
+        </div>
+      )}
 
       {/* Summary KPI Cards for this Moto */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -569,13 +776,15 @@ export default function MotoDetails() {
               <Badge
                 variant="outline"
                 className={`text-sm py-1 px-3 font-semibold ${
-                  moto.status === 'locada'
-                    ? 'bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950/50 dark:text-orange-300 dark:border-orange-800'
-                    : moto.status === 'disponivel'
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300'
-                      : moto.status === 'em_loja_detran'
-                        ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300'
-                        : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300'
+                  moto.status === 'vendida' || moto.status === 'cedida'
+                    ? 'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                    : moto.status === 'locada'
+                      ? 'bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950/50 dark:text-orange-300 dark:border-orange-800'
+                      : moto.status === 'disponivel'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300'
+                        : moto.status === 'em_loja_detran'
+                          ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300'
+                          : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300'
                 }`}
               >
                 <StatusIcon className="w-3.5 h-3.5 shrink-0" />
@@ -583,13 +792,17 @@ export default function MotoDetails() {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              {activeContract
-                ? activeContract.locatario_nome?.trim()
-                  ? `Locada para ${activeContract.locatario_nome}`
-                  : 'Locada (sem locatário cadastrado)'
-                : moto.status === 'em_loja_detran'
-                  ? 'Veículo em loja / aguardando Detran'
-                  : 'Nenhum contrato ativo no momento'}
+              {moto.status === 'vendida'
+                ? `Vendida para ${moto.destinatario_saida || 'comprador'}`
+                : moto.status === 'cedida'
+                  ? `Cedida para ${moto.destinatario_saida || 'locatário'} (Plano Conquista)`
+                  : activeContract
+                    ? activeContract.locatario_nome?.trim()
+                      ? `Locada para ${activeContract.locatario_nome}`
+                      : 'Locada (sem locatário cadastrado)'
+                    : moto.status === 'em_loja_detran'
+                      ? 'Veículo em loja / aguardando Detran'
+                      : 'Nenhum contrato ativo no momento'}
             </p>
           </CardContent>
         </Card>
@@ -1215,6 +1428,231 @@ export default function MotoDetails() {
             >
               <Trash2 className="w-4 h-4" />
               {deletingContract ? 'Apagando...' : 'Sim, Apagar Contrato'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Registrar Venda */}
+      <Dialog open={vendaModalOpen} onOpenChange={setVendaModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Registrar Venda da Moto</DialogTitle>
+            <DialogDescription>
+              A moto será retirada da frota operacional, sairá do Ativo Imobilizado e terá o
+              recebimento lançado conforme a forma escolhida.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleConfirmVenda} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="vendaData">Data da Venda</Label>
+              <Input
+                id="vendaData"
+                type="date"
+                required
+                value={vendaData}
+                onChange={(e) => setVendaData(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="vendaValor">Valor da Venda (R$)</Label>
+              <Input
+                id="vendaValor"
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                placeholder="Ex: 14500.00"
+                value={vendaValor}
+                onChange={(e) => setVendaValor(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="vendaComprador">Comprador</Label>
+              <Input
+                id="vendaComprador"
+                required
+                placeholder="Nome do comprador"
+                value={vendaComprador}
+                onChange={(e) => setVendaComprador(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Forma de Recebimento</Label>
+              <Select
+                value={vendaFormaRecebimento}
+                onValueChange={(val: 'pago_agora' | 'aguardando_recebimento') =>
+                  setVendaFormaRecebimento(val)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pago_agora">Pago agora (Entra no Caixa)</SelectItem>
+                  <SelectItem value="aguardando_recebimento">
+                    Aguardando recebimento (Contas a Receber)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                {vendaFormaRecebimento === 'pago_agora'
+                  ? 'Gera lançamento de entrada imediato no Fluxo de Caixa desta moto.'
+                  : 'NÃO entra no caixa agora. Ficará em Contas a Receber até o recebimento ser registrado.'}
+              </p>
+            </div>
+
+            {vendaFormaRecebimento === 'pago_agora' && (
+              <div className="space-y-1.5">
+                <Label>Meio de Pagamento</Label>
+                <Select
+                  value={vendaFormaPagamento}
+                  onValueChange={(val: any) => setVendaFormaPagamento(val)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pix">PIX</SelectItem>
+                    <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                    <SelectItem value="transferencia">Transferência Bancária</SelectItem>
+                    <SelectItem value="cartao">Cartão</SelectItem>
+                    <SelectItem value="outro">Outro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="vendaObs">Observações (opcional)</Label>
+              <Input
+                id="vendaObs"
+                placeholder="Detalhes adicionais da negociação"
+                value={vendaObservacao}
+                onChange={(e) => setVendaObservacao(e.target.value)}
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setVendaModalOpen(false)}
+                disabled={submittingVenda}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={submittingVenda}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {submittingVenda ? 'Registrando...' : 'Confirmar Venda'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Registrar Cessão (Plano Conquista) */}
+      <Dialog open={cessaoModalOpen} onOpenChange={setCessaoModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Registrar Cessão (Plano Conquista)</DialogTitle>
+            <DialogDescription>
+              Entrega definitiva da moto ao locatário no fim do contrato Plano Conquista. Sai do
+              Ativo Imobilizado e não gera receita no caixa.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleConfirmCessao} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="cessaoData">Data da Cessão / Entrega</Label>
+              <Input
+                id="cessaoData"
+                type="date"
+                required
+                value={cessaoData}
+                onChange={(e) => setCessaoData(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="cessaoLocatario">Locatário Beneficiário</Label>
+              <Input
+                id="cessaoLocatario"
+                required
+                placeholder="Nome do locatário"
+                value={cessaoLocatario}
+                onChange={(e) => setCessaoLocatario(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Pré-preenchido com o locatário do contrato Plano Conquista ativo.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="cessaoObs">Observações (opcional)</Label>
+              <Input
+                id="cessaoObs"
+                placeholder="Ex: Quitação das 96 semanas do plano conquista"
+                value={cessaoObservacao}
+                onChange={(e) => setCessaoObservacao(e.target.value)}
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCessaoModalOpen(false)}
+                disabled={submittingCessao}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={submittingCessao}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                {submittingCessao ? 'Registrando...' : 'Confirmar Cessão'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Desfazer Operação de Saída */}
+      <Dialog open={desfazerModalOpen} onOpenChange={setDesfazerModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Desfazer Operação de Saída</DialogTitle>
+            <DialogDescription>
+              Deseja reverter a saída desta moto? O status voltará para "Disponível", o bem voltará
+              ao Ativo Imobilizado e qualquer lançamento de venda no caixa ou conta a receber
+              pendente associado será cancelado.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDesfazerModalOpen(false)}
+              disabled={submittingDesfazer}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={submittingDesfazer}
+              onClick={handleConfirmDesfazer}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {submittingDesfazer ? 'Desfazendo...' : 'Sim, Desfazer Operação'}
             </Button>
           </DialogFooter>
         </DialogContent>

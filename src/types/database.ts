@@ -10,8 +10,16 @@ export interface User {
   updated: string
 }
 
-export type MotoStatus = 'disponivel' | 'locada' | 'manutencao' | 'em_loja_detran'
+export type MotoStatus =
+  | 'disponivel'
+  | 'locada'
+  | 'manutencao'
+  | 'em_loja_detran'
+  | 'vendida'
+  | 'cedida'
 export type TipoLocacao = 'normal' | 'plano_conquista'
+export type TipoOperacaoSaida = 'venda' | 'cessao'
+export type FormaRecebimentoVenda = 'pago_agora' | 'aguardando_recebimento'
 
 export interface Moto {
   id: string
@@ -30,6 +38,13 @@ export interface Moto {
   km_atual?: number
   km_atualizado_em?: string
   km_ultimo_oleo?: number
+  data_saida?: string
+  tipo_operacao_saida?: TipoOperacaoSaida
+  valor_venda?: number
+  destinatario_saida?: string
+  forma_recebimento_venda?: FormaRecebimentoVenda
+  caixa_lancamento_saida?: string
+  conta_a_receber_saida?: string
   created: string
   updated: string
 }
@@ -245,4 +260,26 @@ export interface Socio {
   observacao?: string
   created: string
   updated: string
+}
+
+export type ContaAReceberStatus = 'em_aberto' | 'recebida' | 'cancelada'
+
+export interface ContaAReceber {
+  id: string
+  moto?: string
+  descricao: string
+  devedor: string
+  valor: number
+  data_vencimento: string
+  status: ContaAReceberStatus
+  data_recebimento?: string
+  caixa_lancamento?: string
+  origem?: string
+  observacao?: string
+  created: string
+  updated: string
+  expand?: {
+    moto?: Moto
+    caixa_lancamento?: CaixaLancamento
+  }
 }

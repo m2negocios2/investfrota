@@ -769,15 +769,17 @@ export default function Rentals() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-950/30">
-                  {motos.map((m) => (
-                    <MotoCardButton
-                      key={m.id}
-                      moto={m}
-                      isSelected={motoSelected === m.id}
-                      onClick={() => handleMotoChange(m.id)}
-                      compact={true}
-                    />
-                  ))}
+                  {motos
+                    .filter((m) => m.status !== 'vendida' && m.status !== 'cedida')
+                    .map((m) => (
+                      <MotoCardButton
+                        key={m.id}
+                        moto={m}
+                        isSelected={motoSelected === m.id}
+                        onClick={() => handleMotoChange(m.id)}
+                        compact={true}
+                      />
+                    ))}
                 </div>
               )}
             </div>

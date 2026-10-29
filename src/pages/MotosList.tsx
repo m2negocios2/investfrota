@@ -63,15 +63,24 @@ export default function MotosList() {
     loadMotos()
   }, [])
 
-  const filteredMotos = motos.filter((moto) => {
-    const matchesSearch =
-      (moto.nome && moto.nome.toLowerCase().includes(search.toLowerCase())) ||
-      moto.placa.toLowerCase().includes(search.toLowerCase()) ||
-      moto.modelo.toLowerCase().includes(search.toLowerCase()) ||
-      moto.cor.toLowerCase().includes(search.toLowerCase())
-    const matchesStatus = statusFilter === 'todos' || moto.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  const filteredMotos = motos
+    .filter((moto) => {
+      const matchesSearch =
+        (moto.nome && moto.nome.toLowerCase().includes(search.toLowerCase())) ||
+        moto.placa.toLowerCase().includes(search.toLowerCase()) ||
+        moto.modelo.toLowerCase().includes(search.toLowerCase()) ||
+        moto.cor.toLowerCase().includes(search.toLowerCase())
+      const matchesStatus = statusFilter === 'todos' || moto.status === statusFilter
+      return matchesSearch && matchesStatus
+    })
+    .sort((a, b) => {
+      // Motos vendidas e cedidas vão para o fim da lista
+      const aInativa = a.status === 'vendida' || a.status === 'cedida'
+      const bInativa = b.status === 'vendida' || b.status === 'cedida'
+      if (aInativa && !bInativa) return 1
+      if (!aInativa && bInativa) return -1
+      return (a.nome || a.modelo).localeCompare(b.nome || b.modelo)
+    })
 
   const handleDelete = async () => {
     if (!motoToDelete) return
@@ -131,6 +140,8 @@ export default function MotosList() {
                   <SelectItem value="locada">Locada</SelectItem>
                   <SelectItem value="manutencao">Em Manutenção</SelectItem>
                   <SelectItem value="em_loja_detran">Em Loja/Detran</SelectItem>
+                  <SelectItem value="vendida">Vendida</SelectItem>
+                  <SelectItem value="cedida">Cedida</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -164,7 +175,10 @@ export default function MotosList() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
           {filteredMotos.map((moto) => {
-            const statusConfig = {
+            const statusConfig: Record<
+              string,
+              { label: string; color: string; icon: typeof Bike }
+            > = {
               disponivel: {
                 label: 'Disponível',
                 color:
@@ -189,6 +203,18 @@ export default function MotosList() {
                   'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300',
                 icon: Clock,
               },
+              vendida: {
+                label: 'VENDIDA',
+                color:
+                  'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+                icon: CircleCheck,
+              },
+              cedida: {
+                label: 'CEDIDA',
+                color:
+                  'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+                icon: CircleCheck,
+              },
             }
             const statusInfo = statusConfig[moto.status] || {
               label: moto.status,
@@ -196,11 +222,16 @@ export default function MotosList() {
               icon: Bike,
             }
             const StatusIcon = statusInfo.icon
+            const isCinza = moto.status === 'vendida' || moto.status === 'cedida'
 
             return (
               <Card
                 key={moto.id}
-                className="shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between overflow-hidden"
+                className={`shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between overflow-hidden ${
+                  isCinza
+                    ? 'opacity-60 bg-slate-100/90 dark:bg-slate-900/60 border-slate-300 dark:border-slate-800 grayscale'
+                    : ''
+                }`}
               >
                 <CardHeader className="p-3 sm:p-3.5 pb-2">
                   <div className="flex items-start justify-between gap-1.5">

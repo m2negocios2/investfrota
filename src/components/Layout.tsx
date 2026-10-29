@@ -60,7 +60,7 @@ export default function Layout() {
     { name: 'FLUXO DE CAIXA', href: '/caixa', icon: Wallet },
     { name: 'MÊS', href: '/mes', icon: CalendarRange },
     { name: 'SEMANA', href: '/semana', icon: CalendarDays },
-    { name: 'CONTAS A PAGAR', href: '/contas-a-pagar', icon: CreditCard },
+    { name: 'CONTAS A PAGAR / RECEBER', href: '/contas-a-pagar', icon: CreditCard },
     { name: 'CAUÇÕES', href: '/caucoes', icon: Shield },
     {
       name: 'INFRAÇÕES',

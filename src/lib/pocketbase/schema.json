@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T12:56:26.889Z",
+  "generatedAt": "2026-10-29T13:09:21.616Z",
   "collections": [
     {
       "name": "users",
@@ -104,7 +104,14 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["disponivel", "locada", "manutencao", "em_loja_detran"]
+          "selectValues": [
+            "disponivel",
+            "locada",
+            "manutencao",
+            "em_loja_detran",
+            "vendida",
+            "cedida"
+          ]
         },
         {
           "name": "observacoes",
@@ -165,6 +172,50 @@
         {
           "name": "valor_compra",
           "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_saida",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tipo_operacao_saida",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["venda", "cessao"]
+        },
+        {
+          "name": "valor_venda",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "destinatario_saida",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "forma_recebimento_venda",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["pago_agora", "aguardando_recebimento"]
+        },
+        {
+          "name": "caixa_lancamento_saida",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conta_a_receber_saida",
+          "type": "text",
           "required": false,
           "system": false
         }
@@ -1195,6 +1246,101 @@
         }
       ],
       "indexes": ["CREATE INDEX idx_socios_nome ON socios (nome)"]
+    },
+    {
+      "name": "contas_a_receber",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "moto",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "motos"
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "devedor",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "valor",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_vencimento",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["em_aberto", "recebida", "cancelada"]
+        },
+        {
+          "name": "data_recebimento",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "caixa_lancamento",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "caixa_lancamentos"
+        },
+        {
+          "name": "origem",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_contas_rec_moto ON contas_a_receber (moto)",
+        "CREATE INDEX idx_contas_rec_status ON contas_a_receber (status)",
+        "CREATE INDEX idx_contas_rec_venc ON contas_a_receber (data_vencimento)"
+      ]
     }
   ]
 }

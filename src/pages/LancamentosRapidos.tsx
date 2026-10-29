@@ -94,12 +94,14 @@ export default function LancamentosRapidos() {
         caixaService.getAll(),
       ])
 
-      // Ordenar motos pelo Nome em ordem alfabética (padrão de uso da usuária)
-      const sortedMotos = [...mList].sort((a, b) => {
-        const nameA = (a.nome || a.modelo || a.placa || '').toUpperCase()
-        const nameB = (b.nome || b.modelo || b.placa || '').toUpperCase()
-        return nameA.localeCompare(nameB)
-      })
+      // Excluir motos vendidas/cedidas dos lançamentos rápidos e ordenar por nome
+      const sortedMotos = [...mList]
+        .filter((m) => m.status !== 'vendida' && m.status !== 'cedida')
+        .sort((a, b) => {
+          const nameA = (a.nome || a.modelo || a.placa || '').toUpperCase()
+          const nameB = (b.nome || b.modelo || b.placa || '').toUpperCase()
+          return nameA.localeCompare(nameB)
+        })
 
       setMotos(sortedMotos)
       setCategorias(cList)
