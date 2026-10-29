@@ -6,7 +6,7 @@ export const caixaService = {
   async getAll(): Promise<CaixaLancamento[]> {
     return await pb.collection('caixa_lancamentos').getFullList<CaixaLancamento>({
       sort: '-data,-created',
-      expand: 'moto',
+      expand: 'moto,socio,conta_a_pagar',
     })
   },
 
@@ -14,7 +14,7 @@ export const caixaService = {
     return await pb.collection('caixa_lancamentos').getFullList<CaixaLancamento>({
       filter: `moto = "${motoId}"`,
       sort: '-data,-created',
-      expand: 'moto',
+      expand: 'moto,socio,conta_a_pagar',
     })
   },
 
@@ -22,6 +22,7 @@ export const caixaService = {
     return await pb.collection('caixa_lancamentos').getFullList<CaixaLancamento>({
       filter: `entidade = "${entidade}"`,
       sort: '-data,-created',
+      expand: 'moto,socio,conta_a_pagar',
     })
   },
 

@@ -119,6 +119,8 @@ export interface CaixaLancamento {
   id: string
   moto?: string
   entidade?: EntidadeTipo
+  socio?: string
+  conta_a_pagar?: string
   tipo: CaixaTipo
   descricao: string
   categoria?: string
@@ -132,6 +134,8 @@ export interface CaixaLancamento {
   updated: string
   expand?: {
     moto?: Moto
+    socio?: Socio
+    conta_a_pagar?: ContaAPagar
   }
 }
 

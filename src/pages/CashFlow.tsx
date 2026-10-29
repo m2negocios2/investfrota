@@ -38,6 +38,8 @@ import { toast } from 'sonner'
 import { caixaService } from '@/services/caixa'
 import { motosService } from '@/services/motos'
 import { categoriasService } from '@/services/categorias'
+import { empresaService, sociosService } from '@/services/cadastros'
+import { contasAPagarService } from '@/services/contasAPagar'
 import pb from '@/lib/pocketbase/client'
 import { getTodayLocalDate, normalizeDateInput, formatDateDisplay } from '@/lib/dateUtils'
 import {
@@ -48,6 +50,9 @@ import {
   CategoriaGasto,
   Contrato,
   EntidadeTipo,
+  Socio,
+  ContaAPagar,
+  EmpresaConfig,
 } from '@/types/database'
 import { MotoCardButton, MotoGridSelector } from '@/components/MotoSelectorGrid'
 
@@ -79,7 +84,16 @@ export default function CashFlow() {
   const [lancamentos, setLancamentos] = useState<CaixaLancamento[]>([])
   const [motos, setMotos] = useState<Moto[]>([])
   const [categorias, setCategorias] = useState<CategoriaGasto[]>([])
+  const [empresaConfig, setEmpresaConfig] = useState<EmpresaConfig | null>(null)
+  const [socios, setSocios] = useState<Socio[]>([])
+  const [contasAPagar, setContasAPagar] = useState<ContaAPagar[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Sub-filtros quando entidade:socia ou entidade:terceiros está selecionada
+  // 'todos' ou id do sócio
+  const [selectedSocioFilter, setSelectedSocioFilter] = useState<string>('todos')
+  // 'todas' ou id da conta a pagar
+  const [selectedContaFilter, setSelectedContaFilter] = useState<string>('todas')
 
   // Filters
   const [search, setSearch] = useState('')
@@ -92,6 +106,8 @@ export default function CashFlow() {
   const [vinculoTipo, setVinculoTipo] = useState<'moto' | 'entidade'>('moto')
   const [motoId, setMotoId] = useState('')
   const [entidade, setEntidade] = useState<EntidadeTipo>('empresa')
+  const [socioId, setSocioId] = useState<string>('')
+  const [contaAPagarId, setContaAPagarId] = useState<string>('')
   const [tipo, setTipo] = useState<CaixaTipo>('entrada')
   const [descricao, setDescricao] = useState('Aluguel')
   const [categoria, setCategoria] = useState('')
@@ -103,6 +119,10 @@ export default function CashFlow() {
   const handleOpenNewModal = () => {
     setTipo('entrada')
     setVinculoTipo('moto')
+    setMotoId('')
+    setEntidade('empresa')
+    setSocioId('')
+    setContaAPagarId('')
     // Preenche com "Aluguel" se estiver vazio ou se for a sugestão padrão
     setDescricao((prev) => (prev.trim() === '' ? 'Aluguel' : prev))
     setNewModalOpen(true)
@@ -136,6 +156,8 @@ export default function CashFlow() {
   const [editVinculoTipo, setEditVinculoTipo] = useState<'moto' | 'entidade'>('moto')
   const [editMotoId, setEditMotoId] = useState('')
   const [editEntidade, setEditEntidade] = useState<EntidadeTipo>('empresa')
+  const [editSocioId, setEditSocioId] = useState<string>('')
+  const [editContaAPagarId, setEditContaAPagarId] = useState<string>('')
   const [editTipo, setEditTipo] = useState<CaixaTipo>('entrada')
   const [editDescricao, setEditDescricao] = useState('')
   const [editCategoria, setEditCategoria] = useState('')
@@ -146,14 +168,20 @@ export default function CashFlow() {
 
   const loadData = async () => {
     try {
-      const [cx, m, c] = await Promise.all([
+      const [cx, m, c, emp, socList, contList] = await Promise.all([
         caixaService.getAll(),
         motosService.getAll(),
         categoriasService.getAll(),
+        empresaService.get(),
+        sociosService.getAll(),
+        contasAPagarService.getAllWithProgresso(),
       ])
       setLancamentos(cx)
       setMotos(m)
       setCategorias(c)
+      setEmpresaConfig(emp)
+      setSocios(socList)
+      setContasAPagar(contList)
     } catch (err) {
       console.error(err)
       toast.error('Erro ao carregar livro caixa')
@@ -174,7 +202,7 @@ export default function CashFlow() {
       return
     }
     if (vinculoTipo === 'entidade' && !entidade) {
-      toast.error('Selecione uma entidade para este lançamento')
+      toast.error('Selecione um participante para este lançamento')
       return
     }
     if (!descricao.trim() || valor <= 0 || !data) {
@@ -184,18 +212,25 @@ export default function CashFlow() {
 
     setSubmitting(true)
     try {
+      const socioObj = entidade === 'socia' && socioId ? socios.find((s) => s.id === socioId) : null
+      const contaObj =
+        entidade === 'terceiros' && contaAPagarId
+          ? contasAPagar.find((c) => c.id === contaAPagarId)
+          : null
+
+      const fallbackCat =
+        tipo === 'entrada'
+          ? vinculoTipo === 'moto'
+            ? 'Aluguel'
+            : 'Receita'
+          : vinculoTipo === 'entidade'
+            ? ENTIDADES_CONFIG[entidade].chipLabel
+            : 'Despesa'
+
       const payload: any = {
         tipo,
         descricao: descricao.trim(),
-        categoria:
-          categoria.trim() ||
-          (tipo === 'entrada'
-            ? vinculoTipo === 'moto'
-              ? 'Aluguel'
-              : 'Receita'
-            : vinculoTipo === 'entidade'
-              ? ENTIDADES_CONFIG[entidade].chipLabel
-              : 'Despesa'),
+        categoria: categoria.trim() || fallbackCat,
         valor: Number(valor),
         data,
         forma_pagamento: formaPagamento,
@@ -204,9 +239,18 @@ export default function CashFlow() {
       if (vinculoTipo === 'moto') {
         payload.moto = motoId
         payload.entidade = ''
+        payload.socio = ''
+        payload.conta_a_pagar = ''
       } else {
         payload.moto = ''
         payload.entidade = entidade
+        payload.socio = entidade === 'socia' ? socioId : ''
+        payload.conta_a_pagar = entidade === 'terceiros' ? contaAPagarId : ''
+        if (entidade === 'socia' && socioObj?.nome) {
+          payload.observacoes = `Sócio vinculado: ${socioObj.nome}`
+        } else if (entidade === 'terceiros' && contaObj?.credor) {
+          payload.observacoes = `Conta a pagar: ${contaObj.credor} — ${contaObj.descricao}`
+        }
       }
 
       await caixaService.create(payload)
@@ -261,11 +305,15 @@ export default function CashFlow() {
     if (item.entidade) {
       setEditVinculoTipo('entidade')
       setEditEntidade(item.entidade as EntidadeTipo)
+      setEditSocioId(item.socio || '')
+      setEditContaAPagarId(item.conta_a_pagar || '')
       setEditMotoId('')
     } else {
       setEditVinculoTipo('moto')
       setEditMotoId(item.moto || '')
       setEditEntidade('empresa')
+      setEditSocioId('')
+      setEditContaAPagarId('')
     }
     setEditTipo(item.tipo)
     setEditDescricao(item.descricao || '')
@@ -285,7 +333,7 @@ export default function CashFlow() {
       return
     }
     if (editVinculoTipo === 'entidade' && !editEntidade) {
-      toast.error('Selecione uma entidade')
+      toast.error('Selecione um participante')
       return
     }
     if (!editDescricao.trim() || editValor <= 0 || !editData) {
@@ -295,18 +343,26 @@ export default function CashFlow() {
 
     setEditSubmitting(true)
     try {
+      const editSocioObj =
+        editEntidade === 'socia' && editSocioId ? socios.find((s) => s.id === editSocioId) : null
+      const editContaObj =
+        editEntidade === 'terceiros' && editContaAPagarId
+          ? contasAPagar.find((c) => c.id === editContaAPagarId)
+          : null
+
+      const fallbackCat =
+        editTipo === 'entrada'
+          ? editVinculoTipo === 'moto'
+            ? 'Aluguel'
+            : 'Receita'
+          : editVinculoTipo === 'entidade'
+            ? ENTIDADES_CONFIG[editEntidade].chipLabel
+            : 'Despesa'
+
       const payload: any = {
         tipo: editTipo,
         descricao: editDescricao.trim(),
-        categoria:
-          editCategoria.trim() ||
-          (editTipo === 'entrada'
-            ? editVinculoTipo === 'moto'
-              ? 'Aluguel'
-              : 'Receita'
-            : editVinculoTipo === 'entidade'
-              ? ENTIDADES_CONFIG[editEntidade].chipLabel
-              : 'Despesa'),
+        categoria: editCategoria.trim() || fallbackCat,
         valor: Number(editValor),
         data: editData,
         forma_pagamento: editFormaPagamento,
@@ -315,9 +371,18 @@ export default function CashFlow() {
       if (editVinculoTipo === 'moto') {
         payload.moto = editMotoId
         payload.entidade = ''
+        payload.socio = ''
+        payload.conta_a_pagar = ''
       } else {
         payload.moto = ''
         payload.entidade = editEntidade
+        payload.socio = editEntidade === 'socia' ? editSocioId : ''
+        payload.conta_a_pagar = editEntidade === 'terceiros' ? editContaAPagarId : ''
+        if (editEntidade === 'socia' && editSocioObj?.nome) {
+          payload.observacoes = `Sócio vinculado: ${editSocioObj.nome}`
+        } else if (editEntidade === 'terceiros' && editContaObj?.credor) {
+          payload.observacoes = `Conta a pagar: ${editContaObj.credor} — ${editContaObj.descricao}`
+        }
       }
 
       await caixaService.update(editingId, payload)
@@ -350,9 +415,13 @@ export default function CashFlow() {
   const filtered = lancamentos.filter((l) => {
     const desc = l.descricao || ''
     const cat = l.categoria || ''
+    const socioNome = l.expand?.socio?.nome || ''
+    const credorNome = l.expand?.conta_a_pagar?.credor || ''
     const matchesSearch =
       desc.toLowerCase().includes(search.toLowerCase()) ||
-      cat.toLowerCase().includes(search.toLowerCase())
+      cat.toLowerCase().includes(search.toLowerCase()) ||
+      socioNome.toLowerCase().includes(search.toLowerCase()) ||
+      credorNome.toLowerCase().includes(search.toLowerCase())
     const matchesTipo = tipoFilter === 'todos' || l.tipo === tipoFilter
 
     let matchesTarget = true
@@ -360,7 +429,18 @@ export default function CashFlow() {
       matchesTarget = true
     } else if (targetFilter.startsWith('entidade:')) {
       const entName = targetFilter.replace('entidade:', '')
-      matchesTarget = l.entidade === entName
+      if (l.entidade !== entName) {
+        matchesTarget = false
+      } else {
+        // Se for socia e tiver filtro de sócio específico
+        if (entName === 'socia' && selectedSocioFilter !== 'todos') {
+          matchesTarget = l.socio === selectedSocioFilter
+        }
+        // Se for terceiros e tiver filtro de conta específica
+        else if (entName === 'terceiros' && selectedContaFilter !== 'todas') {
+          matchesTarget = l.conta_a_pagar === selectedContaFilter
+        }
+      }
     } else {
       matchesTarget = l.moto === targetFilter
     }
@@ -377,6 +457,9 @@ export default function CashFlow() {
     .reduce((acc, l) => acc + l.valor, 0)
   const saldoFinal = totalEntradas - totalSaidas
 
+  // Nome da empresa cadastrada (fallback para 'Empresa')
+  const nomeEmpresaDisplay = empresaConfig?.nome_empresa?.trim() || 'Empresa'
+
   // Dados da seleção para a tabela de fluxo detalhada (moto OU entidade)
   const isEntidadeSelected = targetFilter.startsWith('entidade:')
   const selectedEntidadeKey = isEntidadeSelected
@@ -387,6 +470,16 @@ export default function CashFlow() {
       ? motos.find((m) => m.id === targetFilter)
       : null
 
+  // Sócio / Conta selecionados no sub-filtro da visualização detalhada
+  const activeSocioFilterObj =
+    selectedEntidadeKey === 'socia' && selectedSocioFilter !== 'todos'
+      ? socios.find((s) => s.id === selectedSocioFilter)
+      : null
+  const activeContaFilterObj =
+    selectedEntidadeKey === 'terceiros' && selectedContaFilter !== 'todas'
+      ? contasAPagar.find((c) => c.id === selectedContaFilter)
+      : null
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -395,7 +488,8 @@ export default function CashFlow() {
             Fluxo de Caixa
           </h1>
           <p className="text-sm text-muted-foreground">
-            Registro de receitas e despesas por Moto e por Entidade (Empresa, Sócia e Terceiros).
+            Registro de receitas e despesas por Moto e por Outros Participantes (
+            {nomeEmpresaDisplay}, Sócios e Terceiros).
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -529,23 +623,32 @@ export default function CashFlow() {
             )}
           </div>
 
-          {/* Grupo das 3 Entidades Gerais da Empresa */}
+          {/* Grupo OUTROS PARTICIPANTES */}
           <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <Building2 className="w-4 h-4 text-indigo-600" />
-                Entidades Gerais da Empresa
+                OUTROS PARTICIPANTES
               </span>
               {isEntidadeSelected && (
                 <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  Selecionada: {ENTIDADES_CONFIG[selectedEntidadeKey!].chipLabel}
+                  Selecionado:{' '}
+                  {selectedEntidadeKey === 'empresa'
+                    ? nomeEmpresaDisplay
+                    : selectedEntidadeKey === 'socia'
+                      ? activeSocioFilterObj
+                        ? `Sócios (${activeSocioFilterObj.nome})`
+                        : 'Sócios'
+                      : activeContaFilterObj
+                        ? `Terceiros (${activeContaFilterObj.credor})`
+                        : 'Terceiros'}
                 </span>
               )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
-              {/* EMPRESA */}
+              {/* EMPRESA (exibe o nome cadastrado em Cadastros) */}
               <button
                 type="button"
                 onClick={() => setTargetFilter('entidade:empresa')}
@@ -571,8 +674,9 @@ export default function CashFlow() {
                         ? 'text-amber-950 dark:text-amber-100'
                         : 'text-slate-900 dark:text-white'
                     }`}
+                    title={nomeEmpresaDisplay}
                   >
-                    🏢 EMPRESA
+                    🏢 {nomeEmpresaDisplay.toUpperCase()}
                   </p>
                   <p className="text-[11px] text-muted-foreground truncate leading-none mt-0.5">
                     Custos Gerais (ponto, luz, etc.)
@@ -585,7 +689,7 @@ export default function CashFlow() {
                 )}
               </button>
 
-              {/* SÓCIA */}
+              {/* SÓCIOS (abre aba mostrando os sócios cadastrados) */}
               <button
                 type="button"
                 onClick={() => setTargetFilter('entidade:socia')}
@@ -612,10 +716,12 @@ export default function CashFlow() {
                         : 'text-slate-900 dark:text-white'
                     }`}
                   >
-                    👤 EU / SÓCIA
+                    👤 SÓCIOS
                   </p>
                   <p className="text-[11px] text-muted-foreground truncate leading-none mt-0.5">
-                    Retiradas / Pró-labore
+                    {socios.length > 0
+                      ? `${socios.length} sócio(s) cadastrado(s)`
+                      : 'Retiradas / Pró-labore'}
                   </p>
                 </div>
                 {targetFilter === 'entidade:socia' && (
@@ -625,7 +731,7 @@ export default function CashFlow() {
                 )}
               </button>
 
-              {/* DÍVIDAS COM TERCEIROS */}
+              {/* TERCEIROS (abre aba mostrando as contas a pagar cadastradas) */}
               <button
                 type="button"
                 onClick={() => setTargetFilter('entidade:terceiros')}
@@ -655,7 +761,9 @@ export default function CashFlow() {
                     🤝 TERCEIROS
                   </p>
                   <p className="text-[11px] text-muted-foreground truncate leading-none mt-0.5">
-                    Dívidas com Terceiros
+                    {contasAPagar.length > 0
+                      ? `${contasAPagar.length} conta(s) a pagar`
+                      : 'Dívidas com Terceiros'}
                   </p>
                 </div>
                 {targetFilter === 'entidade:terceiros' && (
@@ -665,6 +773,119 @@ export default function CashFlow() {
                 )}
               </button>
             </div>
+
+            {/* ABA EXPANSÍVEL: Sócios cadastrados para escolher ao clicar em SÓCIOS */}
+            {targetFilter === 'entidade:socia' && (
+              <div className="mt-3 p-3 bg-purple-50/70 dark:bg-purple-950/40 rounded-xl border border-purple-200 dark:border-purple-900 space-y-2 animate-in fade-in-50 duration-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-purple-600" />
+                    Filtrar por Sócio Cadastrado:
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {socios.length} cadastrado(s) em Cadastros
+                  </span>
+                </div>
+                {socios.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-1">
+                    Nenhum sócio cadastrado ainda em Cadastros → Sócios da Empresa.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={selectedSocioFilter === 'todos' ? 'default' : 'outline'}
+                      onClick={() => setSelectedSocioFilter('todos')}
+                      className={`h-7 text-xs font-semibold ${
+                        selectedSocioFilter === 'todos'
+                          ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                          : 'bg-white dark:bg-slate-900 border-purple-200 text-purple-900 dark:text-purple-200'
+                      }`}
+                    >
+                      Todos os Sócios
+                    </Button>
+                    {socios.map((s) => (
+                      <Button
+                        key={s.id}
+                        type="button"
+                        size="sm"
+                        variant={selectedSocioFilter === s.id ? 'default' : 'outline'}
+                        onClick={() => setSelectedSocioFilter(s.id)}
+                        className={`h-7 text-xs font-semibold ${
+                          selectedSocioFilter === s.id
+                            ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-xs'
+                            : 'bg-white dark:bg-slate-900 border-purple-200 text-purple-900 dark:text-purple-200 hover:bg-purple-100/50'
+                        }`}
+                      >
+                        👤 {s.nome}
+                        {s.participacao_percentual !== undefined &&
+                          s.participacao_percentual > 0 && (
+                            <span className="ml-1 opacity-75 font-normal">
+                              ({s.participacao_percentual}%)
+                            </span>
+                          )}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ABA EXPANSÍVEL: Contas a pagar cadastradas ao clicar em TERCEIROS */}
+            {targetFilter === 'entidade:terceiros' && (
+              <div className="mt-3 p-3 bg-rose-50/70 dark:bg-rose-950/40 rounded-xl border border-rose-200 dark:border-rose-900 space-y-2 animate-in fade-in-50 duration-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-rose-900 dark:text-rose-200 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-rose-600" />
+                    Filtrar por Conta a Pagar Cadastrada:
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {contasAPagar.length} conta(s) em Contas a Pagar
+                  </span>
+                </div>
+                {contasAPagar.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-1">
+                    Nenhuma conta a pagar cadastrada no módulo Contas a Pagar.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={selectedContaFilter === 'todas' ? 'default' : 'outline'}
+                      onClick={() => setSelectedContaFilter('todas')}
+                      className={`h-7 text-xs font-semibold ${
+                        selectedContaFilter === 'todas'
+                          ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                          : 'bg-white dark:bg-slate-900 border-rose-200 text-rose-900 dark:text-rose-200'
+                      }`}
+                    >
+                      Todas as Dívidas
+                    </Button>
+                    {contasAPagar.map((c) => (
+                      <Button
+                        key={c.id}
+                        type="button"
+                        size="sm"
+                        variant={selectedContaFilter === c.id ? 'default' : 'outline'}
+                        onClick={() => setSelectedContaFilter(c.id)}
+                        className={`h-7 text-xs font-semibold ${
+                          selectedContaFilter === c.id
+                            ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-xs'
+                            : 'bg-white dark:bg-slate-900 border-rose-200 text-rose-900 dark:text-rose-200 hover:bg-rose-100/50'
+                        }`}
+                      >
+                        🤝 {c.credor}
+                        {c.descricao && (
+                          <span className="ml-1 opacity-75 font-normal">— {c.descricao}</span>
+                        )}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Busca e Filtro de Tipo para o Extrato */}
@@ -696,10 +917,31 @@ export default function CashFlow() {
       {/* Tabela de Fluxo Individual (exibida quando uma moto OU entidade específica está selecionada) */}
       {targetFilter !== 'todas' &&
         (() => {
-          // Filtrar lançamentos daquele alvo (moto ou entidade)
+          // Filtrar lançamentos daquele alvo (moto ou participante)
           const targetLancamentos = isEntidadeSelected
-            ? lancamentos.filter((l) => l.entidade === selectedEntidadeKey)
+            ? lancamentos.filter((l) => {
+                if (l.entidade !== selectedEntidadeKey) return false
+                if (selectedEntidadeKey === 'socia' && selectedSocioFilter !== 'todos') {
+                  return l.socio === selectedSocioFilter
+                }
+                if (selectedEntidadeKey === 'terceiros' && selectedContaFilter !== 'todas') {
+                  return l.conta_a_pagar === selectedContaFilter
+                }
+                return true
+              })
             : lancamentos.filter((l) => l.moto === targetFilter)
+
+          // Sub-título explicativo se um filtro específico de sócio ou conta estiver ativo
+          const subFiltroAtivoBadge =
+            selectedEntidadeKey === 'socia' && activeSocioFilterObj ? (
+              <span className="text-xs font-normal text-purple-700 dark:text-purple-300 ml-2">
+                (Filtrando: {activeSocioFilterObj.nome})
+              </span>
+            ) : selectedEntidadeKey === 'terceiros' && activeContaFilterObj ? (
+              <span className="text-xs font-normal text-rose-700 dark:text-rose-300 ml-2">
+                (Filtrando: {activeContaFilterObj.credor})
+              </span>
+            ) : null
 
           // Ordenar cronologicamente crescente para running balance correto
           const targetLancamentosAsc = [...targetLancamentos].sort((a, b) => {
@@ -735,15 +977,39 @@ export default function CashFlow() {
           const targetSaldoTotal = targetEntradasTotal - targetSaidasTotal
 
           const headerTitle = isEntidadeSelected
-            ? `Fluxo de Caixa: ${ENTIDADES_CONFIG[selectedEntidadeKey!].label}`
+            ? selectedEntidadeKey === 'empresa'
+              ? `Fluxo de Caixa: ${nomeEmpresaDisplay}`
+              : selectedEntidadeKey === 'socia'
+                ? activeSocioFilterObj
+                  ? `Fluxo de Caixa: Sócio — ${activeSocioFilterObj.nome}`
+                  : 'Fluxo de Caixa: Sócios'
+                : activeContaFilterObj
+                  ? `Fluxo de Caixa: Terceiros — ${activeContaFilterObj.credor}`
+                  : 'Fluxo de Caixa: Dívidas com Terceiros'
             : `Fluxo de Caixa da Moto: ${selectedMoto?.nome || selectedMoto?.modelo || 'Moto'}`
 
           const headerSubtitle = isEntidadeSelected
-            ? ENTIDADES_CONFIG[selectedEntidadeKey!].descricao
+            ? selectedEntidadeKey === 'empresa'
+              ? `Custos gerais da empresa ${nomeEmpresaDisplay}`
+              : selectedEntidadeKey === 'socia'
+                ? activeSocioFilterObj
+                  ? `Retiradas e pró-labore vinculados a ${activeSocioFilterObj.nome}`
+                  : 'Retiradas e pró-labore dos sócios'
+                : activeContaFilterObj
+                  ? `Lançamentos e parcelas de dívida com ${activeContaFilterObj.credor}`
+                  : 'Lançamentos e pagamentos de dívidas com terceiros'
             : 'Histórico de movimentações (mais recentes primeiro) e saldo acumulado da moto'
 
           const totalLabel = isEntidadeSelected
-            ? `Total ${ENTIDADES_CONFIG[selectedEntidadeKey!].chipLabel}`
+            ? selectedEntidadeKey === 'empresa'
+              ? `Total ${nomeEmpresaDisplay}`
+              : selectedEntidadeKey === 'socia'
+                ? activeSocioFilterObj
+                  ? `Total Sócio (${activeSocioFilterObj.nome})`
+                  : 'Total Sócios'
+                : activeContaFilterObj
+                  ? `Total Terceiros (${activeContaFilterObj.credor})`
+                  : 'Total Terceiros'
             : 'Total Moto'
 
           return (
@@ -759,6 +1025,7 @@ export default function CashFlow() {
                       )}
                       <CardTitle className="text-lg font-bold text-slate-900 dark:text-white">
                         {headerTitle}
+                        {subFiltroAtivoBadge}
                       </CardTitle>
                       {!isEntidadeSelected && selectedMoto?.placa && (
                         <Badge
@@ -771,9 +1038,19 @@ export default function CashFlow() {
                       {isEntidadeSelected && (
                         <Badge
                           variant="outline"
-                          className={`text-xs font-semibold ${ENTIDADES_CONFIG[selectedEntidadeKey!].cor}`}
+                          className={`text-xs font-semibold ${
+                            selectedEntidadeKey === 'empresa'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                              : selectedEntidadeKey === 'socia'
+                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-purple-300 dark:border-purple-800'
+                                : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 dark:border-rose-800'
+                          }`}
                         >
-                          ENTIDADE
+                          {selectedEntidadeKey === 'empresa'
+                            ? nomeEmpresaDisplay
+                            : selectedEntidadeKey === 'socia'
+                              ? activeSocioFilterObj?.nome || 'SÓCIOS'
+                              : activeContaFilterObj?.credor || 'TERCEIROS'}
                         </Badge>
                       )}
                     </div>
@@ -1000,12 +1277,26 @@ export default function CashFlow() {
                         <p className="text-xs text-muted-foreground mt-0.5 flex flex-wrap items-center gap-1.5">
                           <span>{formatDateDisplay(item.data)}</span>
                           <span>•</span>
-                          {isEntidade && entidadeConfig ? (
+                          {isEntidade ? (
                             <Badge
                               variant="outline"
-                              className={`text-[10px] py-0 px-1.5 font-bold ${entidadeConfig.cor}`}
+                              className={`text-[10px] py-0 px-1.5 font-bold ${
+                                item.entidade === 'empresa'
+                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                                  : item.entidade === 'socia'
+                                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-purple-300 dark:border-purple-800'
+                                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 dark:border-rose-800'
+                              }`}
                             >
-                              {entidadeConfig.chipLabel}
+                              {item.entidade === 'empresa'
+                                ? nomeEmpresaDisplay
+                                : item.entidade === 'socia'
+                                  ? item.expand?.socio?.nome
+                                    ? `SÓCIO: ${item.expand.socio.nome}`
+                                    : 'SÓCIA'
+                                  : item.expand?.conta_a_pagar?.credor
+                                    ? `TERCEIRO: ${item.expand.conta_a_pagar.credor}`
+                                    : 'TERCEIROS'}
                             </Badge>
                           ) : (
                             <span className="font-semibold text-slate-800 dark:text-slate-200">
@@ -1065,7 +1356,8 @@ export default function CashFlow() {
           <DialogHeader>
             <DialogTitle>Novo Lançamento no Caixa</DialogTitle>
             <DialogDescription>
-              Adicione uma receita ou despesa vinculada a uma moto ou entidade geral da empresa.
+              Adicione uma receita ou despesa vinculada a uma moto ou a outros participantes (
+              {nomeEmpresaDisplay}, Sócios e Terceiros).
             </DialogDescription>
           </DialogHeader>
 
@@ -1094,7 +1386,7 @@ export default function CashFlow() {
               </div>
             </div>
 
-            {/* Vínculo: MOTO vs ENTIDADES */}
+            {/* Vínculo: MOTO vs OUTROS PARTICIPANTES */}
             <div className="space-y-2">
               <Label>Vincular a:</Label>
               <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
@@ -1124,12 +1416,12 @@ export default function CashFlow() {
                   }`}
                 >
                   <Building2 className="w-3.5 h-3.5" />
-                  Entidade Geral
+                  Outros Participantes
                 </Button>
               </div>
             </div>
 
-            {/* Campo condicional: Grade de Motos OU Seletor de Entidade */}
+            {/* Campo condicional: Grade de Motos OU Seletor de Outros Participantes */}
             {vinculoTipo === 'moto' ? (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -1164,25 +1456,107 @@ export default function CashFlow() {
                 )}
               </div>
             ) : (
-              <div className="space-y-2">
-                <Label htmlFor="entidadeSelect">Entidade Relacionada *</Label>
-                <Select value={entidade} onValueChange={(val: EntidadeTipo) => setEntidade(val)}>
-                  <SelectTrigger id="entidadeSelect">
-                    <SelectValue placeholder="Selecione a entidade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="empresa">
-                      🏢 EMPRESA (Custos gerais: aluguel ponto, contador, etc.)
-                    </SelectItem>
-                    <SelectItem value="socia">👤 EU / SÓCIA (Retiradas / Pró-labore)</SelectItem>
-                    <SelectItem value="terceiros">
-                      🤝 TERCEIROS (Pagamento de dívidas com terceiros)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground">
-                  {ENTIDADES_CONFIG[entidade]?.descricao}
-                </p>
+              <div className="space-y-3 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="entidadeSelect"
+                    className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                  >
+                    Participante *
+                  </Label>
+                  <Select value={entidade} onValueChange={(val: EntidadeTipo) => setEntidade(val)}>
+                    <SelectTrigger id="entidadeSelect">
+                      <SelectValue placeholder="Selecione o participante" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="empresa">
+                        🏢 {nomeEmpresaDisplay.toUpperCase()} (Custos Gerais)
+                      </SelectItem>
+                      <SelectItem value="socia">👤 SÓCIOS (Retiradas / Pró-labore)</SelectItem>
+                      <SelectItem value="terceiros">
+                        🤝 TERCEIROS (Contas a Pagar / Dívidas)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Se escolheu SÓCIOS: campo de escolha mostrando os sócios cadastrados */}
+                {entidade === 'socia' && (
+                  <div className="space-y-1.5 pt-1 border-t border-purple-200 dark:border-purple-900/60">
+                    <Label
+                      htmlFor="socioSelect"
+                      className="text-xs font-semibold text-purple-900 dark:text-purple-200 flex items-center justify-between"
+                    >
+                      <span>Sócio Cadastrado (opcional ou escolher sócio)</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">
+                        Cadastros → Sócios
+                      </span>
+                    </Label>
+                    <Select
+                      value={socioId || 'sem_especificar'}
+                      onValueChange={(val) => setSocioId(val === 'sem_especificar' ? '' : val)}
+                    >
+                      <SelectTrigger
+                        id="socioSelect"
+                        className="border-purple-300 dark:border-purple-800"
+                      >
+                        <SelectValue placeholder="Selecione o sócio cadastrado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sem_especificar">
+                          👤 EU / SÓCIA (Geral / Sem especificar)
+                        </SelectItem>
+                        {socios.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            👤 {s.nome} {s.funcao ? `— ${s.funcao}` : ''}{' '}
+                            {s.participacao_percentual !== undefined &&
+                            s.participacao_percentual > 0
+                              ? `(${s.participacao_percentual}%)`
+                              : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Se escolheu TERCEIROS: campo de escolha mostrando as contas a pagar cadastradas */}
+                {entidade === 'terceiros' && (
+                  <div className="space-y-1.5 pt-1 border-t border-rose-200 dark:border-rose-900/60">
+                    <Label
+                      htmlFor="contaSelect"
+                      className="text-xs font-semibold text-rose-900 dark:text-rose-200 flex items-center justify-between"
+                    >
+                      <span>Conta a Pagar Cadastrada (opcional ou escolher dívida)</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">
+                        Módulo Contas a Pagar
+                      </span>
+                    </Label>
+                    <Select
+                      value={contaAPagarId || 'sem_especificar'}
+                      onValueChange={(val) =>
+                        setContaAPagarId(val === 'sem_especificar' ? '' : val)
+                      }
+                    >
+                      <SelectTrigger
+                        id="contaSelect"
+                        className="border-rose-300 dark:border-rose-800"
+                      >
+                        <SelectValue placeholder="Selecione a conta/dívida cadastrada" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sem_especificar">
+                          🤝 TERCEIROS (Geral / Sem especificar)
+                        </SelectItem>
+                        {contasAPagar.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            🤝 {c.credor} — {c.descricao} (Total R$ {c.valor_total.toFixed(2)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1342,7 +1716,7 @@ export default function CashFlow() {
               </div>
             </div>
 
-            {/* Vínculo: MOTO vs ENTIDADES */}
+            {/* Vínculo: MOTO vs OUTROS PARTICIPANTES */}
             <div className="space-y-2">
               <Label>Vincular a:</Label>
               <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
@@ -1372,7 +1746,7 @@ export default function CashFlow() {
                   }`}
                 >
                   <Building2 className="w-3.5 h-3.5" />
-                  Entidade Geral
+                  Outros Participantes
                 </Button>
               </div>
             </div>
@@ -1411,25 +1785,110 @@ export default function CashFlow() {
                 )}
               </div>
             ) : (
-              <div className="space-y-2">
-                <Label htmlFor="editEntidadeSelect">Entidade Relacionada *</Label>
-                <Select
-                  value={editEntidade}
-                  onValueChange={(val: EntidadeTipo) => setEditEntidade(val)}
-                >
-                  <SelectTrigger id="editEntidadeSelect">
-                    <SelectValue placeholder="Selecione a entidade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="empresa">
-                      🏢 EMPRESA (Custos gerais: aluguel ponto, contador, etc.)
-                    </SelectItem>
-                    <SelectItem value="socia">👤 EU / SÓCIA (Retiradas / Pró-labore)</SelectItem>
-                    <SelectItem value="terceiros">
-                      🤝 TERCEIROS (Pagamento de dívidas com terceiros)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-3 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="editEntidadeSelect"
+                    className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                  >
+                    Participante *
+                  </Label>
+                  <Select
+                    value={editEntidade}
+                    onValueChange={(val: EntidadeTipo) => setEditEntidade(val)}
+                  >
+                    <SelectTrigger id="editEntidadeSelect">
+                      <SelectValue placeholder="Selecione o participante" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="empresa">
+                        🏢 {nomeEmpresaDisplay.toUpperCase()} (Custos Gerais)
+                      </SelectItem>
+                      <SelectItem value="socia">👤 SÓCIOS (Retiradas / Pró-labore)</SelectItem>
+                      <SelectItem value="terceiros">
+                        🤝 TERCEIROS (Contas a Pagar / Dívidas)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Se for sócios no edit modal */}
+                {editEntidade === 'socia' && (
+                  <div className="space-y-1.5 pt-1 border-t border-purple-200 dark:border-purple-900/60">
+                    <Label
+                      htmlFor="editSocioSelect"
+                      className="text-xs font-semibold text-purple-900 dark:text-purple-200 flex items-center justify-between"
+                    >
+                      <span>Sócio Cadastrado (opcional ou escolher sócio)</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">
+                        Cadastros → Sócios
+                      </span>
+                    </Label>
+                    <Select
+                      value={editSocioId || 'sem_especificar'}
+                      onValueChange={(val) => setEditSocioId(val === 'sem_especificar' ? '' : val)}
+                    >
+                      <SelectTrigger
+                        id="editSocioSelect"
+                        className="border-purple-300 dark:border-purple-800"
+                      >
+                        <SelectValue placeholder="Selecione o sócio cadastrado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sem_especificar">
+                          👤 EU / SÓCIA (Geral / Sem especificar)
+                        </SelectItem>
+                        {socios.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            👤 {s.nome} {s.funcao ? `— ${s.funcao}` : ''}{' '}
+                            {s.participacao_percentual !== undefined &&
+                            s.participacao_percentual > 0
+                              ? `(${s.participacao_percentual}%)`
+                              : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Se for terceiros no edit modal */}
+                {editEntidade === 'terceiros' && (
+                  <div className="space-y-1.5 pt-1 border-t border-rose-200 dark:border-rose-900/60">
+                    <Label
+                      htmlFor="editContaSelect"
+                      className="text-xs font-semibold text-rose-900 dark:text-rose-200 flex items-center justify-between"
+                    >
+                      <span>Conta a Pagar Cadastrada (opcional ou escolher dívida)</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">
+                        Módulo Contas a Pagar
+                      </span>
+                    </Label>
+                    <Select
+                      value={editContaAPagarId || 'sem_especificar'}
+                      onValueChange={(val) =>
+                        setEditContaAPagarId(val === 'sem_especificar' ? '' : val)
+                      }
+                    >
+                      <SelectTrigger
+                        id="editContaSelect"
+                        className="border-rose-300 dark:border-rose-800"
+                      >
+                        <SelectValue placeholder="Selecione a conta/dívida cadastrada" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sem_especificar">
+                          🤝 TERCEIROS (Geral / Sem especificar)
+                        </SelectItem>
+                        {contasAPagar.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            🤝 {c.credor} — {c.descricao} (Total R$ {c.valor_total.toFixed(2)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             )}
 

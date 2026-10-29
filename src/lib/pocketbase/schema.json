@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T23:58:57.030Z",
+  "generatedAt": "2026-10-29T00:11:48.492Z",
   "collections": [
     {
       "name": "users",
@@ -601,13 +601,29 @@
           "required": false,
           "system": false,
           "selectValues": ["empresa", "socia", "terceiros"]
+        },
+        {
+          "name": "socio",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "socios"
+        },
+        {
+          "name": "conta_a_pagar",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "contas_a_pagar"
         }
       ],
       "indexes": [
         "CREATE INDEX idx_caixa_moto ON caixa_lancamentos (moto)",
         "CREATE INDEX idx_caixa_tipo ON caixa_lancamentos (tipo)",
         "CREATE INDEX idx_caixa_data ON caixa_lancamentos (data)",
-        "CREATE INDEX `idx_caixa_entidade` ON `caixa_lancamentos` (entidade)"
+        "CREATE INDEX `idx_caixa_entidade` ON `caixa_lancamentos` (entidade)",
+        "CREATE INDEX `idx_caixa_socio` ON `caixa_lancamentos` (socio)",
+        "CREATE INDEX `idx_caixa_conta_a_pagar` ON `caixa_lancamentos` (conta_a_pagar)"
       ]
     },
     {

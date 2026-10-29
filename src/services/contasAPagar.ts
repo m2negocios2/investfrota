@@ -188,11 +188,12 @@ export const contasAPagarService = {
 
     const safeDate = dateToApiMidday(params.data)
 
-    // 1. Criar lançamento de SAÍDA no caixa: entidade='terceiros', sem moto
+    // 1. Criar lançamento de SAÍDA no caixa: entidade='terceiros', conta_a_pagar vinculada
     const descCaixa = `${conta.descricao} — parcela ${numeroParcela} de ${conta.quantidade_parcelas}`
     const caixaLancamento = await pb.collection('caixa_lancamentos').create<CaixaLancamento>({
       moto: '',
       entidade: 'terceiros',
+      conta_a_pagar: conta.id,
       tipo: 'saida',
       descricao: descCaixa,
       categoria: 'Terceiros',

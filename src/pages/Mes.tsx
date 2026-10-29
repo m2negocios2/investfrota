@@ -15,8 +15,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { caixaService } from '@/services/caixa'
 import { motosService } from '@/services/motos'
+import { empresaService } from '@/services/cadastros'
 import { formatDateDisplay } from '@/lib/dateUtils'
-import { CaixaLancamento, Moto, EntidadeTipo } from '@/types/database'
+import { CaixaLancamento, Moto, EntidadeTipo, EmpresaConfig } from '@/types/database'
 import { ENTIDADES_CONFIG } from '@/pages/CashFlow'
 import { toast } from 'sonner'
 
@@ -51,20 +52,23 @@ const MONTH_NAMES = [
 export default function Mes() {
   const [lancamentos, setLancamentos] = useState<CaixaLancamento[]>([])
   const [motosMap, setMotosMap] = useState<Record<string, Moto>>({})
+  const [empresaConfig, setEmpresaConfig] = useState<EmpresaConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [caixaData, motosData] = await Promise.all([
+      const [caixaData, motosData, empData] = await Promise.all([
         caixaService.getAll(),
         motosService.getAll().catch((err) => {
           console.warn('Erro ao carregar motos no relatório Mes:', err)
           return [] as Moto[]
         }),
+        empresaService.get().catch(() => null),
       ])
       setLancamentos(caixaData)
+      setEmpresaConfig(empData)
       const map: Record<string, Moto> = {}
       motosData.forEach((m) => {
         map[m.id] = m
@@ -182,14 +186,32 @@ export default function Mes() {
     })
   }, [lancamentos, motosMap, search])
 
-  // Helper para obter o identificador do vínculo (moto ou entidade)
+  // Helper para obter o identificador do vínculo (moto ou participante)
+  const nomeEmpresaDisplay = empresaConfig?.nome_empresa?.trim() || 'Empresa'
+
   const getVinculoInfo = (item: CaixaLancamento) => {
     if (item.entidade) {
-      const cfg = ENTIDADES_CONFIG[item.entidade as EntidadeTipo]
+      let label =
+        ENTIDADES_CONFIG[item.entidade as EntidadeTipo]?.chipLabel || item.entidade.toUpperCase()
+      let cor =
+        ENTIDADES_CONFIG[item.entidade as EntidadeTipo]?.cor ||
+        'bg-slate-100 text-slate-800 border-slate-300'
+
+      if (item.entidade === 'empresa') {
+        label = nomeEmpresaDisplay
+        cor = 'bg-amber-100 text-amber-800 border-amber-300'
+      } else if (item.entidade === 'socia') {
+        label = item.expand?.socio?.nome ? item.expand.socio.nome : 'SÓCIA'
+        cor = 'bg-purple-100 text-purple-800 border-purple-300'
+      } else if (item.entidade === 'terceiros') {
+        label = item.expand?.conta_a_pagar?.credor ? item.expand.conta_a_pagar.credor : 'TERCEIROS'
+        cor = 'bg-rose-100 text-rose-800 border-rose-300'
+      }
+
       return {
         tipo: 'entidade' as const,
-        label: cfg?.chipLabel || item.entidade.toUpperCase(),
-        cor: cfg?.cor || 'bg-slate-100 text-slate-800 border-slate-300',
+        label,
+        cor,
       }
     }
     const motoObj = item.expand?.moto || (item.moto ? motosMap[item.moto] : null)
