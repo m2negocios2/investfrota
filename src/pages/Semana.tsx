@@ -52,6 +52,12 @@ import {
   getMonthWeeks,
 } from '@/lib/semanaCalendar'
 
+// Data limite para semanas neutras solicitada pela usuária:
+// "tudo da semana 03 de outubro para trás deixe neutro"
+// Semana 1 de Outubro/2026 no padrão 4-4-5 vai de 04/10/2026 (domingo) a 10/10/2026 (sábado).
+// Portanto, qualquer semana cujo domingo de início for anterior a 2026-10-04 é renderizada em visual neutro (tons de cinza).
+const NEUTRAL_WEEKS_CUTOFF_DATE_STR = '2026-10-04'
+
 export default function Semana() {
   const [motos, setMotos] = useState<Moto[]>([])
   const [contratos, setContratos] = useState<Contrato[]>([])
@@ -744,6 +750,10 @@ export default function Semana() {
           const todayWeekStartStr = todayWeekDates['DOM'].dateStr
           const isCurrentOrFutureWeek = weekInfo.isCurrent || weekStartStr >= todayWeekStartStr
 
+          // Regra da usuária: "tudo da semana 03 de outubro para trás deixe neutro"
+          // Semanas anteriores à semana de 04 a 10/10/2026 (Semana 1 de Outubro) ficam em visual neutro (tons de cinza apagados).
+          const isNeutralWeek = weekStartStr < NEUTRAL_WEEKS_CUTOFF_DATE_STR
+
           // Contratos ativos específicos desta semana (respeitando regra da usuária)
           const activeContratosThisWeek = getActiveContratosForWeek(
             weekStartStr,
@@ -790,9 +800,11 @@ export default function Semana() {
             <Card
               key={weekInfo.code}
               className={`shadow-sm overflow-hidden border transition-all ${
-                isCurrentBlock
-                  ? 'border-blue-500 shadow-md ring-1 ring-blue-500/20'
-                  : 'border-slate-200 dark:border-slate-800'
+                isNeutralWeek
+                  ? 'border-slate-200 dark:border-slate-800/80 bg-slate-50/40 dark:bg-slate-950/40'
+                  : isCurrentBlock
+                    ? 'border-blue-500 shadow-md ring-1 ring-blue-500/20'
+                    : 'border-slate-200 dark:border-slate-800'
               }`}
             >
               {/* Week Block Header:
@@ -803,18 +815,22 @@ export default function Semana() {
               */}
               <div
                 className={`px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 border-b ${
-                  isCurrentBlock
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 dark:bg-slate-800/90 text-slate-800 dark:text-slate-200'
+                  isNeutralWeek
+                    ? 'bg-slate-100/90 dark:bg-slate-850 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800'
+                    : isCurrentBlock
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 dark:bg-slate-800/90 text-slate-800 dark:text-slate-200'
                 }`}
               >
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* MES: SEMANA 1 A 5 */}
                   <span
                     className={`font-black text-xs tracking-wide px-2 py-0.5 rounded shadow-sm ${
-                      isCurrentBlock
-                        ? 'bg-blue-900/60 text-white border border-blue-400/30'
-                        : 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600'
+                      isNeutralWeek
+                        ? 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300/80 dark:border-slate-700'
+                        : isCurrentBlock
+                          ? 'bg-blue-900/60 text-white border border-blue-400/30'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600'
                     }`}
                   >
                     {weekInfo.monthName}: SEMANA {weekInfo.weekOfMonth}
@@ -834,7 +850,11 @@ export default function Semana() {
                 {/* Em letra pequena a semana do ano */}
                 <div
                   className={`text-[10px] sm:text-[11px] font-medium ${
-                    isCurrentBlock ? 'text-blue-100' : 'text-muted-foreground dark:text-slate-400'
+                    isNeutralWeek
+                      ? 'text-slate-500 dark:text-slate-400'
+                      : isCurrentBlock
+                        ? 'text-blue-100'
+                        : 'text-muted-foreground dark:text-slate-400'
                   }`}
                 >
                   Semana {weekInfo.week} do ano ({weekInfo.year}) •{' '}
@@ -850,10 +870,20 @@ export default function Semana() {
                     <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-[10px]">
                       <th className="p-1 sm:p-1.5 text-left font-bold text-slate-700 dark:text-slate-200 w-[24%] sm:w-[22%] border-r border-slate-200 dark:border-slate-700">
                         <div className="truncate font-mono">
-                          <span className="text-blue-600 dark:text-blue-400 font-black text-[10px] mr-1">
+                          <span
+                            className={`font-black text-[10px] mr-1 ${
+                              isNeutralWeek
+                                ? 'text-slate-600 dark:text-slate-400'
+                                : 'text-blue-600 dark:text-blue-400'
+                            }`}
+                          >
                             S{weekInfo.week}
                           </span>
-                          <span>MOTO</span>
+                          <span
+                            className={isNeutralWeek ? 'text-slate-600 dark:text-slate-400' : ''}
+                          >
+                            MOTO
+                          </span>
                         </div>
                       </th>
                       {DIAS_SEMANA.map((d) => {
@@ -863,16 +893,34 @@ export default function Semana() {
                             key={d.key}
                             className="p-0.5 sm:p-1 text-center font-bold text-slate-700 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700 w-[9%] sm:w-[9.5%]"
                           >
-                            <div className="text-[10px] sm:text-[11px] font-black text-blue-700 dark:text-blue-300 font-mono leading-none tracking-tight">
+                            <div
+                              className={`text-[10px] sm:text-[11px] font-black font-mono leading-none tracking-tight ${
+                                isNeutralWeek
+                                  ? 'text-slate-600 dark:text-slate-400'
+                                  : 'text-blue-700 dark:text-blue-300'
+                              }`}
+                            >
                               {diaNumero}
                             </div>
-                            <div className="font-extrabold text-slate-800 dark:text-slate-200 uppercase text-[9px] sm:text-[10px] leading-tight mt-0.5">
+                            <div
+                              className={`font-extrabold uppercase text-[9px] sm:text-[10px] leading-tight mt-0.5 ${
+                                isNeutralWeek
+                                  ? 'text-slate-600 dark:text-slate-400'
+                                  : 'text-slate-800 dark:text-slate-200'
+                              }`}
+                            >
                               {d.short}
                             </div>
                           </th>
                         )
                       })}
-                      <th className="p-1 text-right font-bold text-slate-700 dark:text-slate-200 w-[13%] sm:w-[11.5%] bg-slate-100/60 dark:bg-slate-800/40 text-[10px]">
+                      <th
+                        className={`p-1 text-right font-bold w-[13%] sm:w-[11.5%] text-[10px] ${
+                          isNeutralWeek
+                            ? 'bg-slate-100/40 dark:bg-slate-850/40 text-slate-600 dark:text-slate-400'
+                            : 'bg-slate-100/60 dark:bg-slate-800/40 text-slate-700 dark:text-slate-200'
+                        }`}
+                      >
                         TOTAL
                       </th>
                     </tr>
@@ -919,7 +967,11 @@ export default function Semana() {
                                     setNewDay(diaPgto)
                                     setChangeDayModalOpen(true)
                                   }}
-                                  className="text-left font-bold text-blue-700 dark:text-blue-300 hover:underline truncate text-[11px] flex items-center gap-0.5 group"
+                                  className={`text-left font-bold hover:underline truncate text-[11px] flex items-center gap-0.5 group ${
+                                    isNeutralWeek
+                                      ? 'text-slate-700 dark:text-slate-300 hover:text-slate-900'
+                                      : 'text-blue-700 dark:text-blue-300'
+                                  }`}
                                   title="Clique para ajustar o dia da semana desta moto"
                                 >
                                   <span className="truncate">{moto.nome || moto.modelo}</span>
@@ -978,18 +1030,33 @@ export default function Semana() {
                                 )
                               }
 
-                              // Cores compactas e legíveis
-                              let cellClasses =
-                                'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-600 hover:border-blue-400'
+                              // Cores compactas e legíveis:
+                              // Para semanas neutras (anteriores a 04/10/2026), manter todas as marcações e estornos
+                              // funcionando, porém renderizadas em tons neutros (cinza/apagado), sem cores fortes de destaque.
+                              let cellClasses = isNeutralWeek
+                                ? 'bg-slate-100/70 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-650 hover:border-slate-400'
+                                : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-600 hover:border-blue-400'
                               let titleText = 'Pendente (Clique para registrar pagamento)'
 
                               if (cellState.status === 'pago') {
-                                cellClasses =
-                                  'bg-emerald-500 hover:bg-emerald-600 text-white font-black border border-emerald-600 shadow-sm'
+                                if (isNeutralWeek) {
+                                  // Histórico pago em tom neutro e legível (cinza escuro suave)
+                                  cellClasses =
+                                    'bg-slate-300/80 hover:bg-slate-350 dark:bg-slate-700 dark:hover:bg-slate-650 text-slate-800 dark:text-slate-100 font-bold border border-slate-400 dark:border-slate-600 shadow-sm'
+                                } else {
+                                  cellClasses =
+                                    'bg-emerald-500 hover:bg-emerald-600 text-white font-black border border-emerald-600 shadow-sm'
+                                }
                                 titleText = 'Pago! (Clique para estornar se necessário)'
                               } else if (cellState.status === 'atraso') {
-                                cellClasses =
-                                  'bg-rose-500 hover:bg-rose-600 text-white font-black border border-rose-600 shadow-sm animate-pulse'
+                                if (isNeutralWeek) {
+                                  // Histórico de pendência passada em tom neutro discreto (sem piscar vermelho)
+                                  cellClasses =
+                                    'bg-slate-200/90 hover:bg-slate-250 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 font-medium border border-slate-300 dark:border-slate-600'
+                                } else {
+                                  cellClasses =
+                                    'bg-rose-500 hover:bg-rose-600 text-white font-black border border-rose-600 shadow-sm animate-pulse'
+                                }
                                 titleText = 'Em atraso! (Clique para registrar recebimento)'
                               }
 
@@ -1029,7 +1096,13 @@ export default function Semana() {
                             })}
 
                             {/* Total Weekly Contract Value */}
-                            <td className="p-1 sm:p-1.5 text-right font-extrabold text-slate-900 dark:text-white bg-slate-50/50 dark:bg-slate-800/20 font-mono text-[11px]">
+                            <td
+                              className={`p-1 sm:p-1.5 text-right font-extrabold bg-slate-50/50 dark:bg-slate-800/20 font-mono text-[11px] ${
+                                isNeutralWeek
+                                  ? 'text-slate-700 dark:text-slate-300'
+                                  : 'text-slate-900 dark:text-white'
+                              }`}
+                            >
                               {valorSemanal.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
                             </td>
                           </tr>
@@ -1041,14 +1114,30 @@ export default function Semana() {
                   {/* FOOTER: TOTALS BRUTO & LÍQUIDO */}
                   <tfoot>
                     {/* First Line: Valor Bruto a Receber por Dia */}
-                    <tr className="bg-slate-100 dark:bg-slate-800 font-bold border-t-2 border-slate-300 dark:border-slate-600">
-                      <td className="p-1 sm:p-1.5 text-left border-r border-slate-300 dark:border-slate-600 font-extrabold text-[10px] sm:text-[11px] truncate">
+                    <tr
+                      className={`font-bold border-t-2 ${
+                        isNeutralWeek
+                          ? 'bg-slate-100/70 dark:bg-slate-850/60 border-slate-300/80 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                          : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600'
+                      }`}
+                    >
+                      <td
+                        className={`p-1 sm:p-1.5 text-left border-r font-extrabold text-[10px] sm:text-[11px] truncate ${
+                          isNeutralWeek
+                            ? 'border-slate-300/80 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                            : 'border-slate-300 dark:border-slate-600'
+                        }`}
+                      >
                         TOTAL (BRUTO)
                       </td>
                       {DIAS_SEMANA.map((d) => (
                         <td
                           key={d.key}
-                          className="p-0.5 sm:p-1 text-center border-r border-slate-300 dark:border-slate-600 font-extrabold text-[10px] sm:text-[11px] text-slate-900 dark:text-white font-mono"
+                          className={`p-0.5 sm:p-1 text-center border-r font-extrabold text-[10px] sm:text-[11px] font-mono ${
+                            isNeutralWeek
+                              ? 'border-slate-300/80 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                              : 'border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white'
+                          }`}
                         >
                           {dailyTotals[d.key] > 0
                             ? dailyTotals[d.key].toLocaleString('pt-BR', {
@@ -1057,23 +1146,49 @@ export default function Semana() {
                             : '—'}
                         </td>
                       ))}
-                      <td className="p-1 sm:p-1.5 text-right font-black text-[11px] sm:text-xs text-slate-900 dark:text-white font-mono bg-slate-200/60 dark:bg-slate-700/60">
+                      <td
+                        className={`p-1 sm:p-1.5 text-right font-black text-[11px] sm:text-xs font-mono ${
+                          isNeutralWeek
+                            ? 'text-slate-800 dark:text-slate-200 bg-slate-200/50 dark:bg-slate-750/50'
+                            : 'text-slate-900 dark:text-white bg-slate-200/60 dark:bg-slate-700/60'
+                        }`}
+                      >
                         R$ {totalBrutoSemana.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
                       </td>
                     </tr>
 
                     {/* Second Line: Valor Líquido (70% ou configurado) */}
-                    <tr className="bg-blue-50/70 dark:bg-blue-950/40 font-bold border-t border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100">
-                      <td className="p-1 sm:p-1.5 text-left border-r border-blue-200 dark:border-blue-800 font-extrabold text-[10px] sm:text-[11px] truncate flex items-center justify-between">
+                    <tr
+                      className={`font-bold border-t ${
+                        isNeutralWeek
+                          ? 'bg-slate-100/50 dark:bg-slate-900/50 border-slate-300/60 dark:border-slate-750 text-slate-600 dark:text-slate-400'
+                          : 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100'
+                      }`}
+                    >
+                      <td
+                        className={`p-1 sm:p-1.5 text-left border-r font-extrabold text-[10px] sm:text-[11px] truncate flex items-center justify-between ${
+                          isNeutralWeek
+                            ? 'border-slate-300/60 dark:border-slate-750'
+                            : 'border-blue-200 dark:border-blue-800'
+                        }`}
+                      >
                         <span className="truncate">LÍQUIDO ({percentualLiquido}%)</span>
-                        <TrendingUp className="w-2.5 h-2.5 text-blue-600 flex-shrink-0 ml-0.5" />
+                        <TrendingUp
+                          className={`w-2.5 h-2.5 flex-shrink-0 ml-0.5 ${
+                            isNeutralWeek ? 'text-slate-500 dark:text-slate-400' : 'text-blue-600'
+                          }`}
+                        />
                       </td>
                       {DIAS_SEMANA.map((d) => {
                         const liqVal = dailyTotals[d.key] * (percentualLiquido / 100)
                         return (
                           <td
                             key={d.key}
-                            className="p-0.5 sm:p-1 text-center border-r border-blue-200 dark:border-blue-800 font-extrabold text-[9px] sm:text-[10px] font-mono"
+                            className={`p-0.5 sm:p-1 text-center border-r font-extrabold text-[9px] sm:text-[10px] font-mono ${
+                              isNeutralWeek
+                                ? 'border-slate-300/60 dark:border-slate-750 text-slate-600 dark:text-slate-400'
+                                : 'border-blue-200 dark:border-blue-800'
+                            }`}
                           >
                             {liqVal > 0
                               ? liqVal.toLocaleString('pt-BR', {
@@ -1084,7 +1199,13 @@ export default function Semana() {
                           </td>
                         )
                       })}
-                      <td className="p-1 sm:p-1.5 text-right font-black text-[11px] sm:text-xs font-mono text-blue-700 dark:text-blue-300 bg-blue-100/60 dark:bg-blue-900/60">
+                      <td
+                        className={`p-1 sm:p-1.5 text-right font-black text-[11px] sm:text-xs font-mono ${
+                          isNeutralWeek
+                            ? 'text-slate-700 dark:text-slate-300 bg-slate-200/40 dark:bg-slate-800/40'
+                            : 'text-blue-700 dark:text-blue-300 bg-blue-100/60 dark:bg-blue-900/60'
+                        }`}
+                      >
                         R${' '}
                         {totalLiquidoSemana.toLocaleString('pt-BR', {
                           minimumFractionDigits: 0,
