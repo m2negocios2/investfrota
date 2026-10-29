@@ -6,8 +6,8 @@ import {
   History,
   AlertCircle,
   Calendar,
-  ArrowRight,
-  DollarSign,
+  FilePlus2,
+  ArrowUpRight,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -15,17 +15,34 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toast } from 'sonner'
 import { caixaService } from '@/services/caixa'
 import { motosService } from '@/services/motos'
 import { contratosService } from '@/services/contratos'
+import { categoriasService } from '@/services/categorias'
 import { getTodayLocalDate, formatDateDisplay, dateToApiMidday } from '@/lib/dateUtils'
-import { Moto, Contrato, CaixaLancamento } from '@/types/database'
+import { Moto, Contrato, CaixaLancamento, CategoriaGasto, FormaPagamento } from '@/types/database'
 import { MotoCardButton } from '@/components/MotoSelectorGrid'
 
 export default function LancamentoAluguel() {
   const [motos, setMotos] = useState<Moto[]>([])
   const [contratos, setContratos] = useState<Contrato[]>([])
+  const [categorias, setCategorias] = useState<CategoriaGasto[]>([])
   const [selectedMotoId, setSelectedMotoId] = useState<string>('')
   const [valorInput, setValorInput] = useState<string>('')
   const [dataInput, setDataInput] = useState<string>(getTodayLocalDate())
@@ -34,12 +51,23 @@ export default function LancamentoAluguel() {
   const [submitting, setSubmitting] = useState<boolean>(false)
   const [recentLancamentos, setRecentLancamentos] = useState<CaixaLancamento[]>([])
 
+  // Estado do Modal de OUTRAS ENTRADAS (apenas RECEITAS)
+  const [outrosModalOpen, setOutrosModalOpen] = useState<boolean>(false)
+  const [outroDescricao, setOutroDescricao] = useState<string>('')
+  const [outroCategoria, setOutroCategoria] = useState<string>('')
+  const [outroValor, setOutroValor] = useState<number | ''>('')
+  const [outroData, setOutroData] = useState<string>(getTodayLocalDate())
+  const [outroFormaPagamento, setOutroFormaPagamento] = useState<FormaPagamento>('pix')
+  const [outroObservacoes, setOutroObservacoes] = useState<string>('')
+  const [submittingOutro, setSubmittingOutro] = useState<boolean>(false)
+
   const loadData = async () => {
     try {
-      const [mList, cList, allCaixa] = await Promise.all([
+      const [mList, cList, allCaixa, catList] = await Promise.all([
         motosService.getAll(),
         contratosService.getAll(),
         caixaService.getAll(),
+        categoriasService.getAll(),
       ])
 
       // Excluir motos vendidas/cedidas do Lançamento de Aluguel e ordenar por nome
@@ -53,10 +81,11 @@ export default function LancamentoAluguel() {
 
       setMotos(sortedMotos)
       setContratos(cList)
+      setCategorias(catList)
 
-      // Filtrar lançamentos recentes de aluguel ou comissão
+      // Filtrar lançamentos recentes de entradas ou comissão no caixa
       const recent = allCaixa
-        .filter((c) => c.categoria === 'Aluguel' || c.categoria === 'Comissão')
+        .filter((c) => c.tipo === 'entrada' || c.categoria === 'Comissão')
         .slice(0, 10)
       setRecentLancamentos(recent)
     } catch (err) {
@@ -111,6 +140,100 @@ export default function LancamentoAluguel() {
 
   const valorNumerico = parseValor(valorInput)
   const isFormReady = Boolean(selectedMotoId && valorNumerico > 0)
+
+  // Abrir modal tradicional de OUTRAS ENTRADAS
+  const handleOpenOutrasEntradas = () => {
+    if (!selectedMotoId) {
+      toast.error('Selecione primeiro a Moto (no item 1) antes de abrir Outras Entradas!')
+      return
+    }
+    // Inicializar campos com valores padrões para receitas
+    const motoNomeDisplay = selectedMoto?.nome?.trim() || selectedMoto?.modelo?.trim() || 'Moto'
+    setOutroDescricao(`Receita — ${motoNomeDisplay}`)
+    // Categoria default: Aluguel se existir ou primeira da lista
+    const defaultCat =
+      categorias.find((c) => c.nome.toLowerCase() === 'aluguel')?.nome ||
+      categorias[0]?.nome ||
+      'Aluguel'
+    setOutroCategoria(defaultCat)
+    setOutroValor('')
+    // Preserva a data escolhida no campo de data da tela principal para coerência
+    setOutroData(dataInput || getTodayLocalDate())
+    setOutroFormaPagamento('pix')
+    setOutroObservacoes('')
+    setOutrosModalOpen(true)
+  }
+
+  // Gravação do formulário tradicional de OUTRAS ENTRADAS
+  const handleSubmitOutraEntrada = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!selectedMotoId) {
+      toast.error('Nenhuma moto selecionada!')
+      return
+    }
+
+    if (!outroDescricao.trim()) {
+      toast.error('Informe a descrição do lançamento!')
+      return
+    }
+
+    const valorFinal = typeof outroValor === 'number' ? outroValor : parseValor(String(outroValor))
+    if (!valorFinal || valorFinal <= 0) {
+      toast.error('Informe um valor válido maior que zero!')
+      return
+    }
+
+    const motoNomeDisplay = selectedMoto?.nome?.trim() || selectedMoto?.modelo?.trim() || 'Moto'
+    const catFinal = outroCategoria.trim() || 'Receitas'
+    const safeData = outroData || getTodayLocalDate()
+    const safeDataMidday = dateToApiMidday(safeData)
+
+    setSubmittingOutro(true)
+    try {
+      const createdEntry = await caixaService.create({
+        moto: selectedMotoId,
+        tipo: 'entrada',
+        descricao: outroDescricao.trim(),
+        categoria: catFinal,
+        valor: valorFinal,
+        data: safeDataMidday,
+        forma_pagamento: outroFormaPagamento,
+        observacoes: outroObservacoes.trim()
+          ? `Lançado via Outras Entradas: ${outroObservacoes.trim()}`
+          : 'Lançado via Outras Entradas',
+      })
+
+      const valorFormatado = valorFinal.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+
+      toast.success(`Entrada de R$ ${valorFormatado} registrada no caixa da ${motoNomeDisplay}!`, {
+        duration: 4000,
+      })
+
+      // Limpar campos do modal e fechar
+      setOutroDescricao('')
+      setOutroValor('')
+      setOutroObservacoes('')
+      setOutrosModalOpen(false)
+
+      // Atualizar lista recente
+      setRecentLancamentos((prev) => [
+        {
+          ...createdEntry,
+          expand: { moto: selectedMoto },
+        },
+        ...prev.slice(0, 9),
+      ])
+    } catch (err) {
+      console.error('Erro ao registrar outra entrada no caixa:', err)
+      toast.error('Não foi possível gravar o lançamento de entrada. Tente novamente.')
+    } finally {
+      setSubmittingOutro(false)
+    }
+  }
 
   const handleLancar = async () => {
     if (!selectedMotoId) {
@@ -521,6 +644,23 @@ export default function LancamentoAluguel() {
                 </div>
               )}
             </Button>
+
+            {/* Botão OUTRAS ENTRADAS posicionado logo após o botão LANÇAR */}
+            <div className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleOpenOutrasEntradas}
+                className="w-full h-14 sm:h-16 text-base font-black tracking-wide uppercase border-2 border-emerald-300 dark:border-emerald-700/80 hover:border-emerald-600 hover:bg-emerald-50/70 dark:hover:bg-emerald-950/30 text-emerald-800 dark:text-emerald-200 rounded-2xl gap-2.5 shadow-sm transition-all"
+              >
+                <FilePlus2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                OUTRAS ENTRADAS
+              </Button>
+              <p className="text-xs text-muted-foreground text-center mt-1.5">
+                Abre as caixas de lançamento tradicionais (descrição, categoria, valor, data etc.)
+                sendo apenas <strong>RECEITAS/ENTRADAS</strong> vinculadas à moto.
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -530,7 +670,7 @@ export default function LancamentoAluguel() {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-bold flex items-center gap-2">
             <History className="w-4 h-4 text-slate-500" />
-            Últimos Lançamentos de Aluguel e Comissão no Caixa
+            Últimos Lançamentos de Entradas e Comissão no Caixa
           </CardTitle>
           <CardDescription className="text-xs">
             Conferência em tempo real dos lançamentos gerados no Fluxo de Caixa.
@@ -589,6 +729,164 @@ export default function LancamentoAluguel() {
           )}
         </CardContent>
       </Card>
+
+      {/* Modal: OUTRAS ENTRADAS (Apenas RECEITAS / ENTRADAS) */}
+      <Dialog open={outrosModalOpen} onOpenChange={setOutrosModalOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <span className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                <ArrowUpRight className="w-5 h-5" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-bold">
+                  OUTRAS ENTRADAS — Nova Receita
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Registro de receita tradicional no Fluxo de Caixa vinculada à moto selecionada.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {selectedMoto && (
+            <div className="p-3 bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bike className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Moto vinculada:
+                </span>
+                <span className="text-xs font-black text-blue-700 dark:text-blue-300">
+                  {selectedMoto.nome?.trim() || selectedMoto.modelo?.trim() || selectedMoto.placa}
+                </span>
+              </div>
+              <Badge
+                variant="outline"
+                className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800"
+              >
+                Apenas Entrada (Receita)
+              </Badge>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmitOutraEntrada} className="space-y-4">
+            {/* Descrição do Lançamento */}
+            <div className="space-y-2">
+              <Label htmlFor="outroDescEntrada">Descrição do Lançamento *</Label>
+              <Input
+                id="outroDescEntrada"
+                placeholder="Ex: Receita extra, Bonificação, Reembolso..."
+                value={outroDescricao}
+                onChange={(e) => setOutroDescricao(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
+
+            {/* Categoria */}
+            <div className="space-y-2">
+              <Label htmlFor="outroCategoriaSelectEntrada">Categoria *</Label>
+              <Select value={outroCategoria} onValueChange={setOutroCategoria}>
+                <SelectTrigger id="outroCategoriaSelectEntrada">
+                  <SelectValue placeholder="Selecione a categoria de receita" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Aluguel">Aluguel</SelectItem>
+                  {categorias
+                    .filter((c) => c.nome !== 'Aluguel')
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.nome}>
+                        {c.nome}
+                      </SelectItem>
+                    ))}
+                  <SelectItem value="Receitas Gerais">Receitas Gerais</SelectItem>
+                  <SelectItem value="Outras Receitas">Outras Receitas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Valor e Data lado a lado */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="outroValorInputEntrada">Valor (R$) *</Label>
+                <Input
+                  id="outroValorInputEntrada"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="0,00"
+                  value={outroValor}
+                  onChange={(e) =>
+                    setOutroValor(e.target.value === '' ? '' : Number(e.target.value))
+                  }
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="outroDataInputEntrada">Data *</Label>
+                <Input
+                  id="outroDataInputEntrada"
+                  type="date"
+                  value={outroData}
+                  onChange={(e) => setOutroData(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Forma de Pagamento */}
+            <div className="space-y-2">
+              <Label htmlFor="outroFormaSelectEntrada">Forma de Pagamento</Label>
+              <Select
+                value={outroFormaPagamento}
+                onValueChange={(val: FormaPagamento) => setOutroFormaPagamento(val)}
+              >
+                <SelectTrigger id="outroFormaSelectEntrada">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="cartao">Cartão</SelectItem>
+                  <SelectItem value="transferencia">Transferência</SelectItem>
+                  <SelectItem value="outro">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Observações */}
+            <div className="space-y-2">
+              <Label htmlFor="outroObsEntrada">Observações / Detalhes (opcional)</Label>
+              <Input
+                id="outroObsEntrada"
+                placeholder="Ex: Recebimento referente a..."
+                value={outroObservacoes}
+                onChange={(e) => setOutroObservacoes(e.target.value)}
+                maxLength={150}
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOutrosModalOpen(false)}
+                disabled={submittingOutro}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={submittingOutro}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+              >
+                {submittingOutro ? 'Gravando Entrada...' : 'Confirmar Entrada no Caixa'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
