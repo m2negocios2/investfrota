@@ -294,10 +294,25 @@ export default function Reports() {
       ? Math.round(valorMedioMoto / lucroLiquidoMedioPorMotoMes)
       : null
 
-  // Contas a Pagar Pendentes
-  const totalContasAPagarPendente = contasAPagar
-    .filter((c) => !c.concluida)
-    .reduce((acc, c) => acc + (c.saldoRestante ?? c.valor_total - (c.totalPago || 0)), 0)
+  // Contas a Pagar Pendentes / Abertas (com saldo devedor restante > 0)
+  // Contas já QUITADAS (concluida = true ou saldoRestante <= 0) não entram no passivo
+  const contasAPagarAbertas = contasAPagar
+    .filter((c) => {
+      if (c.concluida) return false
+      const saldo =
+        c.saldoRestante !== undefined ? c.saldoRestante : c.valor_total - (c.totalPago || 0)
+      return saldo > 0
+    })
+    .map((c) => {
+      const saldo =
+        c.saldoRestante !== undefined ? c.saldoRestante : c.valor_total - (c.totalPago || 0)
+      return {
+        ...c,
+        saldoDevedor: Math.max(0, saldo),
+      }
+    })
+
+  const totalContasAPagarPendente = contasAPagarAbertas.reduce((acc, c) => acc + c.saldoDevedor, 0)
 
   // ----------------------------------------------------------------------
   // BALANÇO PATRIMONIAL SIMPLIFICADO
@@ -308,10 +323,12 @@ export default function Reports() {
   const ativoNaoCirculante = ativoFrotaTotal
   const totalAtivo = ativoCirculante + ativoNaoCirculante
 
-  // Passivo Circulante: Obrigações a pagar
-  const passivoCirculante = 0
-  // Patrimônio Líquido: Ativo Total - Passivo
+  // Passivo Circulante: Obrigações / Dívidas cadastradas no Contas a Pagar
+  const passivoCirculante = totalContasAPagarPendente
+  // Patrimônio Líquido: Ativo Total - Passivo Total (capital próprio real da proprietária)
   const patrimonioLiquido = totalAtivo - passivoCirculante
+  // Total do Passivo + Patrimônio Líquido (deve fechar perfeitamente igual ao Total do Ativo)
+  const totalPassivoEPatrimonioLiquido = passivoCirculante + patrimonioLiquido
 
   // ----------------------------------------------------------------------
   // ÍNDICES FINANCEIROS DO NEGÓCIO
@@ -968,23 +985,77 @@ export default function Reports() {
                       PASSIVO & PATRIMÔNIO LÍQUIDO
                     </span>
                     <span className="text-2xl font-black text-purple-600 dark:text-purple-400 block mt-1">
-                      R$ {totalAtivo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R${' '}
+                      {totalPassivoEPatrimonioLiquido.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
 
                   <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border space-y-3">
-                    <span className="font-bold text-xs uppercase tracking-wider text-muted-foreground block">
-                      Passivo Circulante (Obrigações a Pagar)
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs uppercase tracking-wider text-muted-foreground block">
+                        Passivo Circulante (Obrigações e Dívidas)
+                      </span>
+                      <Badge variant="outline" className="text-[10px] font-semibold">
+                        Contas a Pagar
+                      </Badge>
+                    </div>
 
-                    <div className="flex justify-between items-center text-sm border-b pb-2">
-                      <span>Obrigações Pendentes:</span>
-                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                    {/* Lista detalhada das contas a pagar abertas com saldo devedor restante */}
+                    {contasAPagarAbertas.length === 0 ? (
+                      <div className="py-2 text-xs text-muted-foreground border-b">
+                        Nenhuma conta em aberto. Todas as dívidas estão quitadas.
+                      </div>
+                    ) : (
+                      <div className="space-y-2 border-b pb-3">
+                        {contasAPagarAbertas.map((c) => (
+                          <div
+                            key={c.id}
+                            className="flex items-center justify-between text-sm py-1 px-2 rounded-lg bg-white dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800"
+                          >
+                            <div className="flex flex-col min-w-0 pr-2">
+                              <span className="font-semibold text-slate-900 dark:text-slate-100 truncate flex items-center gap-1.5">
+                                <span className="text-rose-600 font-bold">🤝</span>
+                                {c.credor}
+                              </span>
+                              {c.descricao && (
+                                <span className="text-[11px] text-muted-foreground truncate">
+                                  {c.descricao}
+                                  {c.quantidade_parcelas
+                                    ? ` (${c.quantidadePaga || 0}/${c.quantidade_parcelas} pagas)`
+                                    : ''}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="font-bold text-red-600 dark:text-red-400 block">
+                                R${' '}
+                                {c.saldoDevedor.toLocaleString('pt-BR', {
+                                  minimumFractionDigits: 2,
+                                })}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                saldo devedor
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Linha de Totalização Contas a Pagar / Passivo */}
+                    <div className="flex justify-between items-center text-sm pt-1 font-bold">
+                      <span className="text-slate-900 dark:text-slate-100">
+                        Total Contas a Pagar (Passivo):
+                      </span>
+                      <span className="font-extrabold text-red-600 dark:text-red-400 text-base">
                         R$ {passivoCirculante.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      Despesas operacionais quitadas diretamente no Fluxo de Caixa.
+                      Soma dos saldos devedores restantes das contas abertas no módulo Contas a
+                      Pagar (contas quitadas são excluídas).
                     </p>
                   </div>
 

@@ -52,6 +52,7 @@ import {
   EntidadeTipo,
   Socio,
   ContaAPagar,
+  ContaAPagarComProgresso,
   EmpresaConfig,
 } from '@/types/database'
 import { MotoCardButton, MotoGridSelector } from '@/components/MotoSelectorGrid'
@@ -86,7 +87,7 @@ export default function CashFlow() {
   const [categorias, setCategorias] = useState<CategoriaGasto[]>([])
   const [empresaConfig, setEmpresaConfig] = useState<EmpresaConfig | null>(null)
   const [socios, setSocios] = useState<Socio[]>([])
-  const [contasAPagar, setContasAPagar] = useState<ContaAPagar[]>([])
+  const [contasAPagar, setContasAPagar] = useState<ContaAPagarComProgresso[]>([])
   const [loading, setLoading] = useState(true)
 
   // Sub-filtros quando entidade:socia ou entidade:terceiros está selecionada
@@ -438,7 +439,16 @@ export default function CashFlow() {
         }
         // Se for terceiros e tiver filtro de conta específica
         else if (entName === 'terceiros' && selectedContaFilter !== 'todas') {
-          matchesTarget = l.conta_a_pagar === selectedContaFilter
+          const matchedById = l.conta_a_pagar === selectedContaFilter
+          // Fallback resiliente: se conta_a_pagar não estiver preenchido mas a descrição/observações contiverem o credor da conta selecionada
+          const contaObj = contasAPagar.find((c) => c.id === selectedContaFilter)
+          const matchedByCredor =
+            !l.conta_a_pagar &&
+            contaObj?.credor &&
+            ((l.descricao && l.descricao.toLowerCase().includes(contaObj.credor.toLowerCase())) ||
+              (l.observacoes &&
+                l.observacoes.toLowerCase().includes(contaObj.credor.toLowerCase())))
+          matchesTarget = matchedById || !!matchedByCredor
         }
       }
     } else {
@@ -925,7 +935,19 @@ export default function CashFlow() {
                   return l.socio === selectedSocioFilter
                 }
                 if (selectedEntidadeKey === 'terceiros' && selectedContaFilter !== 'todas') {
-                  return l.conta_a_pagar === selectedContaFilter
+                  if (l.conta_a_pagar === selectedContaFilter) return true
+                  const contaObj = contasAPagar.find((c) => c.id === selectedContaFilter)
+                  if (
+                    !l.conta_a_pagar &&
+                    contaObj?.credor &&
+                    ((l.descricao &&
+                      l.descricao.toLowerCase().includes(contaObj.credor.toLowerCase())) ||
+                      (l.observacoes &&
+                        l.observacoes.toLowerCase().includes(contaObj.credor.toLowerCase())))
+                  ) {
+                    return true
+                  }
+                  return false
                 }
                 return true
               })
