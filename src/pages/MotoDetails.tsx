@@ -68,6 +68,7 @@ export default function MotoDetails() {
 
   // Venda e Cessão modals
   const [vendaModalOpen, setVendaModalOpen] = useState(false)
+  const [vendaConfirmDialogOpen, setVendaConfirmDialogOpen] = useState(false)
   const [vendaData, setVendaData] = useState(getTodayLocalDate())
   const [vendaValor, setVendaValor] = useState('')
   const [vendaComprador, setVendaComprador] = useState('')
@@ -193,7 +194,7 @@ export default function MotoDetails() {
     setVendaModalOpen(true)
   }
 
-  const handleConfirmVenda = async (e: React.FormEvent) => {
+  const handleOpenVendaConfirm = (e: React.FormEvent) => {
     e.preventDefault()
     if (!vendaValor || Number(vendaValor) <= 0) {
       toast.error('Informe um valor de venda válido.')
@@ -203,6 +204,10 @@ export default function MotoDetails() {
       toast.error('Informe o nome do comprador.')
       return
     }
+    setVendaConfirmDialogOpen(true)
+  }
+
+  const handleExecuteVenda = async () => {
     setSubmittingVenda(true)
     try {
       await motosService.registrarVenda({
@@ -219,6 +224,7 @@ export default function MotoDetails() {
           ? 'Venda registrada e receita lançada no Caixa com sucesso!'
           : 'Venda registrada com sucesso! Conta a receber gerada.',
       )
+      setVendaConfirmDialogOpen(false)
       setVendaModalOpen(false)
       loadData()
     } catch (err) {
@@ -1444,7 +1450,7 @@ export default function MotoDetails() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleConfirmVenda} className="space-y-4">
+          <form onSubmit={handleOpenVendaConfirm} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="vendaData">Data da Venda</Label>
               <Input
@@ -1481,29 +1487,124 @@ export default function MotoDetails() {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Forma de Recebimento</Label>
-              <Select
-                value={vendaFormaRecebimento}
-                onValueChange={(val: 'pago_agora' | 'aguardando_recebimento') =>
-                  setVendaFormaRecebimento(val)
-                }
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Como será o recebimento do valor?</Label>
+
+              <div className="grid grid-cols-1 gap-2.5">
+                {/* Opção 1: Pago agora */}
+                <button
+                  type="button"
+                  onClick={() => setVendaFormaRecebimento('pago_agora')}
+                  className={`w-full text-left p-3 rounded-lg border-2 transition-all flex items-start gap-3 ${
+                    vendaFormaRecebimento === 'pago_agora'
+                      ? 'border-emerald-600 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-950 dark:text-emerald-100 shadow-sm'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
+                  }`}
+                >
+                  <div
+                    className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      vendaFormaRecebimento === 'pago_agora'
+                        ? 'border-emerald-600 bg-emerald-600'
+                        : 'border-slate-400 bg-transparent'
+                    }`}
+                  >
+                    {vendaFormaRecebimento === 'pago_agora' && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-slate-900 dark:text-white">
+                        Pago agora
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/60 dark:text-emerald-200 text-[10px] font-bold py-0"
+                      >
+                        Entra no CAIXA
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      O dinheiro <strong>entra no CAIXA imediatamente</strong> como receita/entrada.
+                      Use esta opção somente se o comprador <strong>já pagou</strong> (ex: PIX,
+                      dinheiro ou transferência recebida na hora).
+                    </p>
+                  </div>
+                </button>
+
+                {/* Opção 2: Aguardando recebimento */}
+                <button
+                  type="button"
+                  onClick={() => setVendaFormaRecebimento('aguardando_recebimento')}
+                  className={`w-full text-left p-3 rounded-lg border-2 transition-all flex items-start gap-3 ${
+                    vendaFormaRecebimento === 'aguardando_recebimento'
+                      ? 'border-blue-600 bg-blue-50/70 dark:bg-blue-950/30 text-blue-950 dark:text-blue-100 shadow-sm'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
+                  }`}
+                >
+                  <div
+                    className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      vendaFormaRecebimento === 'aguardando_recebimento'
+                        ? 'border-blue-600 bg-blue-600'
+                        : 'border-slate-400 bg-transparent'
+                    }`}
+                  >
+                    {vendaFormaRecebimento === 'aguardando_recebimento' && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-slate-900 dark:text-white">
+                        Aguardando recebimento
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/60 dark:text-blue-200 text-[10px] font-bold py-0"
+                      >
+                        Contas a Receber
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      <strong>NÃO entra no caixa agora</strong>. O valor vira uma{' '}
+                      <strong>CONTA A RECEBER</strong> e aparece no{' '}
+                      <strong>Ativo do Balanço Patrimonial</strong> até que você confirme o
+                      recebimento futuro.
+                    </p>
+                  </div>
+                </button>
+              </div>
+
+              {/* Box de alerta destacado de acordo com a seleção */}
+              <div
+                className={`p-2.5 rounded-md border text-xs flex items-start gap-2 ${
+                  vendaFormaRecebimento === 'pago_agora'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                    : 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200'
+                }`}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pago_agora">Pago agora (Entra no Caixa)</SelectItem>
-                  <SelectItem value="aguardando_recebimento">
-                    Aguardando recebimento (Contas a Receber)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-muted-foreground">
-                {vendaFormaRecebimento === 'pago_agora'
-                  ? 'Gera lançamento de entrada imediato no Fluxo de Caixa desta moto.'
-                  : 'NÃO entra no caixa agora. Ficará em Contas a Receber até o recebimento ser registrado.'}
-              </p>
+                <AlertTriangle
+                  className={`w-4 h-4 shrink-0 mt-0.5 ${
+                    vendaFormaRecebimento === 'pago_agora'
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-blue-600 dark:text-blue-400'
+                  }`}
+                />
+                <div className="leading-relaxed">
+                  {vendaFormaRecebimento === 'pago_agora' ? (
+                    <>
+                      <strong>Atenção:</strong> O valor será somado ao saldo do Caixa hoje. Se o
+                      pagamento ainda não caiu na conta, escolha <em>"Aguardando recebimento"</em>.
+                    </>
+                  ) : (
+                    <>
+                      <strong>Atenção:</strong> Nenhum centavo entrará no saldo do Caixa hoje. O
+                      crédito ficará registrado em <em>Contas a Receber</em> (Ativo) para ser
+                      baixado quando o comprador pagar.
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
 
             {vendaFormaRecebimento === 'pago_agora' && (
@@ -1549,12 +1650,134 @@ export default function MotoDetails() {
               <Button
                 type="submit"
                 disabled={submittingVenda}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
               >
-                {submittingVenda ? 'Registrando...' : 'Confirmar Venda'}
+                Avançar para Confirmação &rarr;
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Confirmação Resumida da Venda */}
+      <Dialog open={vendaConfirmDialogOpen} onOpenChange={setVendaConfirmDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+              <span>Confirmar Venda da Moto</span>
+            </DialogTitle>
+            <DialogDescription>
+              Revise o resumo da operação antes de confirmar a saída definitiva da moto.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3.5 py-1 text-sm">
+            {/* Resumo da Moto e Comprador */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/70 rounded-lg border border-slate-200 dark:border-slate-700 space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Moto:</span>
+                <span className="font-bold text-slate-900 dark:text-white">
+                  {moto.nome || moto.modelo} (Placa: {moto.placa})
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Data da venda:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {formatDateDisplay(vendaData)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Comprador:</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {vendaComprador.trim() || '—'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center pt-1 border-t border-slate-200 dark:border-slate-700">
+                <span className="text-muted-foreground font-medium">Valor total da venda:</span>
+                <span className="text-base font-extrabold text-slate-900 dark:text-white">
+                  R${' '}
+                  {Number(vendaValor || 0).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
+            </div>
+
+            {/* O QUE VAI ACONTECER COM O DINHEIRO */}
+            <div
+              className={`p-3.5 rounded-lg border-2 space-y-1.5 ${
+                vendaFormaRecebimento === 'pago_agora'
+                  ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 text-emerald-950 dark:text-emerald-100'
+                  : 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-500 text-blue-950 dark:text-blue-100'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 font-bold text-xs uppercase tracking-wide">
+                <span>O que vai acontecer com o dinheiro:</span>
+              </div>
+
+              {vendaFormaRecebimento === 'pago_agora' ? (
+                <div className="space-y-1 text-xs leading-relaxed">
+                  <p className="font-bold text-emerald-800 dark:text-emerald-300 text-sm">
+                    &rarr; Os R${' '}
+                    {Number(vendaValor || 0).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    entrarão no CAIXA imediatamente como entrada (
+                    {vendaFormaPagamento.toUpperCase()}).
+                  </p>
+                  <p className="text-slate-600 dark:text-slate-300">
+                    O saldo financeiro será aumentado agora. A moto será marcada como VENDIDA e
+                    sairá do Ativo Imobilizado.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1 text-xs leading-relaxed">
+                  <p className="font-bold text-blue-800 dark:text-blue-300 text-sm">
+                    &rarr; Os R${' '}
+                    {Number(vendaValor || 0).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    ficarão em CONTAS A RECEBER até o recebimento.
+                  </p>
+                  <p className="text-slate-600 dark:text-slate-300">
+                    <strong>Nenhum valor entrará no Caixa hoje.</strong> O crédito ficará no Ativo
+                    do Balanço Patrimonial e aguardará baixa quando o comprador efetuar o pagamento.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {vendaObservacao.trim() && (
+              <p className="text-xs text-muted-foreground italic">Obs: {vendaObservacao.trim()}</p>
+            )}
+          </div>
+
+          <DialogFooter className="pt-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setVendaConfirmDialogOpen(false)}
+              disabled={submittingVenda}
+            >
+              Voltar e Ajustar
+            </Button>
+            <Button
+              type="button"
+              disabled={submittingVenda}
+              onClick={handleExecuteVenda}
+              className={`${
+                vendaFormaRecebimento === 'pago_agora'
+                  ? 'bg-emerald-600 hover:bg-emerald-700'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              } text-white font-semibold`}
+            >
+              {submittingVenda ? 'Gravando...' : 'Confirmar e Gravar Venda'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
