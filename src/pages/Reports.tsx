@@ -51,6 +51,7 @@ import {
 import { PaybackTab } from '@/components/PaybackTab'
 import { LucroPorMotoReport } from '@/components/LucroPorMotoReport'
 import { GraficosReport } from '@/components/GraficosReport'
+import { ProjecaoFluxoCaixaReport } from '@/components/ProjecaoFluxoCaixaReport'
 
 export default function Reports() {
   const [motos, setMotos] = useState<Moto[]>([])
@@ -396,6 +397,7 @@ export default function Reports() {
           {/* Seletores de Período (DRE e Balanço) */}
           {activeReportTab !== 'payback' &&
             activeReportTab !== 'lucro-moto' &&
+            activeReportTab !== 'projecao-fluxo' &&
             activeReportTab !== 'graficos-receita' &&
             activeReportTab !== 'graficos-custos' && (
               <>
@@ -448,7 +450,7 @@ export default function Reports() {
             Lista de Relatórios Disponíveis (Clique para Visualizar)
           </h2>
           <span className="text-xs text-muted-foreground hidden sm:inline">
-            9 relatórios e visões disponíveis
+            10 relatórios e visões disponíveis
           </span>
         </div>
 
@@ -476,7 +478,7 @@ export default function Reports() {
                     variant="outline"
                     className="text-[10px] font-semibold bg-white dark:bg-slate-900"
                   >
-                    3 relatórios
+                    4 relatórios
                   </Badge>
                 </div>
               </CardHeader>
@@ -532,6 +534,34 @@ export default function Reports() {
                       <span className="text-sm font-bold truncate">Lucro por Moto</span>
                     </div>
                     {activeReportTab === 'lucro-moto' && (
+                      <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px] font-bold shrink-0">
+                        Visualizando
+                      </Badge>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveReportTab('projecao-fluxo')}
+                    className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
+                      activeReportTab === 'projecao-fluxo'
+                        ? 'border-blue-600 bg-blue-50/90 dark:bg-blue-950/60 shadow-sm ring-2 ring-blue-500 text-blue-900 dark:text-blue-100'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 ${
+                          activeReportTab === 'projecao-fluxo'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-bold truncate">Projeção Fluxo de Caixa</span>
+                    </div>
+                    {activeReportTab === 'projecao-fluxo' && (
                       <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px] font-bold shrink-0">
                         Visualizando
                       </Badge>
@@ -859,6 +889,13 @@ export default function Reports() {
             selectedYear={selectedYear}
             onYearChange={(year) => setSelectedYear(year)}
           />
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB: PROJEÇÃO DE FLUXO DE CAIXA MENSAL (Administrativo) */}
+        {/* ========================================================================= */}
+        {activeReportTab === 'projecao-fluxo' && (
+          <ProjecaoFluxoCaixaReport motos={motos} caixa={caixa} contasAPagar={contasAPagar} />
         )}
 
         {/* ========================================================================= */}
