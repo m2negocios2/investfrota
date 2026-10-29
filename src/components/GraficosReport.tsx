@@ -43,6 +43,47 @@ interface GraficosReportProps {
   initialGraphType?: 'receita' | 'custos'
 }
 
+// Custom label para desenhar percentual dentro das fatias da pizza
+interface PieLabelProps {
+  cx?: number
+  cy?: number
+  midAngle?: number
+  innerRadius?: number
+  outerRadius?: number
+  percent?: number
+  name?: string
+}
+
+const renderCustomizedPieLabel = ({
+  cx = 0,
+  cy = 0,
+  midAngle = 0,
+  innerRadius = 0,
+  outerRadius = 0,
+  percent = 0,
+}: PieLabelProps) => {
+  // Se for fatia menor que 4%, não renderiza texto para não embolar
+  if (!percent || percent < 0.04) return null
+  const RADIAN = Math.PI / 180
+  // Posição no meio da fatia (entre inner e outer radius)
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.55
+  const x = cx + radius * Math.cos(-midAngle * RADIAN)
+  const y = cy + radius * Math.sin(-midAngle * RADIAN)
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#ffffff"
+      textAnchor="middle"
+      dominantBaseline="central"
+      className="text-[11px] font-black drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] pointer-events-none select-none"
+    >
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  )
+}
+
 const PALETA_CORES = [
   '#3b82f6', // blue-500
   '#10b981', // emerald-500
@@ -87,8 +128,11 @@ export function GraficosReport({
   // Gráfico em foco ou ambos
   const [activeGraph, setActiveGraph] = useState<'receita' | 'custos' | 'ambos'>('ambos')
 
-  // Seletor visual de gráfico (barras ou rosca) para a Distribuição da Receita
-  const [tipoGraficoReceita, setTipoGraficoReceita] = useState<'donut' | 'barras'>('donut')
+  // Seletor visual de gráfico para a Distribuição da Receita:
+  // 'donut' (rosca com % dentro), 'barras' (barras da composição do período) ou 'mes_a_mes' (evolução mês a mês)
+  const [tipoGraficoReceita, setTipoGraficoReceita] = useState<'donut' | 'barras' | 'mes_a_mes'>(
+    'donut',
+  )
 
   // 1. Filtrar lançamentos de caixa pelo período selecionado
   const caixaFiltrado = useMemo(() => {
@@ -101,90 +145,149 @@ export function GraficosReport({
     })
   }, [caixa, selectedYear, selectedMonth, periodoModo])
 
-  // 2. Cálculos para Gráfico 1 — "RECEITA" (Distribuição de Lucro, Custos e Contas a Pagar)
+  // Helper: identifica se um lançamento de saída é pagamento de Contas a Pagar / Terceiros
+  const isContaAPagarOuTerceiros = (c: CaixaLancamento): boolean => {
+    if (c.tipo !== 'saida') return false
+    const ent = (c.entidade || '').trim().toLowerCase()
+    const cat = (c.categoria || '').trim().toLowerCase()
+    const temConta = !!c.conta_a_pagar
+    return ent === 'terceiros' || cat === 'terceiros' || temConta
+  }
+
+  // 2. Cálculos para Gráfico 1 — "RECEITA" (Distribuição de Lucro, Custos e Contas a Pagar pagas no período)
   const dadosReceita = useMemo(() => {
-    // Entradas do período
+    // Entradas do período (Receita Total bruta recebida no caixa)
     const receitas = caixaFiltrado
       .filter((c) => c.tipo === 'entrada')
       .reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
 
-    // Custos do período
-    const custos = caixaFiltrado
-      .filter((c) => c.tipo === 'saida')
+    // Todas as saídas do período
+    const saidasGerais = caixaFiltrado.filter((c) => c.tipo === 'saida')
+    const totalSaidasGerais = saidasGerais.reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
+
+    // Parcelas / Contas a pagar efetivamente PAGAS no período (saídas com entidade='terceiros' ou conta_a_pagar ou cat='Terceiros')
+    const contasPagasNoPeriodo = saidasGerais
+      .filter(isContaAPagarOuTerceiros)
       .reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
 
-    // Lucro do período = receitas - custos (se negativo, o lucro é 0 na distribuição positiva ou reportado)
-    const lucroReal = receitas - custos
+    // Custos e despesas operacionais do período (excluindo os pagamentos de contas a pagar / parcelamentos de terceiros)
+    const custosOperacionais = saidasGerais
+      .filter((c) => !isContaAPagarOuTerceiros(c))
+      .reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
+
+    // Lucro real apurado = Receitas - Total de saídas (custos + contas pagas)
+    const lucroReal = receitas - totalSaidasGerais
     const lucroGrafico = Math.max(0, lucroReal)
 
-    // Contas a pagar = saldo devedor das contas abertas (mesma regra do Balanço Patrimonial)
-    const saldoDevedorContas = contasAPagar
-      .filter((c) => {
-        if (c.concluida) return false
-        const saldo =
-          c.saldoRestante !== undefined ? c.saldoRestante : c.valor_total - (c.totalPago || 0)
-        return saldo > 0
-      })
-      .reduce((acc, c) => {
-        const saldo =
-          c.saldoRestante !== undefined ? c.saldoRestante : c.valor_total - (c.totalPago || 0)
-        return acc + Math.max(0, saldo)
-      }, 0)
-
-    const totalComposicao = lucroGrafico + custos + saldoDevedorContas
+    // Base de composição: a própria RECEITA total (quando maior que 0) ou a soma dos itens
+    const somaFatias = lucroGrafico + custosOperacionais + contasPagasNoPeriodo
+    const baseCalculoPct = receitas > 0 ? receitas : somaFatias
 
     const itens = [
       {
         nome: 'Lucro Líquido',
         valor: lucroGrafico,
         valorReal: lucroReal,
-        percentual: totalComposicao > 0 ? (lucroGrafico / totalComposicao) * 100 : 0,
+        percentual: baseCalculoPct > 0 ? (lucroGrafico / baseCalculoPct) * 100 : 0,
         cor: '#10b981', // emerald-500
         descricao:
           lucroReal < 0
             ? 'Resultado no período foi negativo (-R$ ' +
               Math.abs(lucroReal).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) +
               ')'
-            : 'Receitas − Custos do período',
+            : 'Receitas − (Custos + Contas pagas no período)',
       },
       {
         nome: 'Custos e Despesas',
-        valor: custos,
-        valorReal: custos,
-        percentual: totalComposicao > 0 ? (custos / totalComposicao) * 100 : 0,
+        valor: custosOperacionais,
+        valorReal: custosOperacionais,
+        percentual: baseCalculoPct > 0 ? (custosOperacionais / baseCalculoPct) * 100 : 0,
         cor: '#ef4444', // red-500
-        descricao: 'Saídas de caixa no período (manutenções, comissões, fixos)',
+        descricao: 'Saídas operacionais do caixa (manutenção, comissões, rastreador, despesas)',
       },
       {
         nome: 'Contas a Pagar',
-        valor: saldoDevedorContas,
-        valorReal: saldoDevedorContas,
-        percentual: totalComposicao > 0 ? (saldoDevedorContas / totalComposicao) * 100 : 0,
+        valor: contasPagasNoPeriodo,
+        valorReal: contasPagasNoPeriodo,
+        percentual: baseCalculoPct > 0 ? (contasPagasNoPeriodo / baseCalculoPct) * 100 : 0,
         cor: '#8b5cf6', // purple-500
-        descricao: 'Saldo devedor das obrigações e parcelamentos em aberto',
+        descricao: 'Parcelas e dívidas com terceiros efetivamente pagas no período selecionado',
       },
     ]
 
     return {
       receitas,
-      custos,
+      totalSaidasGerais,
+      custos: custosOperacionais,
+      contasPagasNoPeriodo,
       lucroReal,
-      saldoDevedorContas,
-      totalComposicao,
+      totalComposicao: somaFatias,
+      baseCalculoPct,
       itens,
     }
-  }, [caixaFiltrado, contasAPagar])
+  }, [caixaFiltrado])
 
-  // 3. Cálculos para Gráfico 2 — "CUSTOS" (Pizza de cada custo/categoria com sua %)
+  // 2b. Série Mês a Mês para o seletor / visão mês a mês do Gráfico RECEITA
+  const dadosReceitaMesAMes = useMemo(() => {
+    // Array de 12 meses do selectedYear
+    return Array.from({ length: 12 }, (_, index) => {
+      const mesNum = index + 1
+      const lancamentosMes = caixa.filter((c) => {
+        if (!c.data) return false
+        const d = new Date(c.data)
+        return d.getFullYear() === selectedYear && d.getMonth() + 1 === mesNum
+      })
+
+      const receitasMes = lancamentosMes
+        .filter((c) => c.tipo === 'entrada')
+        .reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
+
+      const saidasMes = lancamentosMes.filter((c) => c.tipo === 'saida')
+
+      const contasPagasMes = saidasMes
+        .filter(isContaAPagarOuTerceiros)
+        .reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
+
+      const custosMes = saidasMes
+        .filter((c) => !isContaAPagarOuTerceiros(c))
+        .reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
+
+      const totalSaidasMes = custosMes + contasPagasMes
+      const lucroRealMes = receitasMes - totalSaidasMes
+      const lucroGraficoMes = Math.max(0, lucroRealMes)
+
+      return {
+        mes: MONTH_NAMES[index].slice(0, 3),
+        mesCompleto: MONTH_NAMES[index],
+        mesNum,
+        receita: receitasMes,
+        lucro: lucroGraficoMes,
+        lucroReal: lucroRealMes,
+        custos: custosMes,
+        contasPagar: contasPagasMes,
+        totalSaidas: totalSaidasMes,
+      }
+    })
+  }, [caixa, selectedYear])
+
+  // 3. Cálculos para Gráfico 2 — "CUSTOS" (Pizza de cada custo/categoria com sua % dentro da fatia)
+  // REGRA: reflete as saídas reais do período no caixa, separando as parcelas pagas de Contas a Pagar / Terceiros pouco a pouco no período
   const dadosCustosPorCategoria = useMemo(() => {
-    // Agrupar saídas do período por categoria
+    // Agrupar saídas do período por categoria padronizada
     const mapaCategorias = new Map<string, number>()
     let totalSaidas = 0
 
     caixaFiltrado
       .filter((c) => c.tipo === 'saida')
       .forEach((c) => {
-        const cat = (c.categoria || 'OUTROS').trim().toUpperCase()
+        let cat = (c.categoria || '').trim()
+        if (!cat) {
+          cat = c.entidade === 'terceiros' || c.conta_a_pagar ? 'Contas a Pagar' : 'OUTROS'
+        }
+        // Padronizar Terceiros / Contas a Pagar
+        if (cat.toLowerCase() === 'terceiros') {
+          cat = 'Contas a Pagar'
+        }
         const valor = Number(c.valor) || 0
         mapaCategorias.set(cat, (mapaCategorias.get(cat) || 0) + valor)
         totalSaidas += valor
@@ -321,42 +424,92 @@ export function GraficosReport({
                 </CardDescription>
               </div>
 
-              {/* Alternador Donut / Barras */}
+              {/* Alternador de Visão do Gráfico Receita: Rosca / Barras Período / Mês a Mês */}
               <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
                 <button
                   type="button"
                   onClick={() => setTipoGraficoReceita('donut')}
-                  className={`p-1.5 rounded text-xs transition-all ${
+                  className={`px-2 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all ${
                     tipoGraficoReceita === 'donut'
                       ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                      : 'text-muted-foreground'
+                      : 'text-muted-foreground hover:text-slate-900 dark:hover:text-white'
                   }`}
-                  title="Gráfico de Rosca"
+                  title="Gráfico de Rosca com % nas fatias"
                 >
                   <PieChartIcon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Rosca</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setTipoGraficoReceita('barras')}
-                  className={`p-1.5 rounded text-xs transition-all ${
+                  className={`px-2 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all ${
                     tipoGraficoReceita === 'barras'
                       ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                      : 'text-muted-foreground'
+                      : 'text-muted-foreground hover:text-slate-900 dark:hover:text-white'
                   }`}
-                  title="Gráfico de Barras"
+                  title="Distribuição em Barras"
                 >
                   <BarChart3 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Barras</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoGraficoReceita('mes_a_mes')}
+                  className={`px-2 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all ${
+                    tipoGraficoReceita === 'mes_a_mes'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs text-indigo-600 dark:text-indigo-400 font-bold'
+                      : 'text-muted-foreground hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                  title="Visão Evolução Mês a Mês"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Mês a Mês</span>
                 </button>
               </div>
             </CardHeader>
 
             <CardContent className="pt-4">
-              {/* Resumo em 3 mini-cards com valores */}
+              {/* TOTAL DA RECEITA DO PERÍODO EM DESTAQUE */}
+              <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-emerald-600 text-white shrink-0">
+                    <DollarSign className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block">
+                      RECEITA TOTAL DO PERÍODO
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {periodoModo === 'ano'
+                        ? `Total arrecadado no ano de ${selectedYear}`
+                        : `Total arrecadado em ${MONTH_NAMES[selectedMonth - 1]}/${selectedYear}`}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-left sm:text-right shrink-0">
+                  <span className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 block tracking-tight">
+                    R$ {formatBRL(dadosReceita.receitas)}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-medium">
+                    100% da receita faturada no caixa
+                  </span>
+                </div>
+              </div>
+
+              {/* Resumo em 3 mini-cards com valores e % sobre a receita */}
               <div className="grid grid-cols-3 gap-2 mb-4">
                 <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/50">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 block truncate">
-                    Lucro Período
-                  </span>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 block truncate">
+                      Lucro Líquido
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] px-1 py-0 h-4 font-bold border-emerald-300 text-emerald-700 dark:text-emerald-300"
+                    >
+                      {dadosReceita.itens[0].percentual.toFixed(1)}%
+                    </Badge>
+                  </div>
                   <span
                     className={`text-sm sm:text-base font-extrabold block mt-0.5 truncate ${
                       dadosReceita.lucroReal >= 0
@@ -369,26 +522,115 @@ export function GraficosReport({
                 </div>
 
                 <div className="p-2.5 rounded-xl bg-red-50/70 dark:bg-red-950/30 border border-red-200/80 dark:border-red-900/50">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-red-700 dark:text-red-400 block truncate">
-                    Custos Totais
-                  </span>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-red-700 dark:text-red-400 block truncate">
+                      Custos / Desp.
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] px-1 py-0 h-4 font-bold border-red-300 text-red-700 dark:text-red-300"
+                    >
+                      {dadosReceita.itens[1].percentual.toFixed(1)}%
+                    </Badge>
+                  </div>
                   <span className="text-sm sm:text-base font-extrabold text-red-600 dark:text-red-300 block mt-0.5 truncate">
                     R$ {formatBRL(dadosReceita.custos)}
                   </span>
                 </div>
 
                 <div className="p-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-900/50">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400 block truncate">
-                    Contas a Pagar
-                  </span>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400 block truncate">
+                      Contas Pagas
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] px-1 py-0 h-4 font-bold border-purple-300 text-purple-700 dark:text-purple-300"
+                    >
+                      {dadosReceita.itens[2].percentual.toFixed(1)}%
+                    </Badge>
+                  </div>
                   <span className="text-sm sm:text-base font-extrabold text-purple-600 dark:text-purple-300 block mt-0.5 truncate">
-                    R$ {formatBRL(dadosReceita.saldoDevedorContas)}
+                    R$ {formatBRL(dadosReceita.contasPagasNoPeriodo)}
                   </span>
                 </div>
               </div>
 
-              {/* Render do Gráfico */}
-              {dadosReceita.totalComposicao === 0 ? (
+              {/* Render do Gráfico de acordo com tipoGraficoReceita */}
+              {tipoGraficoReceita === 'mes_a_mes' ? (
+                /* VISÃO MÊS A MÊS: Gráfico de barras empilhadas/agrupadas com Lucro, Custos e Contas a Pagar por mês */
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs px-1">
+                    <span className="text-muted-foreground font-semibold flex items-center gap-1.5">
+                      <BarChart3 className="w-3.5 h-3.5 text-indigo-500" />
+                      Evolução Mês a Mês no Ano de {selectedYear}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      Barras: Lucro Líquido | Custos | Contas a Pagar
+                    </span>
+                  </div>
+                  <div className="h-[280px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={dadosReceitaMesAMes}
+                        margin={{ top: 15, right: 10, left: -10, bottom: 20 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                        <XAxis dataKey="mes" tick={{ fontSize: 11 }} stroke="#888888" />
+                        <YAxis
+                          tick={{ fontSize: 10 }}
+                          tickFormatter={(v) => `R$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`}
+                          stroke="#888888"
+                        />
+                        <RechartsTooltip
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload || !payload.length) return null
+                            const row = dadosReceitaMesAMes.find((d) => d.mes === label)
+                            return (
+                              <div className="bg-slate-900/95 text-white p-3 rounded-lg text-xs shadow-xl border border-slate-700 space-y-1.5">
+                                <p className="font-bold border-b border-slate-700 pb-1 text-slate-200">
+                                  {row?.mesCompleto} / {selectedYear}
+                                </p>
+                                <div className="flex justify-between gap-4 text-emerald-400 font-semibold">
+                                  <span>(+) Receita Total:</span>
+                                  <span>R$ {formatBRL(row?.receita || 0)}</span>
+                                </div>
+                                <div className="flex justify-between gap-4 text-emerald-300">
+                                  <span>(=) Lucro Líquido:</span>
+                                  <span className="font-bold">
+                                    R$ {formatBRL(row?.lucroReal || 0)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between gap-4 text-red-300">
+                                  <span>(-) Custos Operacionais:</span>
+                                  <span>R$ {formatBRL(row?.custos || 0)}</span>
+                                </div>
+                                <div className="flex justify-between gap-4 text-purple-300">
+                                  <span>(-) Contas a Pagar pagas:</span>
+                                  <span>R$ {formatBRL(row?.contasPagar || 0)}</span>
+                                </div>
+                              </div>
+                            )
+                          }}
+                        />
+                        <Bar
+                          dataKey="lucro"
+                          name="Lucro Líquido"
+                          fill="#10b981"
+                          radius={[4, 4, 0, 0]}
+                        />
+                        <Bar dataKey="custos" name="Custos" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                        <Bar
+                          dataKey="contasPagar"
+                          name="Contas a Pagar"
+                          fill="#8b5cf6"
+                          radius={[4, 4, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              ) : dadosReceita.totalComposicao === 0 && dadosReceita.receitas === 0 ? (
                 <div className="h-[260px] flex flex-col items-center justify-center text-muted-foreground text-xs">
                   <AlertCircle className="w-6 h-6 mb-1 text-slate-400" />
                   Sem movimentação registrada no período selecionado.
@@ -403,9 +645,11 @@ export function GraficosReport({
                         nameKey="nome"
                         cx="50%"
                         cy="50%"
-                        innerRadius={55}
-                        outerRadius={90}
+                        innerRadius={50}
+                        outerRadius={95}
                         paddingAngle={3}
+                        labelLine={false}
+                        label={renderCustomizedPieLabel}
                       >
                         {dadosReceita.itens.map((entry, index) => (
                           <Cell
@@ -417,7 +661,13 @@ export function GraficosReport({
                         ))}
                       </Pie>
                       <RechartsTooltip
-                        formatter={(val: unknown) => [`R$ ${formatBRL(Number(val) || 0)}`, 'Valor']}
+                        formatter={(val: unknown, name: unknown) => [
+                          `R$ ${formatBRL(Number(val) || 0)} (${(
+                            (Number(val) / (dadosReceita.baseCalculoPct || 1)) *
+                            100
+                          ).toFixed(1)}%)`,
+                          String(name),
+                        ]}
                         contentStyle={{
                           backgroundColor: 'rgba(15, 23, 42, 0.95)',
                           borderRadius: '8px',
@@ -434,7 +684,7 @@ export function GraficosReport({
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={dadosReceita.itens}
-                      margin={{ top: 15, right: 10, left: 10, bottom: 20 }}
+                      margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                       <XAxis dataKey="nome" tick={{ fontSize: 11 }} interval={0} stroke="#888888" />
@@ -444,7 +694,13 @@ export function GraficosReport({
                         stroke="#888888"
                       />
                       <RechartsTooltip
-                        formatter={(val: unknown) => [`R$ ${formatBRL(Number(val) || 0)}`, 'Valor']}
+                        formatter={(val: unknown, name: unknown) => [
+                          `R$ ${formatBRL(Number(val) || 0)} (${(
+                            (Number(val) / (dadosReceita.baseCalculoPct || 1)) *
+                            100
+                          ).toFixed(1)}%)`,
+                          String(name),
+                        ]}
                         contentStyle={{
                           backgroundColor: 'rgba(15, 23, 42, 0.95)',
                           borderRadius: '8px',
@@ -463,7 +719,7 @@ export function GraficosReport({
                 </div>
               )}
 
-              {/* Legenda Detalhada em Lista */}
+              {/* Legenda Detalhada em Lista com Nome, Valor em R$ e % de cada fatia */}
               <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 {dadosReceita.itens.map((item) => (
                   <div
@@ -485,11 +741,19 @@ export function GraficosReport({
                       </div>
                     </div>
                     <div className="text-right shrink-0 pl-2">
-                      <span className="font-bold text-slate-900 dark:text-white block">
-                        R$ {formatBRL(item.valor)}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {item.percentual.toFixed(1)}% do total
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="font-bold text-slate-900 dark:text-white">
+                          R$ {formatBRL(item.valor)}
+                        </span>
+                        <Badge
+                          variant="secondary"
+                          className="font-bold text-[10px] px-1.5 py-0 bg-slate-200 dark:bg-slate-800"
+                        >
+                          {item.percentual.toFixed(1)}%
+                        </Badge>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground block">
+                        {dadosReceita.receitas > 0 ? 'da receita do período' : 'da composição'}
                       </span>
                     </div>
                   </div>
@@ -542,8 +806,10 @@ export function GraficosReport({
                         nameKey="nome"
                         cx="50%"
                         cy="50%"
-                        outerRadius={88}
+                        outerRadius={95}
                         paddingAngle={2}
+                        labelLine={false}
+                        label={renderCustomizedPieLabel}
                       >
                         {dadosCustosPorCategoria.lista.map((entry, index) => (
                           <Cell
@@ -555,7 +821,13 @@ export function GraficosReport({
                         ))}
                       </Pie>
                       <RechartsTooltip
-                        formatter={(val: unknown) => [`R$ ${formatBRL(Number(val) || 0)}`, 'Valor']}
+                        formatter={(val: unknown, name: unknown) => [
+                          `R$ ${formatBRL(Number(val) || 0)} (${(
+                            (Number(val) / (dadosCustosPorCategoria.totalSaidas || 1)) *
+                            100
+                          ).toFixed(1)}%)`,
+                          String(name),
+                        ]}
                         contentStyle={{
                           backgroundColor: 'rgba(15, 23, 42, 0.95)',
                           borderRadius: '8px',
