@@ -49,6 +49,8 @@ import {
   ContaAReceber,
 } from '@/types/database'
 import { PaybackTab } from '@/components/PaybackTab'
+import { LucroPorMotoReport } from '@/components/LucroPorMotoReport'
+import { GraficosReport } from '@/components/GraficosReport'
 
 export default function Reports() {
   const [motos, setMotos] = useState<Moto[]>([])
@@ -392,41 +394,44 @@ export default function Reports() {
 
         <div className="flex items-center gap-2">
           {/* Seletores de Período (DRE e Balanço) */}
-          {activeReportTab !== 'payback' && (
-            <>
-              <Select
-                value={String(selectedMonth)}
-                onValueChange={(val) => setSelectedMonth(Number(val))}
-              >
-                <SelectTrigger className="w-[130px] bg-white dark:bg-slate-900">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {monthNames.map((name, idx) => (
-                    <SelectItem key={idx + 1} value={String(idx + 1)}>
-                      {name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {activeReportTab !== 'payback' &&
+            activeReportTab !== 'lucro-moto' &&
+            activeReportTab !== 'graficos-receita' &&
+            activeReportTab !== 'graficos-custos' && (
+              <>
+                <Select
+                  value={String(selectedMonth)}
+                  onValueChange={(val) => setSelectedMonth(Number(val))}
+                >
+                  <SelectTrigger className="w-[130px] bg-white dark:bg-slate-900">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {monthNames.map((name, idx) => (
+                      <SelectItem key={idx + 1} value={String(idx + 1)}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-              <Select
-                value={String(selectedYear)}
-                onValueChange={(val) => setSelectedYear(Number(val))}
-              >
-                <SelectTrigger className="w-[100px] bg-white dark:bg-slate-900">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[2024, 2025, 2026].map((y) => (
-                    <SelectItem key={y} value={String(y)}>
-                      {y}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </>
-          )}
+                <Select
+                  value={String(selectedYear)}
+                  onValueChange={(val) => setSelectedYear(Number(val))}
+                >
+                  <SelectTrigger className="w-[100px] bg-white dark:bg-slate-900">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[2024, 2025, 2026, 2027].map((y) => (
+                      <SelectItem key={y} value={String(y)}>
+                        {y}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
 
           <Button onClick={handlePrint} variant="outline" className="gap-2">
             <Printer className="w-4 h-4" />
@@ -443,13 +448,13 @@ export default function Reports() {
             Lista de Relatórios Disponíveis (Clique para Visualizar)
           </h2>
           <span className="text-xs text-muted-foreground hidden sm:inline">
-            6 relatórios disponíveis
+            9 relatórios e visões disponíveis
           </span>
         </div>
 
-        {/* Três Colunas: Administrativos | Contábeis | KPI (itens em lista vertical um abaixo do outro com botões de tamanho uniforme) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Coluna 1: Administrativos (Esquerda) */}
+        {/* Quatro Colunas: Administrativos | Contábeis | KPI | Gráficos (botões de tamanho uniforme) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Coluna 1: Administrativos */}
           <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 flex flex-col justify-between">
             <div>
               <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
@@ -471,7 +476,7 @@ export default function Reports() {
                     variant="outline"
                     className="text-[10px] font-semibold bg-white dark:bg-slate-900"
                   >
-                    2 relatórios
+                    3 relatórios
                   </Badge>
                 </div>
               </CardHeader>
@@ -499,6 +504,34 @@ export default function Reports() {
                       <span className="text-sm font-bold truncate">Payback por Moto</span>
                     </div>
                     {activeReportTab === 'payback' && (
+                      <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px] font-bold shrink-0">
+                        Visualizando
+                      </Badge>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveReportTab('lucro-moto')}
+                    className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
+                      activeReportTab === 'lucro-moto'
+                        ? 'border-blue-600 bg-blue-50/90 dark:bg-blue-950/60 shadow-sm ring-2 ring-blue-500 text-blue-900 dark:text-blue-100'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 ${
+                          activeReportTab === 'lucro-moto'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <Bike className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-bold truncate">Lucro por Moto</span>
+                    </div>
+                    {activeReportTab === 'lucro-moto' && (
                       <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px] font-bold shrink-0">
                         Visualizando
                       </Badge>
@@ -655,7 +688,7 @@ export default function Reports() {
             </div>
           </Card>
 
-          {/* Coluna 3: KPI (Direita) */}
+          {/* Coluna 3: KPI */}
           <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 flex flex-col justify-between">
             <div>
               <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
@@ -716,6 +749,94 @@ export default function Reports() {
               </CardContent>
             </div>
           </Card>
+
+          {/* Coluna 4: Gráficos (Nova Seção) */}
+          <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 flex flex-col justify-between">
+            <div>
+              <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                      <BarChart3 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                        Gráficos
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Visualização visual de receitas e custos
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-semibold bg-white dark:bg-slate-900"
+                  >
+                    2 gráficos
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-3 pb-3">
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveReportTab('graficos-receita')}
+                    className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
+                      activeReportTab === 'graficos-receita'
+                        ? 'border-indigo-600 bg-indigo-50/90 dark:bg-indigo-950/60 shadow-sm ring-2 ring-indigo-500 text-indigo-900 dark:text-indigo-100'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 ${
+                          activeReportTab === 'graficos-receita'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <TrendingUp className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-bold truncate">Gráfico — Receita</span>
+                    </div>
+                    {activeReportTab === 'graficos-receita' && (
+                      <Badge className="bg-indigo-600 hover:bg-indigo-600 text-white text-[10px] font-bold shrink-0">
+                        Visualizando
+                      </Badge>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveReportTab('graficos-custos')}
+                    className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
+                      activeReportTab === 'graficos-custos'
+                        ? 'border-indigo-600 bg-indigo-50/90 dark:bg-indigo-950/60 shadow-sm ring-2 ring-indigo-500 text-indigo-900 dark:text-indigo-100'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 ${
+                          activeReportTab === 'graficos-custos'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <PieChart className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-bold truncate">Gráfico — Custos</span>
+                    </div>
+                    {activeReportTab === 'graficos-custos' && (
+                      <Badge className="bg-indigo-600 hover:bg-indigo-600 text-white text-[10px] font-bold shrink-0">
+                        Visualizando
+                      </Badge>
+                    )}
+                  </button>
+                </div>
+              </CardContent>
+            </div>
+          </Card>
         </div>
       </div>
 
@@ -726,6 +847,33 @@ export default function Reports() {
         {/* ========================================================================= */}
         {activeReportTab === 'payback' && (
           <PaybackTab motos={motos} contratos={contratos} caixa={caixa} />
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB: LUCRO POR MOTO — MATRIZ MOTO × MÊS (Administrativo) */}
+        {/* ========================================================================= */}
+        {activeReportTab === 'lucro-moto' && (
+          <LucroPorMotoReport
+            motos={motos}
+            caixa={caixa}
+            selectedYear={selectedYear}
+            onYearChange={(year) => setSelectedYear(year)}
+          />
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB: GRÁFICOS (RECEITA & CUSTOS) */}
+        {/* ========================================================================= */}
+        {(activeReportTab === 'graficos-receita' || activeReportTab === 'graficos-custos') && (
+          <GraficosReport
+            caixa={caixa}
+            contasAPagar={contasAPagar}
+            selectedYear={selectedYear}
+            selectedMonth={selectedMonth}
+            onYearChange={(year) => setSelectedYear(year)}
+            onMonthChange={(month) => setSelectedMonth(month)}
+            initialGraphType={activeReportTab === 'graficos-custos' ? 'custos' : 'receita'}
+          />
         )}
 
         {/* ========================================================================= */}
