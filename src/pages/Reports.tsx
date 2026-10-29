@@ -559,7 +559,7 @@ export default function Reports() {
                       >
                         <FileSpreadsheet className="w-4 h-4" />
                       </div>
-                      <span className="text-sm font-bold truncate">Projeção Fluxo de Caixa</span>
+                      <span className="text-sm font-bold truncate">Resultado</span>
                     </div>
                     {activeReportTab === 'projecao-fluxo' && (
                       <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px] font-bold shrink-0">
@@ -892,7 +892,7 @@ export default function Reports() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB: PROJEÇÃO DE FLUXO DE CAIXA MENSAL (Administrativo) */}
+        {/* TAB: RESULTADO (FLUXO DE CAIXA REAL) (Administrativo) */}
         {/* ========================================================================= */}
         {activeReportTab === 'projecao-fluxo' && (
           <ProjecaoFluxoCaixaReport motos={motos} caixa={caixa} contasAPagar={contasAPagar} />

@@ -1,15 +1,17 @@
 /**
- * Testes das regras de cálculo da Projeção de Fluxo de Caixa Mensal
+ * Testes das regras de cálculo do relatório Resultado (Fluxo de Caixa Real)
  * Valida:
- * 1. Linhas e fórmulas da planilha:
- *    - "33%" = Receita - Custos
- *    - "LL" = (Receita - Custos) - Honda
- * 2. Realizado vs Estimativa:
- *    - Meses até o presente são dados reais do caixa
- *    - Meses futuros são estimativas (azul)
- * 3. Projeção com motos novas (+3 motos, sendo 1 não cadastrada):
- *    - Média por moto ativa escalada para frota projetada
- * 4. Parcelas futuras da Honda a partir do Contas a Pagar
+ * 1. Identificação de lançamentos da Honda
+ * 2. Linhas e fórmulas da planilha:
+ *    - Receita (entradas reais do Caixa)
+ *    - Custos (saídas operacionais sem Honda)
+ *    - Receita − Custos
+ *    - 15% HONDA (saídas pagas da dívida Honda no Caixa)
+ *    - LL = (Receita − Custos) − Honda
+ * 3. Apenas dados reais do primeiro mês com movimentação até o mês presente (inclusive)
+ *    - Nenhum mês futuro
+ *    - Sem estimativas ou projeções
+ * 4. Totais acumulados reais
  */
 
 import {
@@ -251,76 +253,98 @@ export function runProjecaoTests(): { success: boolean; results: TestResult[] } 
     caixa: mockCaixa,
     contasAPagar: mockContasAPagar,
     anoAtual: 2026,
-    mesAtual: 10, // Outubro/2026
-    anoInicio: 2026,
-    mesInicio: 6, // Junho/2026
-    motosNovas: 3,
+    mesAtual: 10, // Outubro/2026 (mês presente)
   })
 
-  // Validação da régua de 12 meses
-  assertEqual('Gera exatamente 12 meses', resultado.meses.length, 12)
+  // 1. Validação do intervalo de meses:
+  // Primeiro movimento no caixa foi em Junho/2026 (mês 6).
+  // Mês presente é Outubro/2026 (mês 10).
+  // Total de meses = 5 (jun, jul, ago, set, out).
+  assertEqual('Gera exatamente os meses até o mês presente (5 meses)', resultado.meses.length, 5)
   assertEqual(
-    'Inicia em Junho/2026',
+    'Inicia no primeiro mês com movimento (jun/2026)',
     `${resultado.meses[0].nomeMes}/${resultado.meses[0].ano}`,
     'jun/2026',
   )
   assertEqual(
-    'Termina em Maio/2027',
-    `${resultado.meses[11].nomeMes}/${resultado.meses[11].ano}`,
-    'mai/2027',
+    'Termina no mês presente (out/2026)',
+    `${resultado.meses[4].nomeMes}/${resultado.meses[4].ano}`,
+    'out/2026',
+  )
+  assertEqual(
+    'Nenhum mês futuro após o mês presente é retornado',
+    resultado.meses.some((m) => m.ano > 2026 || (m.ano === 2026 && m.mes > 10)),
+    false,
   )
 
-  // Validação das fórmulas no mês 1 (jun/2026 - realizado):
+  // 2. Validação das fórmulas no mês 1 (jun/2026 - realizado):
   // Receita = 6250
   // Custos = 2579
-  // 33% = 6250 - 2579 = 3671
+  // Receita - Custos = 6250 - 2579 = 3671
   // Honda = 2330
   // LL = 3671 - 2330 = 1341
   const mes1 = resultado.meses[0]
   assertEqual('Jun/2026 é passado/presente (realizado)', mes1.isPassadoOuPresente, true)
-  assertEqual('Jun/2026 Receita bate com caixa', mes1.receita, 6250)
-  assertEqual('Jun/2026 Custos bate com caixa', mes1.custos, 2579)
-  assertEqual('Jun/2026 33% = Receita - Custos (3671)', mes1.percentual33, 3671)
+  assertEqual('Jun/2026 Receita bate com caixa real (6250)', mes1.receita, 6250)
+  assertEqual('Jun/2026 Custos bate com caixa real (2579)', mes1.custos, 2579)
+  assertEqual('Jun/2026 Receita - Custos (3671)', mes1.percentual33, 3671)
   assertEqual('Jun/2026 Honda = 2330', mes1.honda, 2330)
-  assertEqual('Jun/2026 LL = 33% - Honda (1341)', mes1.ll, 1341)
+  assertEqual('Jun/2026 LL = (Receita - Custos) - Honda (1341)', mes1.ll, 1341)
 
-  // Validação do mês corrente (out/2026 - mês 5):
-  // Receita = 14066, Custos = 4220, 33% = 9846, Honda = 5140, LL = 4706
+  // 3. Validação do mês 2 (jul/2026):
+  // Receita = 10015, Custos = 3864, Honda = 5140
+  // Receita - Custos = 6151
+  // LL = 6151 - 5140 = 1011
+  const mes2 = resultado.meses[1]
+  assertEqual('Jul/2026 Receita bate (10015)', mes2.receita, 10015)
+  assertEqual('Jul/2026 Custos bate (3864)', mes2.custos, 3864)
+  assertEqual('Jul/2026 Honda bate (5140)', mes2.honda, 5140)
+  assertEqual('Jul/2026 LL bate (1011)', mes2.ll, 1011)
+
+  // 4. Validação de mês sem movimentação intermediário (ago/2026 - mês 3):
+  const mes3 = resultado.meses[2]
+  assertEqual('Ago/2026 Receita vazia = 0', mes3.receita, 0)
+  assertEqual('Ago/2026 Custos vazios = 0', mes3.custos, 0)
+  assertEqual('Ago/2026 Honda vazio = 0', mes3.honda, 0)
+  assertEqual('Ago/2026 LL = 0', mes3.ll, 0)
+
+  // 5. Validação do mês corrente (out/2026 - mês 5):
+  // Receita = 14066, Custos = 4220, Honda = 5140, LL = 4706
   const mes5 = resultado.meses[4]
   assertEqual('Out/2026 é o mês corrente', mes5.isMesCorrente, true)
-  assertEqual('Out/2026 é realizado', mes5.isPassadoOuPresente, true)
-  assertEqual('Out/2026 Receita bate', mes5.receita, 14066)
-  assertEqual('Out/2026 Custos bate', mes5.custos, 4220)
-  assertEqual('Out/2026 33% bate (9846)', mes5.percentual33, 9846)
+  assertEqual('Out/2026 Receita bate (14066)', mes5.receita, 14066)
+  assertEqual('Out/2026 Custos bate (4220)', mes5.custos, 4220)
+  assertEqual('Out/2026 Receita - Custos bate (9846)', mes5.percentual33, 9846)
   assertEqual('Out/2026 Honda bate (5140)', mes5.honda, 5140)
   assertEqual('Out/2026 LL bate (4706)', mes5.ll, 4706)
 
-  // Validação dos meses futuros (nov/2026 - mês 6):
-  // Deve ser estimativa (isPassadoOuPresente = false)
-  const mes6 = resultado.meses[5]
-  assertEqual('Nov/2026 é estimativa futura', mes6.isPassadoOuPresente, false)
-  assertEqual('Nov/2026 não é mês corrente', mes6.isMesCorrente, false)
-  // Honda futura em nov/2026 deve ser parcela 6 (5140)
-  assertEqual('Nov/2026 Honda deve vir do Contas a Pagar (5140)', mes6.honda, 5140)
-  // LL deve bater com fórmula: (Receita - Custos) - Honda
+  // 6. Validação dos totais reais acumulados
+  // Receita total = 6250 + 10015 + 0 + 0 + 14066 = 30331
+  // Custos total = 2579 + 3864 + 0 + 0 + 4220 = 10663
+  // Honda total = 2330 + 5140 + 0 + 0 + 5140 = 12610
+  // LL total = (30331 - 10663) - 12610 = 7058
+  assertEqual('Totais reais: Receita', resultado.totais.receita, 30331)
+  assertEqual('Totais reais: Custos', resultado.totais.custos, 10663)
+  assertEqual('Totais reais: Honda', resultado.totais.honda, 12610)
+  assertEqual('Totais reais: LL', resultado.totais.ll, 7058)
+
+  // 7. Cenário quando não há movimentação nenhuma no Caixa:
+  // Deve gerar de janeiro do ano corrente até o mês corrente (inclusive)
+  const resultadoSemCaixa = calcularProjecaoFluxoCaixa({
+    motos: mockMotos,
+    caixa: [],
+    contasAPagar: [],
+    anoAtual: 2026,
+    mesAtual: 4, // Abril/2026
+  })
   assertEqual(
-    'Nov/2026 LL bate com (Receita - Custos) - Honda',
-    mes6.ll,
-    mes6.percentual33 - mes6.honda,
+    'Sem movimento gera de janeiro até mês atual (4 meses)',
+    resultadoSemCaixa.meses.length,
+    4,
   )
-
-  // Validação de Abril/2027 (mês 11 - parcela final da Honda = 2810):
-  const mes11 = resultado.meses[10]
-  assertEqual('Abr/2027 Parcela final da Honda = 2810', mes11.honda, 2810)
-
-  // Validação de Maio/2027 (mês 12 - após término das parcelas Honda = 0):
-  const mes12 = resultado.meses[11]
-  assertEqual('Mai/2027 Honda quitada = 0', mes12.honda, 0)
-  assertEqual('Mai/2027 LL = Receita - Custos', mes12.ll, mes12.percentual33)
-
-  // Validação da contagem de frota
-  assertEqual('Motos ativas contadas (exclui vendidas)', resultado.motosAtivasCount, 8)
-  assertEqual('Frota total projetada (+3 motos)', resultado.frotaTotalProjetada, 11)
+  assertEqual('Sem movimento começa em jan/2026', resultadoSemCaixa.meses[0].nomeMes, 'jan')
+  assertEqual('Sem movimento termina em abr/2026', resultadoSemCaixa.meses[3].nomeMes, 'abr')
+  assertEqual('Sem movimento último é mês corrente', resultadoSemCaixa.meses[3].isMesCorrente, true)
 
   // Formatação de números padrão pt-BR sem decimais
   assertEqual('Formatação 6250', formatarNumeroPlanilha(6250), '6.250')

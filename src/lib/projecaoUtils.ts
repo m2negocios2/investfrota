@@ -1,42 +1,37 @@
 /**
- * Utilidades e regras de cálculo para a PROJEÇÃO DE FLUXO DE CAIXA MENSAL
+ * Utilidades e regras de cálculo para o relatório RESULTADO (Fluxo de Caixa Real)
  *
- * Réplica da planilha da usuária:
- * - 12 meses a partir do mês inicial (ano em cima, mês embaixo, número sequencial 1 a 12)
+ * Formato da planilha da usuária:
+ * - Colunas: do primeiro mês com movimentação no Caixa até o mês presente (inclusive).
+ *   Se não houver movimentação, inicia em janeiro do ano corrente até o mês presente.
+ * - Cabeçalho:
+ *   * Topo: ano (2025, 2026...)
+ *   * Meio: nome do mês (jun, jul, ago...)
+ *   * Base: número sequencial (1, 2, 3...)
  * - Linhas:
- *   1. Receita (verde, negrito)
- *   2. Custos (neutro)
- *   3. 33% (Receita - Custos) (verde)
- *   4. 15% HONDA (pagamentos Honda / dívida de terceiros) (vermelho)
- *   5. LL (Lucro Líquido = (Receita - Custos) - Honda) (verde)
+ *   1. Receita (verde) -> Entradas reais do Caixa
+ *   2. Custos -> Saídas operacionais do Caixa que não são da dívida Honda
+ *   3. Receita − Custos (verde)
+ *   4. 15% HONDA (vermelho) -> Saídas reais de pagamentos da dívida Honda no Caixa
+ *   5. LL (Lucro Líquido = Receita − Custos − Honda)
  *
- * Regras:
- * - Meses realizados (passado até mês presente): Caixa real
- *   * Receita = entradas
- *   * Custos = saídas que não são Honda
- *   * Honda = pagamentos vinculados à conta Honda ou entidade 'terceiros' com menção a Honda
- * - Meses futuros (após mês presente): Estimativas (exibidas em azul)
- *   * Base: média histórica por moto ativa dos meses realizados
- *   * Frota projetada = motos ativas atuais + 3 motos novas (sendo 1 ainda por cadastrar)
- *   * Linha Honda: parcelas restantes cadastradas no Contas a Pagar (conta Honda), enquanto houver saldo
- *   * LL = (Receita - Custos) - Honda
+ * SOMENTE DADOS REAIS — sem estimativas, sem projeções futuras, sem meses após o mês corrente.
  */
 
 import { CaixaLancamento, ContaAPagarComProgresso, Moto } from '@/types/database'
-import { resolverParcelasConta } from './parcelasUtils'
 
 export interface MesProjecao {
   ano: number
   mes: number // 1 a 12
-  numeroSequencial: number // 1 a 12
+  numeroSequencial: number // 1, 2, 3...
   nomeMes: string // jun, jul, ago...
   nomeMesCompleto: string // Junho, Julho...
-  isPassadoOuPresente: boolean // true = realizado (caixa real), false = futuro (estimativa azul)
+  isPassadoOuPresente: boolean // sempre true no relatório Resultado
   isMesCorrente: boolean
   receita: number
   custos: number
   percentual33: number // Receita - Custos
-  honda: number // Parcela / pagamento Honda
+  honda: number // Parcela / pagamento Honda realizado no caixa
   ll: number // (Receita - Custos) - Honda
 }
 
@@ -54,12 +49,7 @@ export interface ProjecaoFluxoCaixaResultado {
   anoInicio: number
   anoFim: number
   motosAtivasCount: number
-  motosNovasCount: number // 3
-  frotaTotalProjetada: number // motosAtivasCount + 3
-  mediaReceitaPorMoto: number
-  mediaCustosPorMoto: number
-  receitaEstimadaMensal: number
-  custosEstimadosMensais: number
+  totalMeses: number
 }
 
 export const NOMES_MESES_ABREV = [
@@ -135,54 +125,6 @@ export function getContasHonda(contasAPagar: ContaAPagarComProgresso[]): ContaAP
   })
 }
 
-/**
- * Extrai o mapa de parcelas restantes da Honda por (ano-mes) a partir das Contas a Pagar
- */
-export function getHondaParcelasFuturas(
-  contasHonda: ContaAPagarComProgresso[],
-  anoCorte: number,
-  mesCorte: number,
-): Map<string, number> {
-  const mapa = new Map<string, number>()
-
-  for (const conta of contasHonda) {
-    const parcelas = resolverParcelasConta(conta)
-    const qtdPaga = conta.quantidadePaga || (conta.pagamentos ? conta.pagamentos.length : 0)
-
-    // Parcelas não pagas (índice a partir de qtdPaga)
-    const parcelasPendentes = parcelas.slice(qtdPaga)
-
-    for (let i = 0; i < parcelasPendentes.length; i++) {
-      const p = parcelasPendentes[i]
-      let anoP: number | null = null
-      let mesP: number | null = null
-
-      if (p.data_vencimento) {
-        // Formato esperado: YYYY-MM-DD ou ISO
-        const match = p.data_vencimento.match(/^(\d{4})-(\d{2})/)
-        if (match) {
-          anoP = parseInt(match[1], 10)
-          mesP = parseInt(match[2], 10)
-        }
-      }
-
-      // Se não tem data_vencimento na parcela, calcular a partir do mês de corte + offset
-      if (!anoP || !mesP) {
-        const offset = i + 1
-        const dt = new Date(anoCorte, mesCorte - 1 + offset, 1)
-        anoP = dt.getFullYear()
-        mesP = dt.getMonth() + 1
-      }
-
-      const chave = `${anoP}-${String(mesP).padStart(2, '0')}`
-      const valAtual = mapa.get(chave) || 0
-      mapa.set(chave, valAtual + (p.valor || conta.valor_parcela || 0))
-    }
-  }
-
-  return mapa
-}
-
 export interface CalcularProjecaoParams {
   motos: Moto[]
   caixa: CaixaLancamento[]
@@ -190,15 +132,13 @@ export interface CalcularProjecaoParams {
   // Ponto de corte do presente (se omitido, usa a data atual do sistema)
   anoAtual?: number
   mesAtual?: number // 1 a 12
-  // Mês de início dos 12 meses exibidos (se omitido, calcula a partir do mês de início histórico dos dados ou mês atual - N)
+  // Mês de início (se omitido, busca o primeiro mês com movimentação no Caixa; se não houver, jan/anoAtual)
   anoInicio?: number
   mesInicio?: number // 1 a 12
-  // Quantidade de motos novas projetadas (padrão: 3, conforme usuária)
-  motosNovas?: number
 }
 
 /**
- * Calcula os 12 meses da Projeção de Fluxo de Caixa
+ * Calcula os meses reais do relatório Resultado (do primeiro mês com movimentação até o mês presente)
  */
 export function calcularProjecaoFluxoCaixa(
   params: CalcularProjecaoParams,
@@ -206,49 +146,16 @@ export function calcularProjecaoFluxoCaixa(
   const agora = new Date()
   const anoAtual = params.anoAtual ?? agora.getFullYear()
   const mesAtual = params.mesAtual ?? agora.getMonth() + 1
-  const motosNovas = params.motosNovas ?? 3
 
   // Identificar motos ativas da frota (exclui vendidas e cedidas)
   const motosAtivas = params.motos.filter((m) => m.status !== 'vendida' && m.status !== 'cedida')
   const motosAtivasCount = motosAtivas.length
-  const frotaTotalProjetada = motosAtivasCount + motosNovas
 
   // Contas Honda
   const contasHonda = getContasHonda(params.contasAPagar)
   const contasHondaIds = new Set(contasHonda.map((c) => c.id))
 
-  // 1. Determinar o mês inicial da régua de 12 meses
-  // Se informado explicitamente nos params, usa-o.
-  // Senão, detecta se há dados históricos anteriores ao mês atual para iniciar no primeiro mês relevante (ex: jun/2026),
-  // garantindo que cubra exatamente 12 meses correndo como na planilha (ex: jun/2026 a mai/2027).
-  let anoInicio = params.anoInicio
-  let mesInicio = params.mesInicio
-
-  if (!anoInicio || !mesInicio) {
-    // Buscar o primeiro mês com movimentação relevante de caixa
-    let menorAno = anoAtual
-    let menorMes = mesAtual
-
-    for (const c of params.caixa) {
-      if (!c.data) continue
-      const match = c.data.match(/^(\d{4})-(\d{2})/)
-      if (match) {
-        const y = parseInt(match[1], 10)
-        const m = parseInt(match[2], 10)
-        if (y < menorAno || (y === menorAno && m < menorMes)) {
-          menorAno = y
-          menorMes = m
-        }
-      }
-    }
-
-    // Se houver histórico anterior até 6 meses antes, começa no menor mês;
-    // caso contrário, fixa numa janela de 12 meses que contenha o mês atual.
-    anoInicio = menorAno
-    mesInicio = menorMes
-  }
-
-  // 2. Agrupar lançamentos de caixa por chave YYYY-MM
+  // 1. Agrupar lançamentos de caixa por chave YYYY-MM
   const caixaPorMes = new Map<
     string,
     {
@@ -258,11 +165,26 @@ export function calcularProjecaoFluxoCaixa(
     }
   >()
 
+  let menorAnoComMovimento: number | null = null
+  let menorMesComMovimento: number | null = null
+
   for (const c of params.caixa) {
     if (!c.data) continue
     const match = c.data.match(/^(\d{4})-(\d{2})/)
     if (!match) continue
+    const y = parseInt(match[1], 10)
+    const m = parseInt(match[2], 10)
     const chave = `${match[1]}-${match[2]}`
+
+    // Guardar menor mês com lançamento
+    if (
+      menorAnoComMovimento === null ||
+      y < menorAnoComMovimento ||
+      (y === menorAnoComMovimento && (menorMesComMovimento === null || m < menorMesComMovimento))
+    ) {
+      menorAnoComMovimento = y
+      menorMesComMovimento = m
+    }
 
     if (!caixaPorMes.has(chave)) {
       caixaPorMes.set(chave, { receita: 0, custos: 0, honda: 0 })
@@ -281,48 +203,31 @@ export function calcularProjecaoFluxoCaixa(
     }
   }
 
-  // 3. Calcular média histórica realizada por moto ativa para projetar meses futuros
-  // Considera meses realizados que possuem receita > 0
-  let somaReceitasRealizadas = 0
-  let somaCustosRealizados = 0
-  let mesesRealizadosComDados = 0
+  // 2. Determinar o mês inicial:
+  // Se explicitado nos params, usa ele.
+  // Senão, usa o menor mês com movimento no Caixa.
+  // Se não houver movimento nenhum, usa janeiro do ano corrente.
+  // Se o menor mês for posterior ao mês corrente (ex: dados lançados no futuro por engano), limita ao mês corrente.
+  let anoInicio = params.anoInicio
+  let mesInicio = params.mesInicio
 
-  caixaPorMes.forEach((dados, chave) => {
-    const [yStr, mStr] = chave.split('-')
-    const y = parseInt(yStr, 10)
-    const m = parseInt(mStr, 10)
-    const isPassado = y < anoAtual || (y === anoAtual && m <= mesAtual)
-
-    if (isPassado && dados.receita > 0) {
-      somaReceitasRealizadas += dados.receita
-      somaCustosRealizados += dados.custos
-      mesesRealizadosComDados++
+  if (anoInicio === undefined || mesInicio === undefined) {
+    if (menorAnoComMovimento !== null && menorMesComMovimento !== null) {
+      anoInicio = menorAnoComMovimento
+      mesInicio = menorMesComMovimento
+    } else {
+      anoInicio = anoAtual
+      mesInicio = 1
     }
-  })
+  }
 
-  // Média mensal global realizada
-  const mediaMensalReceita =
-    mesesRealizadosComDados > 0 ? somaReceitasRealizadas / mesesRealizadosComDados : 14000
-  const mediaMensalCustos =
-    mesesRealizadosComDados > 0 ? somaCustosRealizados / mesesRealizadosComDados : 4200
+  // Garantir que anoInicio/mesInicio não seja superior ao anoAtual/mesAtual
+  if (anoInicio > anoAtual || (anoInicio === anoAtual && mesInicio > mesAtual)) {
+    anoInicio = anoAtual
+    mesInicio = mesAtual
+  }
 
-  // Média por moto ativa
-  const baseMotosDivisor = Math.max(1, motosAtivasCount)
-  const mediaReceitaPorMoto = mediaMensalReceita / baseMotosDivisor
-  const mediaCustosPorMoto = mediaMensalCustos / baseMotosDivisor
-
-  // Estimativa mensal para a frota expandida (frotaTotalProjetada = ativas + 3)
-  const receitaEstimadaMensal = Math.round(mediaReceitaPorMoto * frotaTotalProjetada)
-  const custosEstimadosMensais = Math.round(mediaCustosPorMoto * frotaTotalProjetada)
-
-  // 4. Mapa de parcelas futuras da Honda
-  const hondaFuturas = getHondaParcelasFuturas(contasHonda, anoAtual, mesAtual)
-
-  // Valor padrão de parcela Honda caso não haja parcelas cadastradas
-  const valorParcelaHondaPadrao =
-    contasHonda.length > 0 && contasHonda[0].valor_parcela ? contasHonda[0].valor_parcela : 5140
-
-  // 5. Montar os 12 meses
+  // 3. Montar os meses reais: do mês inicial até o mês corrente (inclusive)
   const meses: MesProjecao[] = []
   let totais: ProjecaoTotais = {
     receita: 0,
@@ -332,44 +237,31 @@ export function calcularProjecaoFluxoCaixa(
     ll: 0,
   }
 
-  for (let i = 0; i < 12; i++) {
+  // Calcular quantidade total de meses entre (anoInicio, mesInicio) e (anoAtual, mesAtual)
+  const totalMesesQtd = (anoAtual - anoInicio) * 12 + (mesAtual - mesInicio) + 1
+
+  for (let i = 0; i < totalMesesQtd; i++) {
     const dt = new Date(anoInicio, mesInicio - 1 + i, 1)
     const ano = dt.getFullYear()
     const mes = dt.getMonth() + 1
     const chave = `${ano}-${String(mes).padStart(2, '0')}`
 
-    const isPassadoOuPresente = ano < anoAtual || (ano === anoAtual && mes <= mesAtual)
     const isMesCorrente = ano === anoAtual && mes === mesAtual
 
     let receita = 0
     let custos = 0
     let honda = 0
 
-    if (isPassadoOuPresente) {
-      // Dados reais do Caixa
-      const dadosReais = caixaPorMes.get(chave)
-      if (dadosReais) {
-        receita = Math.round(dadosReais.receita)
-        custos = Math.round(dadosReais.custos)
-        honda = Math.round(dadosReais.honda)
-      }
-    } else {
-      // Meses futuros = ESTIMATIVAS
-      receita = receitaEstimadaMensal
-      custos = custosEstimadosMensais
-
-      // Honda futura: puxar da conta Honda cadastrada em Contas a Pagar
-      if (hondaFuturas.has(chave)) {
-        honda = Math.round(hondaFuturas.get(chave)!)
-      } else {
-        // Se a conta Honda ainda tem saldo após as parcelas mapeadas ou valor fixo
-        // Se já quitou todas as parcelas cadastradas, fica 0
-        honda = 0
-      }
+    // Dados reais do Caixa
+    const dadosReais = caixaPorMes.get(chave)
+    if (dadosReais) {
+      receita = Math.round(dadosReais.receita)
+      custos = Math.round(dadosReais.custos)
+      honda = Math.round(dadosReais.honda)
     }
 
     // Fórmula da planilha:
-    // 33% = Receita - Custos
+    // Receita - Custos
     // LL = (Receita - Custos) - Honda
     const percentual33 = receita - custos
     const ll = percentual33 - honda
@@ -380,7 +272,7 @@ export function calcularProjecaoFluxoCaixa(
       numeroSequencial: i + 1,
       nomeMes: NOMES_MESES_ABREV[mes - 1],
       nomeMesCompleto: NOMES_MESES_COMPLETO[mes - 1],
-      isPassadoOuPresente,
+      isPassadoOuPresente: true,
       isMesCorrente,
       receita,
       custos,
@@ -396,7 +288,7 @@ export function calcularProjecaoFluxoCaixa(
     totais.ll += ll
   }
 
-  const anoFim = meses[meses.length - 1].ano
+  const anoFim = meses.length > 0 ? meses[meses.length - 1].ano : anoAtual
 
   return {
     meses,
@@ -404,12 +296,7 @@ export function calcularProjecaoFluxoCaixa(
     anoInicio,
     anoFim,
     motosAtivasCount,
-    motosNovasCount: motosNovas,
-    frotaTotalProjetada,
-    mediaReceitaPorMoto,
-    mediaCustosPorMoto,
-    receitaEstimadaMensal,
-    custosEstimadosMensais,
+    totalMeses: meses.length,
   }
 }
 
