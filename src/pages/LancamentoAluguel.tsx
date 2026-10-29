@@ -237,7 +237,7 @@ export default function LancamentoAluguel() {
         </div>
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase">
-            LANÇAMENTO ALUGUEL
+            LANÇAMENTO ENTRADAS
           </h1>
           <p className="text-sm text-muted-foreground">
             Lançamento direto de receita de aluguel e comissão automática no Fluxo de Caixa.

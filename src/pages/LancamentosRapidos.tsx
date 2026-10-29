@@ -234,7 +234,7 @@ export default function LancamentosRapidos() {
         </div>
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase">
-            Lançamentos Rápidos
+            LANÇAMENTO SAÍDAS
           </h1>
           <p className="text-sm text-muted-foreground">
             Lançamento instantâneo de saídas no Fluxo de Caixa em 1 toque.
