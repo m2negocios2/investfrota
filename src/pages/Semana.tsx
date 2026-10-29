@@ -180,14 +180,24 @@ export default function Semana() {
   //        nas semanas posteriores à entrega (weekStartStr > fim), NÃO aparecem.
   //      * Para contratos sem data de fim registrada, considerar o dia de hoje como limite do período exibido.
   // 3. Blindagem: a moto vinculada deve existir no cadastro de motos.
+  //
+  // 4. REGRA DE UNICIDADE POR MOTO (0.0.78):
+  //    "cada moto aparece apenas 1 x na semana. conforme a data da semana e o contrato vigente na data"
+  //    - Cada moto aparece NO MÁXIMO UMA vez em cada bloco de semana, não uma linha por contrato.
+  //    - Se houver mais de um contrato da mesma moto cobrindo a semana/data, escolher deterministicamente UM:
+  //      1º) Prefira o contrato ativo;
+  //      2º) Entre encerrados (ou mesmo status), o mais recente (maior data_inicio);
+  //      3º) Desempate por id mais recente.
+  //    - O contrato não escolhido simplesmente não aparece naquela semana.
   const getActiveContratosForWeek = (
     weekStartStr: string,
     weekEndStr: string,
     isCurrentOrFutureWeek: boolean,
-  ) => {
+  ): Contrato[] => {
     const todayStr = getTodayLocalDate()
 
-    return contratos.filter((c) => {
+    // 1º Passo: Filtrar contratos elegíveis/vigentes nesta semana
+    const eligible = contratos.filter((c) => {
       // Apenas contratos 'ativo' ou 'finalizado' são elegíveis
       if (c.status !== 'ativo' && c.status !== 'finalizado') return false
 
@@ -227,6 +237,52 @@ export default function Semana() {
 
       return true
     })
+
+    // 2º Passo: Agrupar por moto e selecionar deterministicamente UM contrato vigente por moto
+    // Critérios de desempate:
+    // a) Status 'ativo' tem prioridade máxima sobre 'finalizado'
+    // b) Maior data_inicio (mais recente)
+    // c) Desempate final por id
+    const motoMap = new Map<string, Contrato>()
+
+    for (const c of eligible) {
+      const existing = motoMap.get(c.moto)
+      if (!existing) {
+        motoMap.set(c.moto, c)
+        continue
+      }
+
+      // Comparação entre c e existing
+      const cIsAtivo = c.status === 'ativo'
+      const existingIsAtivo = existing.status === 'ativo'
+
+      if (cIsAtivo && !existingIsAtivo) {
+        motoMap.set(c.moto, c)
+        continue
+      }
+      if (!cIsAtivo && existingIsAtivo) {
+        continue
+      }
+
+      // Se ambos têm o mesmo status (ambos ativos ou ambos finalizados), comparar data_inicio
+      const cInicio = parseDateStr(c.data_inicio)
+      const existingInicio = parseDateStr(existing.data_inicio)
+
+      if (cInicio > existingInicio) {
+        motoMap.set(c.moto, c)
+        continue
+      }
+      if (cInicio < existingInicio) {
+        continue
+      }
+
+      // Se até data_inicio for idêntica, desempatar por id
+      if (c.id > existing.id) {
+        motoMap.set(c.moto, c)
+      }
+    }
+
+    return Array.from(motoMap.values())
   }
 
   // Verifica se o contrato estava vigente em um dia específico (YYYY-MM-DD).
@@ -275,6 +331,9 @@ export default function Semana() {
   }
 
   // Helper to calculate cell status for a contract in a given week
+  // Regra 4: PRESERVAR as marcações históricas: se a moto tem células pagas/coloridas
+  // registradas em outras marcações/contratos da mesma moto dentro daquela semana,
+  // as células continuam mostrando o estado gravado (pago/colorido) mesmo que o contrato da linha única seja outro.
   const getCellStatus = (
     contrato: Contrato,
     weekCode: string,
@@ -283,17 +342,29 @@ export default function Semana() {
     status: 'pago' | 'pendente' | 'atraso'
     recebimento?: Recebimento
   } => {
-    // Busca pagamento registrado especificamente para este contrato
-    // Deve pertencer obrigatoriamente a este contrato (para não misturar com contratos anteriores da mesma moto)
-    // ou pertencer à mesma moto com contrato não preenchido
-    const found = recebimentos.find((r) => {
+    // 1º: Procura recebimento especificamente vinculado a este contrato vigente
+    let found = recebimentos.find((r) => {
       if (r.moto !== contrato.moto) return false
       if (r.contrato && r.contrato !== contrato.id) return false
-
       if (r.semana_ano && r.semana_ano === weekCode) return true
       if (r.data_vencimento && r.data_vencimento.startsWith(cellDateStr)) return true
       return false
     })
+
+    // 2º: Se não encontrou recebimento direto para este contrato, busca qualquer recebimento PAGO da mesma moto
+    // para esta semana/data (mesmo que atrelado a outro contrato anterior/sobreposto da moto)
+    if (!found || found.status !== 'pago') {
+      const anyPaidRecord = recebimentos.find((r) => {
+        if (r.moto !== contrato.moto) return false
+        if (r.status !== 'pago') return false
+        if (r.semana_ano && r.semana_ano === weekCode) return true
+        if (r.data_vencimento && r.data_vencimento.startsWith(cellDateStr)) return true
+        return false
+      })
+      if (anyPaidRecord) {
+        found = anyPaidRecord
+      }
+    }
 
     if (found) {
       if (found.status === 'pago') {
@@ -380,12 +451,15 @@ export default function Semana() {
       const weekCode = cellTarget.weekCode
 
       let recebimentoId = cellTarget.recebimento?.id
+      const contratoId = cellTarget.recebimento?.contrato || cellTarget.contrato.id
+      const locatarioNome =
+        cellTarget.recebimento?.locatario_nome || cellTarget.contrato.locatario_nome || ''
 
       if (!recebimentoId) {
         await recebimentosService.create({
           moto: cellTarget.moto.id,
-          contrato: cellTarget.contrato.id,
-          locatario_nome: cellTarget.contrato.locatario_nome || '',
+          contrato: contratoId,
+          locatario_nome: locatarioNome,
           data_vencimento: cellTarget.dateStr,
           data_pagamento: todayStr,
           valor: cellTarget.valor,
@@ -424,9 +498,12 @@ export default function Semana() {
       const weekCode = cellTarget.weekCode
 
       let recebimentoId = cellTarget.recebimento?.id
+      const contratoId = cellTarget.recebimento?.contrato || cellTarget.contrato.id
+      const locatarioNome =
+        cellTarget.recebimento?.locatario_nome || cellTarget.contrato.locatario_nome || ''
 
       if (!recebimentoId) {
-        // Criar novo registro de recebimento com semana_ano e vincular ao contrato
+        // Criar novo registro de recebimento com semana_ano e vincular ao contrato vigente
         const newRec = await recebimentosService.create({
           moto: cellTarget.moto.id,
           contrato: cellTarget.contrato.id,
@@ -451,10 +528,10 @@ export default function Semana() {
         recebimentoId,
         cellTarget.moto.id,
         cellTarget.valor,
-        cellTarget.contrato.locatario_nome || '',
+        locatarioNome,
         formaPagamento,
         todayStr,
-        cellTarget.contrato.id,
+        contratoId,
       )
 
       toast.success(

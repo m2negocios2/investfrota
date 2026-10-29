@@ -161,16 +161,17 @@ export function runCalendarTests(): { success: boolean; results: TestResult[] } 
     data_inicio: '2026-09-23 12:00:00.000Z',
   }
 
-  // Simulação da função getActiveContratosForWeek
+  // Simulação fiel da função getActiveContratosForWeek (com regra de unicidade por moto da 0.0.78)
   const filterHelper = (
     cList: any[],
     weekStart: string,
     weekEnd: string,
     isCurrentOrFuture: boolean,
   ) => {
-    return cList.filter((c) => {
+    const parse = (s: string) => s?.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || ''
+
+    const eligible = cList.filter((c) => {
       if (c.status !== 'ativo' && c.status !== 'finalizado') return false
-      const parse = (s: string) => s?.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || ''
       const inicio = parse(c.data_inicio)
       if (inicio && inicio > weekEnd) return false
 
@@ -185,6 +186,42 @@ export function runCalendarTests(): { success: boolean; results: TestResult[] } 
       }
       return true
     })
+
+    // Unicidade por moto: escolher deterministicamente UM contrato vigente
+    const motoMap = new Map<string, any>()
+    for (const c of eligible) {
+      const existing = motoMap.get(c.moto)
+      if (!existing) {
+        motoMap.set(c.moto, c)
+        continue
+      }
+      const cIsAtivo = c.status === 'ativo'
+      const existingIsAtivo = existing.status === 'ativo'
+
+      if (cIsAtivo && !existingIsAtivo) {
+        motoMap.set(c.moto, c)
+        continue
+      }
+      if (!cIsAtivo && existingIsAtivo) {
+        continue
+      }
+
+      const cInicio = parse(c.data_inicio)
+      const existingInicio = parse(existing.data_inicio)
+      if (cInicio > existingInicio) {
+        motoMap.set(c.moto, c)
+        continue
+      }
+      if (cInicio < existingInicio) {
+        continue
+      }
+
+      if (c.id > existing.id) {
+        motoMap.set(c.moto, c)
+      }
+    }
+
+    return Array.from(motoMap.values())
   }
 
   // Semana Atual (isCurrentOrFuture = true)
@@ -232,6 +269,107 @@ export function runCalendarTests(): { success: boolean; results: TestResult[] } 
     'Semana posterior à entrega: contrato encerrado NÃO deve aparecer',
     afterDeliveryFiltered.map((c) => c.id),
     [],
+  )
+
+  // 6. Testes da REGRA DE UNICIDADE POR MOTO (0.0.78):
+  // "cada moto aparece apenas 1 x na semana. conforme a data da semana e o contrato vigente na data"
+  // Caso A: Mesma moto com dois contratos encerrados cobrindo a mesma semana passada
+  // -> Escolhe o mais recente (maior data_inicio)
+  const cAntigoMoto1: any = {
+    id: 'c_encerrado_antigo',
+    moto: 'm_dupla',
+    status: 'finalizado',
+    data_inicio: '2026-01-10 12:00:00.000Z',
+    data_entrega: '2026-04-30 12:00:00.000Z',
+  }
+  const cRecenteMoto1: any = {
+    id: 'c_encerrado_recente',
+    moto: 'm_dupla',
+    status: 'finalizado',
+    data_inicio: '2026-03-01 12:00:00.000Z',
+    data_entrega: '2026-05-15 12:00:00.000Z',
+  }
+  // Semana em Março/2026 (2026-03-15 a 2026-03-21): ambos cobrem, mas moto deve aparecer 1x com o mais recente
+  const weekOverlapFiltered = filterHelper(
+    [cAntigoMoto1, cRecenteMoto1],
+    '2026-03-15',
+    '2026-03-21',
+    false,
+  )
+  assertEqual(
+    'Unicidade por moto: mesma moto tem no máximo 1 linha por semana',
+    weekOverlapFiltered.length,
+    1,
+  )
+  assertEqual(
+    'Unicidade por moto: entre encerrados sobrepostos, escolhe o mais recente (maior data_inicio)',
+    weekOverlapFiltered[0].id,
+    'c_encerrado_recente',
+  )
+
+  // Caso B: Mesma moto com contrato ativo e contrato encerrado na semana atual
+  const cAtivoMoto3: any = {
+    id: 'c_ativo_m3',
+    moto: 'm3',
+    status: 'ativo',
+    data_inicio: '2026-08-01 12:00:00.000Z',
+  }
+  const cEncerradoMoto3: any = {
+    id: 'c_encerrado_m3',
+    moto: 'm3',
+    status: 'finalizado',
+    data_inicio: '2026-01-01 12:00:00.000Z',
+    data_entrega: '2026-07-31 12:00:00.000Z',
+  }
+  const weekCurrentOverlap = filterHelper(
+    [cEncerradoMoto3, cAtivoMoto3],
+    '2026-10-25',
+    '2026-10-31',
+    true,
+  )
+  assertEqual(
+    'Semana atual com múltiplos contratos da mesma moto: seleciona apenas 1 linha (o ativo)',
+    weekCurrentOverlap.map((c) => c.id),
+    ['c_ativo_m3'],
+  )
+
+  // Caso C: Duas motos diferentes no mesmo bloco semanal -> cada moto tem exatamente 1 linha (total 2 linhas)
+  const cMotoA1: any = {
+    id: 'c_motoA_1',
+    moto: 'motoA',
+    status: 'finalizado',
+    data_inicio: '2026-02-01 12:00:00.000Z',
+    data_entrega: '2026-04-10 12:00:00.000Z',
+  }
+  const cMotoA2: any = {
+    id: 'c_motoA_2',
+    moto: 'motoA',
+    status: 'finalizado',
+    data_inicio: '2026-03-01 12:00:00.000Z',
+    data_entrega: '2026-05-10 12:00:00.000Z',
+  }
+  const cMotoB1: any = {
+    id: 'c_motoB_1',
+    moto: 'motoB',
+    status: 'finalizado',
+    data_inicio: '2026-01-01 12:00:00.000Z',
+    data_entrega: '2026-06-01 12:00:00.000Z',
+  }
+  const multipleMotosFiltered = filterHelper(
+    [cMotoA1, cMotoA2, cMotoB1],
+    '2026-03-15',
+    '2026-03-21',
+    false,
+  )
+  assertEqual(
+    'Múltiplas motos: cada moto aparece exatamente 1 vez na semana',
+    multipleMotosFiltered.map((c) => c.moto).sort(),
+    ['motoA', 'motoB'],
+  )
+  assertEqual(
+    'Múltiplas motos: para motoA foi selecionado o mais recente',
+    multipleMotosFiltered.find((c) => c.moto === 'motoA')?.id,
+    'c_motoA_2',
   )
 
   const allPassed = results.every((r) => r.passed)
