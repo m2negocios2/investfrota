@@ -47,6 +47,11 @@ export default function Layout() {
   }, [isAuthenticated, location.pathname])
 
   const navigation = [
+    {
+      name: 'CADASTROS',
+      href: '/cadastros',
+      icon: Building2,
+    },
     { name: 'PAINEL GERAL', href: '/', icon: LayoutDashboard },
     { name: 'MOTOS', href: '/motos', icon: Bike },
     { name: 'ALUGUÉIS & CONTRATOS', href: '/alugueis', icon: KeyRound },
@@ -54,15 +59,9 @@ export default function Layout() {
     { name: 'LANÇAMENTOS RÁPIDOS', href: '/lancamentos-rapidos', icon: Zap },
     { name: 'FLUXO DE CAIXA', href: '/caixa', icon: Wallet },
     { name: 'MÊS', href: '/mes', icon: CalendarRange },
-    { name: 'CONTAS A PAGAR', href: '/contas-a-pagar', icon: CreditCard },
     { name: 'SEMANA', href: '/semana', icon: CalendarDays },
+    { name: 'CONTAS A PAGAR', href: '/contas-a-pagar', icon: CreditCard },
     { name: 'CAUÇÕES', href: '/caucoes', icon: Shield },
-    {
-      name: 'CADASTROS',
-      href: '/cadastros',
-      icon: Building2,
-    },
-    { name: 'RELATÓRIOS', href: '/relatorios', icon: TrendingUp },
     {
       name: 'INFRAÇÕES',
       href: '/infracoes',
@@ -70,6 +69,7 @@ export default function Layout() {
       badge: pendingInfracoes.length > 0 ? pendingInfracoes.length : undefined,
     },
     { name: 'LEMBRETES', href: '/pendencias', icon: ListTodo },
+    { name: 'RELATÓRIOS', href: '/relatorios', icon: TrendingUp },
   ]
 
   const handleLogout = () => {
