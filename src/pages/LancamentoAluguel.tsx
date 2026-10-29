@@ -139,10 +139,9 @@ export default function LancamentoAluguel() {
     setSubmitting(true)
 
     try {
-      // 1. Criar lançamento de RECEITA do aluguel no Fluxo de Caixa (mesma descrição do sistema)
-      const descReceita = locatarioNome
-        ? `Recebimento de aluguel - ${locatarioNome}`
-        : `Recebimento de aluguel - ${motoNomeDisplay}`
+      // 1. Criar lançamento de RECEITA do aluguel no Fluxo de Caixa
+      // Regra pedida: na tela Lançamento Aluguel do menu, a descrição deve ser apenas 'Aluguel'
+      const descReceita = 'Aluguel'
 
       const receitaCriada = await caixaService.create({
         moto: selectedMotoId,
@@ -163,16 +162,23 @@ export default function LancamentoAluguel() {
       let comissaoCriada: CaixaLancamento | null = null
 
       if (!semComissao && percentualComissao > 0) {
-        // Reusar serviço existente de comissão do caixa (mantendo deduplicação, data e descrição exatas)
-        comissaoCriada = await caixaService.registrarComissaoSeAplicavel({
-          contratoId: activeContract.id,
-          motoId: selectedMotoId,
-          valorReceita: valorNumerico,
-          dataReceita: dataInput || getTodayLocalDate(),
-          locatarioNome,
-          motoIdentificacao: motoNomeDisplay,
-          formaPagamento: 'pix',
-        })
+        // Calcular valor da comissão
+        const valorComissao = Number(((valorNumerico * percentualComissao) / 100).toFixed(2))
+        if (valorComissao > 0) {
+          // Lançar despesa de comissão no Caixa
+          comissaoCriada = await caixaService.create({
+            moto: selectedMotoId,
+            tipo: 'saida',
+            descricao: 'Comissão',
+            categoria: 'Comissão',
+            valor: valorComissao,
+            data: safeDataMidday,
+            forma_pagamento: 'pix',
+            comissao_de: activeContract.id,
+            recebimento: '',
+            observacoes: `Comissão automática de ${percentualComissao}% sobre receita de R$ ${valorNumerico.toFixed(2)}`,
+          })
+        }
       }
 
       // 3. Feedback visual para a usuária conforme o resultado

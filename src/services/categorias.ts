@@ -31,7 +31,13 @@ export const categoriasService = {
           created: '',
           updated: '',
         },
-        { id: 'cat-4', nome: 'Seguro', descricao: 'Proteção veicular', created: '', updated: '' },
+        {
+          id: 'cat-4',
+          nome: 'SEGURANÇA',
+          descricao: 'Seguro contra terceiros, furto e roubo',
+          created: '',
+          updated: '',
+        },
         {
           id: 'cat-5',
           nome: 'Rastreador GPS',
