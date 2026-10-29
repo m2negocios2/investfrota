@@ -9,6 +9,7 @@ import {
   Calendar,
   Building,
   DollarSign,
+  TrendingUp,
   TrendingDown,
   Trash2,
   Edit2,
@@ -132,8 +133,13 @@ export default function ContasAPagar() {
   const [deletePagId, setDeletePagId] = useState<string | null>(null)
   const [deletePagContaId, setDeletePagContaId] = useState<string | null>(null)
 
-  // Alerta de Exclusão de Conta
+  // Alerta de Exclusão de Conta a Pagar
   const [deleteContaTarget, setDeleteContaTarget] = useState<ContaAPagarComProgresso | null>(null)
+
+  // Alerta de Exclusão de Conta a Receber
+  const [deleteContaReceberTarget, setDeleteContaReceberTarget] = useState<ContaAReceber | null>(
+    null,
+  )
 
   const loadData = async () => {
     setLoading(true)
@@ -438,6 +444,19 @@ export default function ContasAPagar() {
     }
   }
 
+  const handleConfirmDeleteContaReceber = async () => {
+    if (!deleteContaReceberTarget) return
+    try {
+      await contasAReceberService.delete(deleteContaReceberTarget.id)
+      toast.success('Conta a receber excluída com sucesso!')
+      setDeleteContaReceberTarget(null)
+      loadData()
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao excluir conta a receber')
+    }
+  }
+
   // Filtragem
   const filteredContas = contas.filter((c) => {
     const q = search.toLowerCase().trim()
@@ -711,16 +730,27 @@ export default function ContasAPagar() {
                           )}
                         </div>
 
-                        {!isRecebida && (
+                        <div className="flex items-center gap-1.5">
+                          {!isRecebida && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleOpenRecebimento(cr)}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Registrar Recebimento
+                            </Button>
+                          )}
                           <Button
-                            size="sm"
-                            onClick={() => handleOpenRecebimento(cr)}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                            title="Excluir Conta a Receber"
+                            onClick={() => setDeleteContaReceberTarget(cr)}
                           >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Registrar Recebimento
+                            <Trash2 className="w-3.5 h-3.5" />
                           </Button>
-                        )}
+                        </div>
                       </div>
                     </div>
                   </Card>
@@ -728,6 +758,42 @@ export default function ContasAPagar() {
               })}
             </div>
           )}
+
+          {/* Diálogo de Confirmação de Exclusão de Conta a Receber */}
+          <AlertDialog
+            open={!!deleteContaReceberTarget}
+            onOpenChange={(open) => !open && setDeleteContaReceberTarget(null)}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Excluir Conta a Receber?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tem certeza que deseja excluir a conta a receber{' '}
+                  <strong>"{deleteContaReceberTarget?.descricao}"</strong> (Devedor:{' '}
+                  {deleteContaReceberTarget?.devedor}, Valor: R${' '}
+                  {Number(deleteContaReceberTarget?.valor || 0).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                  })}
+                  )?
+                  {deleteContaReceberTarget?.caixa_lancamento && (
+                    <span className="block mt-2 text-red-600 dark:text-red-400 font-semibold">
+                      Atenção: o lançamento de entrada associado a esta conta no Fluxo de Caixa
+                      também será removido.
+                    </span>
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleConfirmDeleteContaReceber}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Excluir
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       )}
 

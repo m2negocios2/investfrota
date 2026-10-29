@@ -25,7 +25,8 @@ import { motosService } from '@/services/motos'
 import { contratosService } from '@/services/contratos'
 import { recebimentosService } from '@/services/recebimentos'
 import { caixaService } from '@/services/caixa'
-import { Moto, Contrato, Recebimento, CaixaLancamento } from '@/types/database'
+import { contasAReceberService } from '@/services/contasAReceber'
+import { Moto, Contrato, Recebimento, CaixaLancamento, ContaAReceber } from '@/types/database'
 import { formatDateDisplay } from '@/lib/dateUtils'
 
 export default function Dashboard() {
@@ -34,20 +35,23 @@ export default function Dashboard() {
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
   const [caixa, setCaixa] = useState<CaixaLancamento[]>([])
+  const [contasReceber, setContasReceber] = useState<ContaAReceber[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadData = async () => {
     try {
-      const [m, c, r, cx] = await Promise.all([
+      const [m, c, r, cx, cr] = await Promise.all([
         motosService.getAll(),
         contratosService.getAll(),
         recebimentosService.getAll(),
         caixaService.getAll(),
+        contasAReceberService.getAll(),
       ])
       setMotos(m)
       setContratos(c)
       setRecebimentos(r)
       setCaixa(cx)
+      setContasReceber(cr)
     } catch (err) {
       console.error('Erro ao carregar dados do painel:', err)
     } finally {
@@ -93,6 +97,10 @@ export default function Dashboard() {
   const totalSaidas = caixa.filter((c) => c.tipo === 'saida').reduce((acc, c) => acc + c.valor, 0)
   const saldoCaixa = totalEntradas - totalSaidas
 
+  // Contas a Receber (Vendas de motos a prazo / pendentes)
+  const contasReceberAbertas = contasReceber.filter((c) => c.status === 'em_aberto')
+  const totalVendasAReceber = contasReceberAbertas.reduce((acc, c) => acc + Number(c.valor || 0), 0)
+
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
@@ -128,6 +136,47 @@ export default function Dashboard() {
           </Button>
         </div>
       </div>
+
+      {/* Card/Alerta de Vendas a Receber (quando houver valores pendentes) */}
+      {contasReceberAbertas.length > 0 && (
+        <Card className="border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-xs">
+          <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-600 text-white rounded-lg shrink-0 shadow-xs">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                    A Receber de Vendas
+                  </span>
+                  <Badge className="bg-emerald-600 text-white text-[10px] px-1.5 py-0 font-bold">
+                    {contasReceberAbertas.length}{' '}
+                    {contasReceberAbertas.length === 1 ? 'pendência' : 'pendências'}
+                  </Badge>
+                </div>
+                <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-0.5">
+                  R$ {totalVendasAReceber.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Valores de vendas de motos aguardando quitação/recebimento
+                </p>
+              </div>
+            </div>
+
+            <Button
+              asChild
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 shrink-0 self-start sm:self-center"
+            >
+              <Link to="/contas-pagar">
+                Ver Contas a Receber
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* KPI Cards Grid: 3 cards responsivos mantendo Frota, Previsão Semanal e Atrasos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
