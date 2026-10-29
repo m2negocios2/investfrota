@@ -13,6 +13,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Calendar,
+  Circle,
+  CircleCheck,
+  Wrench,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -237,33 +240,52 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {motos.slice(0, 5).map((moto) => {
-                    const statusColors: Record<string, string> = {
-                      disponivel:
-                        'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300',
-                      locada:
-                        'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300',
-                      manutencao:
-                        'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300',
-                      em_loja_detran:
-                        'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300',
+                  {motos.map((moto) => {
+                    const statusConfig = {
+                      disponivel: {
+                        label: 'Disponível',
+                        color:
+                          'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300',
+                        icon: Circle,
+                      },
+                      locada: {
+                        label: 'Locada',
+                        color:
+                          'bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950/50 dark:text-orange-300 dark:border-orange-800',
+                        icon: CircleCheck,
+                      },
+                      manutencao: {
+                        label: 'Em Manutenção',
+                        color:
+                          'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300',
+                        icon: Wrench,
+                      },
+                      em_loja_detran: {
+                        label: 'Em Loja/Detran',
+                        color:
+                          'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300',
+                        icon: Clock,
+                      },
                     }
+                    const statusInfo = statusConfig[moto.status] || {
+                      label: moto.status,
+                      color: 'bg-slate-100 text-slate-700 border-slate-200',
+                      icon: Bike,
+                    }
+                    const StatusIcon = statusInfo.icon
+
                     const valorSem =
                       moto.valor_semanal !== undefined && moto.valor_semanal !== null
                         ? moto.valor_semanal
                         : (moto.valor_diario || 0) * 7
-                    const statusLabel =
-                      moto.status === 'em_loja_detran'
-                        ? 'Em Loja/Detran'
-                        : moto.status === 'disponivel'
-                          ? 'Disponível'
-                          : moto.status === 'locada'
-                            ? 'Locada'
-                            : 'Manutenção'
+
                     return (
-                      <div key={moto.id} className="py-3 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300">
+                      <div
+                        key={moto.id}
+                        className="py-3 flex items-center justify-between gap-3 sm:gap-4"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300 shrink-0">
                             <Bike className="w-5 h-5" />
                           </div>
                           <div className="min-w-0">
@@ -271,25 +293,26 @@ export default function Dashboard() {
                               {moto.nome || moto.modelo}
                             </p>
                             <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                              <span className="font-mono font-semibold px-1 py-0.2 bg-slate-100 dark:bg-slate-800 rounded border">
+                              <span className="font-mono font-semibold px-1 py-0.2 bg-slate-100 dark:bg-slate-800 rounded border shrink-0">
                                 {moto.placa}
                               </span>
-                              <span>• {moto.modelo}</span>
+                              <span className="truncate">• {moto.modelo}</span>
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                           <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 hidden sm:inline">
                             R$ {valorSem.toFixed(0)}/sem
                           </span>
                           <Badge
                             variant="outline"
-                            className={`text-xs ${statusColors[moto.status] || 'bg-slate-100'}`}
+                            className={`text-[11px] sm:text-xs px-2 py-0.5 font-medium flex items-center gap-1 shrink-0 ${statusInfo.color}`}
                           >
-                            {statusLabel}
+                            <StatusIcon className="w-3 h-3" />
+                            <span>{statusInfo.label}</span>
                           </Badge>
                           <Button asChild variant="ghost" size="sm" className="h-8 px-2">
-                            <Link to={`/motos/${moto.id}`}>
+                            <Link to={`/motos/${moto.id}`} title="Ver ficha da moto">
                               <ArrowRight className="w-4 h-4" />
                             </Link>
                           </Button>
@@ -410,10 +433,10 @@ export default function Dashboard() {
                   variant="outline"
                   className="text-[10px] bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-300"
                 >
-                  5 Disponíveis
+                  6 Disponíveis
                 </Badge>
               </div>
-              <CardDescription>Acesse Payback, Indicadores, DREs e Balanço</CardDescription>
+              <CardDescription>Acesse Payback, Indicadores, DREs, Balanço e KPIs</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
               <p className="text-xs text-muted-foreground">

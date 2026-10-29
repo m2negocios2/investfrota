@@ -53,10 +53,15 @@ import {
 } from '@/lib/semanaCalendar'
 
 // Data limite para semanas neutras solicitada pela usuária:
-// "tudo da semana 03 de outubro para trás deixe neutro"
-// Semana 1 de Outubro/2026 no padrão 4-4-5 vai de 04/10/2026 (domingo) a 10/10/2026 (sábado).
-// Portanto, qualquer semana cujo domingo de início for anterior a 2026-10-04 é renderizada em visual neutro (tons de cinza).
-const NEUTRAL_WEEKS_CUTOFF_DATE_STR = '2026-10-04'
+// "deixar apenas as 2 ÚLTIMAS semanas de outubro com cor, o resto neutro"
+// No padrão 4-4-5 de Outubro/2026 (4 semanas de domingo a sábado):
+// - Semana 1: 04/10/2026 a 10/10/2026 (neutra)
+// - Semana 2: 11/10/2026 a 17/10/2026 (neutra)
+// - Semana 3: 18/10/2026 a 24/10/2026 (colorida - penúltima)
+// - Semana 4: 25/10/2026 a 31/10/2026 (colorida - última)
+// Portanto, qualquer semana cujo domingo de início for anterior a 2026-10-18 é renderizada em visual neutro (tons de cinza).
+// Apenas as duas últimas semanas de outubro (a partir de 18/10/2026) mantêm o visual colorido normal.
+const NEUTRAL_WEEKS_CUTOFF_DATE_STR = '2026-10-18'
 
 export default function Semana() {
   const [motos, setMotos] = useState<Moto[]>([])
@@ -750,8 +755,8 @@ export default function Semana() {
           const todayWeekStartStr = todayWeekDates['DOM'].dateStr
           const isCurrentOrFutureWeek = weekInfo.isCurrent || weekStartStr >= todayWeekStartStr
 
-          // Regra da usuária: "tudo da semana 03 de outubro para trás deixe neutro"
-          // Semanas anteriores à semana de 04 a 10/10/2026 (Semana 1 de Outubro) ficam em visual neutro (tons de cinza apagados).
+          // Regra da usuária: "deixar apenas as 2 ÚLTIMAS semanas de outubro com cor, o resto neutro"
+          // Semanas anteriores a 18/10/2026 (as 2 primeiras de outubro, setembro e meses anteriores) ficam em visual neutro (tons de cinza).
           const isNeutralWeek = weekStartStr < NEUTRAL_WEEKS_CUTOFF_DATE_STR
 
           // Contratos ativos específicos desta semana (respeitando regra da usuária)

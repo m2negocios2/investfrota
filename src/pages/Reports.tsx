@@ -16,6 +16,12 @@ import {
   Activity,
   Layers,
   ChevronDown,
+  Gauge,
+  Wallet,
+  AlertTriangle,
+  Wrench,
+  Clock,
+  Sparkles,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -32,7 +38,14 @@ import { motosService } from '@/services/motos'
 import { contratosService } from '@/services/contratos'
 import { caixaService } from '@/services/caixa'
 import { recebimentosService } from '@/services/recebimentos'
-import { Moto, Contrato, CaixaLancamento, Recebimento } from '@/types/database'
+import { contasAPagarService } from '@/services/contasAPagar'
+import {
+  Moto,
+  Contrato,
+  CaixaLancamento,
+  Recebimento,
+  ContaAPagarComProgresso,
+} from '@/types/database'
 import { PaybackTab } from '@/components/PaybackTab'
 
 export default function Reports() {
@@ -40,6 +53,7 @@ export default function Reports() {
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [caixa, setCaixa] = useState<CaixaLancamento[]>([])
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
+  const [contasAPagar, setContasAPagar] = useState<ContaAPagarComProgresso[]>([])
   const [loading, setLoading] = useState(true)
 
   // Filters for DRE and Balanço
@@ -51,16 +65,18 @@ export default function Reports() {
 
   const loadData = async () => {
     try {
-      const [m, c, cx, r] = await Promise.all([
+      const [m, c, cx, r, cp] = await Promise.all([
         motosService.getAll(),
         contratosService.getAll(),
         caixaService.getAll(),
         recebimentosService.getAll(),
+        contasAPagarService.getAllWithProgresso(),
       ])
       setMotos(m)
       setContratos(c)
       setCaixa(cx)
       setRecebimentos(r)
+      setContasAPagar(cp)
     } catch (err) {
       console.error(err)
     } finally {
@@ -131,6 +147,16 @@ export default function Reports() {
     )
     .reduce((acc, c) => acc + c.valor, 0)
 
+  // Comissões pagas no mês (despesas com comissão / sócios / parceiros)
+  const comissoesMes = caixaDoMes
+    .filter(
+      (c) =>
+        c.tipo === 'saida' &&
+        (c.categoria?.toLowerCase().includes('comiss') ||
+          c.descricao?.toLowerCase().includes('comiss')),
+    )
+    .reduce((acc, c) => acc + c.valor, 0)
+
   // Despesas Administrativas & Outros (Rastreador, Seguro, Documentação, Taxas)
   const despesasFixasMes = caixaDoMes
     .filter(
@@ -148,6 +174,33 @@ export default function Reports() {
   const lucroLiquidoMes = receitaBrutaMes - totalDespesasMes
   const margemBrutaMes = receitaBrutaMes > 0 ? (lucroBrutoMes / receitaBrutaMes) * 100 : 0
   const margemLiquidaMes = receitaBrutaMes > 0 ? (lucroLiquidoMes / receitaBrutaMes) * 100 : 0
+
+  // ----------------------------------------------------------------------
+  // DRE MÊS ANTERIOR (para comparação de performance MoM)
+  // ----------------------------------------------------------------------
+  const prevMonthIndex = selectedMonth === 1 ? 12 : selectedMonth - 1
+  const prevMonthYear = selectedMonth === 1 ? selectedYear - 1 : selectedYear
+
+  const caixaDoMesAnterior = caixa.filter((c) => {
+    if (!c.data) return false
+    const d = new Date(c.data)
+    return d.getFullYear() === prevMonthYear && d.getMonth() + 1 === prevMonthIndex
+  })
+
+  const receitaBrutaMesAnterior = caixaDoMesAnterior
+    .filter((c) => c.tipo === 'entrada')
+    .reduce((acc, c) => acc + c.valor, 0)
+
+  const totalDespesasMesAnterior = caixaDoMesAnterior
+    .filter((c) => c.tipo === 'saida')
+    .reduce((acc, c) => acc + c.valor, 0)
+
+  const lucroLiquidoMesAnterior = receitaBrutaMesAnterior - totalDespesasMesAnterior
+
+  const crescimentoReceitaMoM =
+    receitaBrutaMesAnterior > 0
+      ? ((receitaBrutaMes - receitaBrutaMesAnterior) / receitaBrutaMesAnterior) * 100
+      : null
 
   // ----------------------------------------------------------------------
   // DRE ANUAL (todo o ano selecionado)
@@ -173,6 +226,15 @@ export default function Reports() {
     )
     .reduce((acc, c) => acc + c.valor, 0)
 
+  const comissoesAno = caixaDoAno
+    .filter(
+      (c) =>
+        c.tipo === 'saida' &&
+        (c.categoria?.toLowerCase().includes('comiss') ||
+          c.descricao?.toLowerCase().includes('comiss')),
+    )
+    .reduce((acc, c) => acc + c.valor, 0)
+
   const despesasFixasAno = caixaDoAno
     .filter(
       (c) =>
@@ -188,6 +250,54 @@ export default function Reports() {
   const lucroBrutoAno = receitaBrutaAno - custosOperacionaisAno
   const lucroLiquidoAno = receitaBrutaAno - totalDespesasAno
   const margemLiquidaAno = receitaBrutaAno > 0 ? (lucroLiquidoAno / receitaBrutaAno) * 100 : 0
+
+  // ----------------------------------------------------------------------
+  // KPIS ESPECÍFICOS DE LOCAÇÃO DE MOTOS
+  // ----------------------------------------------------------------------
+  // Contratos ativos para ticket médio
+  const activeContracts = contratos.filter((c) => c.status === 'ativo')
+  const ticketMedioSemanal =
+    activeContracts.length > 0
+      ? activeContracts.reduce(
+          (acc, c) => acc + (c.valor_semanal || (c.valor_diario ? c.valor_diario * 7 : 0)),
+          0,
+        ) / activeContracts.length
+      : 0
+
+  // Ticket médio geral das motos da frota cadastradas
+  const ticketMedioFrota =
+    totalMotos > 0
+      ? motos.reduce(
+          (acc, m) =>
+            acc +
+            (m.valor_semanal !== undefined && m.valor_semanal !== null
+              ? m.valor_semanal
+              : (m.valor_diario || 0) * 7),
+          0,
+        ) / totalMotos
+      : 0
+
+  // Custo médio de manutenção por moto no mês e no ano
+  const custoManutencaoPorMotoMes = totalMotos > 0 ? custosOperacionaisMes / totalMotos : 0
+  const custoManutencaoPorMotoAno = totalMotos > 0 ? custosOperacionaisAno / totalMotos : 0
+
+  // Estimativa de Payback Médio da Frota (em meses)
+  // Receita média líquida gerada por moto por mês:
+  const lucroLiquidoMedioPorMotoMes =
+    totalMotos > 0
+      ? lucroLiquidoAno > 0
+        ? lucroLiquidoAno / 12 / totalMotos
+        : lucroLiquidoMes / totalMotos
+      : 0
+  const paybackMedioMeses =
+    lucroLiquidoMedioPorMotoMes > 0
+      ? Math.round(valorMedioMoto / lucroLiquidoMedioPorMotoMes)
+      : null
+
+  // Contas a Pagar Pendentes
+  const totalContasAPagarPendente = contasAPagar
+    .filter((c) => !c.concluida)
+    .reduce((acc, c) => acc + (c.saldoRestante ?? c.valor_total - (c.totalPago || 0)), 0)
 
   // ----------------------------------------------------------------------
   // BALANÇO PATRIMONIAL SIMPLIFICADO
@@ -244,7 +354,7 @@ export default function Reports() {
             Relatórios
           </h1>
           <p className="text-sm text-muted-foreground">
-            Relatórios administrativos e contábeis da <strong>M2 Gestão de Motos</strong>.
+            Relatórios administrativos, contábeis e KPIs da <strong>M2 Gestão de Motos</strong>.
           </p>
         </div>
 
@@ -301,212 +411,278 @@ export default function Reports() {
             Lista de Relatórios Disponíveis (Clique para Visualizar)
           </h2>
           <span className="text-xs text-muted-foreground hidden sm:inline">
-            5 relatórios disponíveis
+            6 relatórios disponíveis
           </span>
         </div>
 
-        {/* Duas Colunas: Administrativos à Esquerda | Contábeis à Direita (itens em lista vertical um abaixo do outro com botões de tamanho uniforme) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Três Colunas: Administrativos | Contábeis | KPI (itens em lista vertical um abaixo do outro com botões de tamanho uniforme) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Coluna 1: Administrativos (Esquerda) */}
-          <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950">
-            <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
-                    <TrendingUp className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                      Administrativos
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      Gestão operacional, retorno por moto e indicadores
-                    </CardDescription>
-                  </div>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="text-[10px] font-semibold bg-white dark:bg-slate-900"
-                >
-                  2 relatórios
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-3 pb-3">
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveReportTab('payback')}
-                  className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
-                    activeReportTab === 'payback'
-                      ? 'border-blue-600 bg-blue-50/90 dark:bg-blue-950/60 shadow-sm ring-2 ring-blue-500 text-blue-900 dark:text-blue-100'
-                      : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`p-2 rounded-lg shrink-0 ${
-                        activeReportTab === 'payback'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                      }`}
-                    >
+          <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 flex flex-col justify-between">
+            <div>
+              <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
                       <TrendingUp className="w-4 h-4" />
                     </div>
-                    <span className="text-sm font-bold truncate">Payback por Moto</span>
-                  </div>
-                  {activeReportTab === 'payback' && (
-                    <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px] font-bold shrink-0">
-                      Visualizando
-                    </Badge>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveReportTab('indices')}
-                  className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
-                    activeReportTab === 'indices'
-                      ? 'border-blue-600 bg-blue-50/90 dark:bg-blue-950/60 shadow-sm ring-2 ring-blue-500 text-blue-900 dark:text-blue-100'
-                      : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`p-2 rounded-lg shrink-0 ${
-                        activeReportTab === 'indices'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                      }`}
-                    >
-                      <Activity className="w-4 h-4" />
+                    <div>
+                      <CardTitle className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                        Administrativos
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Gestão operacional e retorno por moto
+                      </CardDescription>
                     </div>
-                    <span className="text-sm font-bold truncate">Índices & Indicadores</span>
                   </div>
-                  {activeReportTab === 'indices' && (
-                    <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px] font-bold shrink-0">
-                      Visualizando
-                    </Badge>
-                  )}
-                </button>
-              </div>
-            </CardContent>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-semibold bg-white dark:bg-slate-900"
+                  >
+                    2 relatórios
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-3 pb-3">
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveReportTab('payback')}
+                    className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
+                      activeReportTab === 'payback'
+                        ? 'border-blue-600 bg-blue-50/90 dark:bg-blue-950/60 shadow-sm ring-2 ring-blue-500 text-blue-900 dark:text-blue-100'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 ${
+                          activeReportTab === 'payback'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <TrendingUp className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-bold truncate">Payback por Moto</span>
+                    </div>
+                    {activeReportTab === 'payback' && (
+                      <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px] font-bold shrink-0">
+                        Visualizando
+                      </Badge>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveReportTab('indices')}
+                    className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
+                      activeReportTab === 'indices'
+                        ? 'border-blue-600 bg-blue-50/90 dark:bg-blue-950/60 shadow-sm ring-2 ring-blue-500 text-blue-900 dark:text-blue-100'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 ${
+                          activeReportTab === 'indices'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <Activity className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-bold truncate">Índices & Indicadores</span>
+                    </div>
+                    {activeReportTab === 'indices' && (
+                      <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px] font-bold shrink-0">
+                        Visualizando
+                      </Badge>
+                    )}
+                  </button>
+                </div>
+              </CardContent>
+            </div>
           </Card>
 
-          {/* Coluna 2: Contábeis (Direita) */}
-          <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950">
-            <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
-                    <FileSpreadsheet className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                      Contábeis
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      Demonstrações financeiras, DRE e balanço
-                    </CardDescription>
-                  </div>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="text-[10px] font-semibold bg-white dark:bg-slate-900"
-                >
-                  3 relatórios
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-3 pb-3">
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveReportTab('dre-mensal')}
-                  className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
-                    activeReportTab === 'dre-mensal'
-                      ? 'border-emerald-600 bg-emerald-50/90 dark:bg-emerald-950/60 shadow-sm ring-2 ring-emerald-500 text-emerald-900 dark:text-emerald-100'
-                      : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`p-2 rounded-lg shrink-0 ${
-                        activeReportTab === 'dre-mensal'
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                      }`}
-                    >
+          {/* Coluna 2: Contábeis (Centro) */}
+          <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 flex flex-col justify-between">
+            <div>
+              <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
                       <FileSpreadsheet className="w-4 h-4" />
                     </div>
-                    <span className="text-sm font-bold truncate">DRE Mensal</span>
-                  </div>
-                  {activeReportTab === 'dre-mensal' && (
-                    <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] font-bold shrink-0">
-                      Visualizando
-                    </Badge>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveReportTab('dre-anual')}
-                  className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
-                    activeReportTab === 'dre-anual'
-                      ? 'border-emerald-600 bg-emerald-50/90 dark:bg-emerald-950/60 shadow-sm ring-2 ring-emerald-500 text-emerald-900 dark:text-emerald-100'
-                      : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`p-2 rounded-lg shrink-0 ${
-                        activeReportTab === 'dre-anual'
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                      }`}
-                    >
-                      <Calendar className="w-4 h-4" />
+                    <div>
+                      <CardTitle className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                        Contábeis
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Demonstrações financeiras, DRE e balanço
+                      </CardDescription>
                     </div>
-                    <span className="text-sm font-bold truncate">DRE Anual</span>
                   </div>
-                  {activeReportTab === 'dre-anual' && (
-                    <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] font-bold shrink-0">
-                      Visualizando
-                    </Badge>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveReportTab('balanco')}
-                  className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
-                    activeReportTab === 'balanco'
-                      ? 'border-emerald-600 bg-emerald-50/90 dark:bg-emerald-950/60 shadow-sm ring-2 ring-emerald-500 text-emerald-900 dark:text-emerald-100'
-                      : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`p-2 rounded-lg shrink-0 ${
-                        activeReportTab === 'balanco'
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                      }`}
-                    >
-                      <Scale className="w-4 h-4" />
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-semibold bg-white dark:bg-slate-900"
+                  >
+                    3 relatórios
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-3 pb-3">
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveReportTab('dre-mensal')}
+                    className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
+                      activeReportTab === 'dre-mensal'
+                        ? 'border-emerald-600 bg-emerald-50/90 dark:bg-emerald-950/60 shadow-sm ring-2 ring-emerald-500 text-emerald-900 dark:text-emerald-100'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 ${
+                          activeReportTab === 'dre-mensal'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-bold truncate">DRE Mensal</span>
                     </div>
-                    <span className="text-sm font-bold truncate">
-                      Balanço Patrimonial Simplificado
-                    </span>
+                    {activeReportTab === 'dre-mensal' && (
+                      <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] font-bold shrink-0">
+                        Visualizando
+                      </Badge>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveReportTab('dre-anual')}
+                    className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
+                      activeReportTab === 'dre-anual'
+                        ? 'border-emerald-600 bg-emerald-50/90 dark:bg-emerald-950/60 shadow-sm ring-2 ring-emerald-500 text-emerald-900 dark:text-emerald-100'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 ${
+                          activeReportTab === 'dre-anual'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <Calendar className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-bold truncate">DRE Anual</span>
+                    </div>
+                    {activeReportTab === 'dre-anual' && (
+                      <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] font-bold shrink-0">
+                        Visualizando
+                      </Badge>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveReportTab('balanco')}
+                    className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
+                      activeReportTab === 'balanco'
+                        ? 'border-emerald-600 bg-emerald-50/90 dark:bg-emerald-950/60 shadow-sm ring-2 ring-emerald-500 text-emerald-900 dark:text-emerald-100'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 ${
+                          activeReportTab === 'balanco'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <Scale className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-bold truncate">
+                        Balanço Patrimonial Simplificado
+                      </span>
+                    </div>
+                    {activeReportTab === 'balanco' && (
+                      <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] font-bold shrink-0">
+                        Visualizando
+                      </Badge>
+                    )}
+                  </button>
+                </div>
+              </CardContent>
+            </div>
+          </Card>
+
+          {/* Coluna 3: KPI (Direita) */}
+          <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 flex flex-col justify-between">
+            <div>
+              <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
+                      <Gauge className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                        KPI
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Desempenho e métricas vitais da locação
+                      </CardDescription>
+                    </div>
                   </div>
-                  {activeReportTab === 'balanco' && (
-                    <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] font-bold shrink-0">
-                      Visualizando
-                    </Badge>
-                  )}
-                </button>
-              </div>
-            </CardContent>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-semibold bg-white dark:bg-slate-900"
+                  >
+                    1 relatório
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-3 pb-3">
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveReportTab('kpi-performance')}
+                    className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
+                      activeReportTab === 'kpi-performance'
+                        ? 'border-purple-600 bg-purple-50/90 dark:bg-purple-950/60 shadow-sm ring-2 ring-purple-500 text-purple-900 dark:text-purple-100'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-purple-300 dark:hover:border-purple-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 ${
+                          activeReportTab === 'kpi-performance'
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <Gauge className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-bold truncate">
+                        Principais Índices de Performance
+                      </span>
+                    </div>
+                    {activeReportTab === 'kpi-performance' && (
+                      <Badge className="bg-purple-600 hover:bg-purple-600 text-white text-[10px] font-bold shrink-0">
+                        Visualizando
+                      </Badge>
+                    )}
+                  </button>
+                </div>
+              </CardContent>
+            </div>
           </Card>
         </div>
       </div>
@@ -947,6 +1123,366 @@ export default function Reports() {
                 </p>
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 5: PRINCIPAIS ÍNDICES DE PERFORMANCE (KPI) */}
+        {/* ========================================================================= */}
+        {activeReportTab === 'kpi-performance' && (
+          <div className="space-y-6">
+            {/* Header explicativo do KPI */}
+            <Card className="border-purple-200 dark:border-purple-900/60 bg-gradient-to-r from-purple-50/70 via-white to-blue-50/50 dark:from-purple-950/20 dark:via-slate-900 dark:to-blue-950/20 shadow-sm">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-lg font-bold flex items-center gap-2 text-slate-900 dark:text-white">
+                      <Gauge className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                      Principais Índices de Performance (KPI) — {monthNames[selectedMonth - 1]}/
+                      {selectedYear}
+                    </CardTitle>
+                    <CardDescription className="text-xs mt-1">
+                      Métricas e indicadores de alto nível para tomada de decisão no negócio de
+                      locação de motos M2.
+                    </CardDescription>
+                  </div>
+                  <Badge className="bg-purple-600 text-white font-semibold text-xs shrink-0 self-start sm:self-auto">
+                    Visão Consolidada
+                  </Badge>
+                </div>
+              </CardHeader>
+            </Card>
+
+            {/* Destaques Principais: 4 cartões de grande visibilidade */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* 1. Taxa de Locação da Frota */}
+              <Card className="shadow-sm border-blue-200 dark:border-blue-900/50 bg-white dark:bg-slate-900">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase flex items-center justify-between">
+                    <span>Taxa de Locação</span>
+                    <Bike className="w-4 h-4 text-blue-600" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl sm:text-3xl font-extrabold text-blue-600">
+                      {taxaOcupacao.toFixed(0)}%
+                    </span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      ({motosLocadas}/{totalMotos} motos)
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {totalMotos - motosLocadas} moto(s) disponível(is) ou em manutenção.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* 2. Receita de Aluguéis no Mês */}
+              <Card className="shadow-sm border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-slate-900">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase flex items-center justify-between">
+                    <span>Receita no Mês</span>
+                    <DollarSign className="w-4 h-4 text-emerald-600" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600">
+                    R$ {receitaBrutaMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                  <div className="mt-2 flex items-center gap-1.5 text-xs">
+                    {crescimentoReceitaMoM !== null ? (
+                      <span
+                        className={`font-semibold flex items-center gap-0.5 ${
+                          crescimentoReceitaMoM >= 0
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }`}
+                      >
+                        {crescimentoReceitaMoM >= 0 ? (
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                        ) : (
+                          <ArrowDownRight className="w-3.5 h-3.5" />
+                        )}
+                        {Math.abs(crescimentoReceitaMoM).toFixed(1)}% vs mês anterior
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">Primeiro mês registrado</span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 3. Margem Líquida */}
+              <Card className="shadow-sm border-purple-200 dark:border-purple-900/50 bg-white dark:bg-slate-900">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase flex items-center justify-between">
+                    <span>Margem Líquida</span>
+                    <Percent className="w-4 h-4 text-purple-600" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div
+                    className={`text-2xl sm:text-3xl font-extrabold ${
+                      margemLiquidaMes >= 0 ? 'text-purple-600' : 'text-red-600'
+                    }`}
+                  >
+                    {margemLiquidaMes.toFixed(1)}%
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Lucro líquido mensal de R${' '}
+                    {lucroLiquidoMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* 4. Ticket Médio Semanal por Moto */}
+              <Card className="shadow-sm border-amber-200 dark:border-amber-900/50 bg-white dark:bg-slate-900">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase flex items-center justify-between">
+                    <span>Ticket Médio Semanal</span>
+                    <Wallet className="w-4 h-4 text-amber-600" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
+                    R$ {ticketMedioSemanal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Média de aluguel por contrato ativo por semana.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Grid Detalhada de Indicadores com Comparações e Contexto Operacional */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Receita e Despesas do Ano */}
+              <Card className="shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase flex items-center justify-between">
+                    <span>Receita e Despesas no Ano ({selectedYear})</span>
+                    <Calendar className="w-4 h-4 text-slate-500" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2.5">
+                  <div className="flex justify-between items-center text-sm border-b pb-1.5">
+                    <span className="text-muted-foreground">Receita Bruta Anual:</span>
+                    <span className="font-bold text-emerald-600">
+                      R$ {receitaBrutaAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm border-b pb-1.5">
+                    <span className="text-muted-foreground">Despesas Totais no Ano:</span>
+                    <span className="font-bold text-red-600">
+                      R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm font-semibold">
+                    <span>Lucro Líquido Anual:</span>
+                    <span className={lucroLiquidoAno >= 0 ? 'text-emerald-600' : 'text-red-600'}>
+                      R$ {lucroLiquidoAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground pt-1">
+                    Margem Líquida Anual acumulada de {margemLiquidaAno.toFixed(1)}%.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Inadimplência e Atrasos */}
+              <Card className="shadow-sm border-amber-200 dark:border-amber-900/40">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase flex items-center justify-between">
+                    <span>Inadimplência (Atrasos)</span>
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2.5">
+                  <div className="flex items-baseline justify-between border-b pb-1.5">
+                    <span className="text-sm text-muted-foreground">Taxa de Inadimplência:</span>
+                    <span className="text-xl font-bold text-amber-600">
+                      {taxaInadimplencia.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm border-b pb-1.5">
+                    <span className="text-muted-foreground">Total em Atraso:</span>
+                    <span className="font-bold text-amber-600">
+                      R${' '}
+                      {recebimentosAtrasados.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Contas a Receber Geral:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      R$ {contasAReceber.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground pt-1">
+                    Baseado nos recebimentos marcados como 'em_atraso'.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Custo Médio de Manutenção por Moto */}
+              <Card className="shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase flex items-center justify-between">
+                    <span>Custo Médio de Manutenção</span>
+                    <Wrench className="w-4 h-4 text-slate-500" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2.5">
+                  <div className="flex justify-between items-center text-sm border-b pb-1.5">
+                    <span className="text-muted-foreground">Custo p/ Moto no Mês:</span>
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      R${' '}
+                      {custoManutencaoPorMotoMes.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm border-b pb-1.5">
+                    <span className="text-muted-foreground">Custo p/ Moto no Ano:</span>
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      R${' '}
+                      {custoManutencaoPorMotoAno.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Oficina / Peças no Mês:</span>
+                    <span className="font-semibold text-red-600">
+                      R${' '}
+                      {custosOperacionaisMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground pt-1">
+                    Rateio das saídas de oficina, peças e trocas de óleo sobre {totalMotos} motos.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Comissões Pagas */}
+              <Card className="shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase flex items-center justify-between">
+                    <span>Comissões Pagas</span>
+                    <Sparkles className="w-4 h-4 text-purple-600" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2.5">
+                  <div className="flex justify-between items-center text-sm border-b pb-1.5">
+                    <span className="text-muted-foreground">Comissões no Mês:</span>
+                    <span className="font-bold text-purple-600">
+                      R$ {comissoesMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm border-b pb-1.5">
+                    <span className="text-muted-foreground">Comissões no Ano:</span>
+                    <span className="font-bold text-purple-600">
+                      R$ {comissoesAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">% da Receita do Mês:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      {receitaBrutaMes > 0
+                        ? ((comissoesMes / receitaBrutaMes) * 100).toFixed(1)
+                        : 0}
+                      %
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground pt-1">
+                    Repasses a sócios e comissionados lançados no Fluxo de Caixa.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Payback Médio da Frota */}
+              <Card className="shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase flex items-center justify-between">
+                    <span>Payback Médio da Frota</span>
+                    <Clock className="w-4 h-4 text-blue-600" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2.5">
+                  <div className="flex items-baseline justify-between border-b pb-1.5">
+                    <span className="text-sm text-muted-foreground">Retorno Estimado:</span>
+                    <span className="text-xl font-bold text-blue-600">
+                      {paybackMedioMeses !== null ? `~${paybackMedioMeses} meses` : 'Em apuração'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm border-b pb-1.5">
+                    <span className="text-muted-foreground">Valor Médio da Moto:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      R$ {valorMedioMoto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Lucro Médio/Moto/Mês:</span>
+                    <span className="font-semibold text-emerald-600">
+                      R${' '}
+                      {lucroLiquidoMedioPorMotoMes.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground pt-1">
+                    Tempo necessário para o lucro líquido da locação cobrir o valor do veículo.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Crescimento Mês a Mês & Contas a Pagar */}
+              <Card className="shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase flex items-center justify-between">
+                    <span>Crescimento & Obrigações</span>
+                    <TrendingUp className="w-4 h-4 text-emerald-600" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2.5">
+                  <div className="flex justify-between items-center text-sm border-b pb-1.5">
+                    <span className="text-muted-foreground">Receita Mês Anterior:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      R${' '}
+                      {receitaBrutaMesAnterior.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm border-b pb-1.5">
+                    <span className="text-muted-foreground">Crescimento da Receita:</span>
+                    <span
+                      className={`font-bold ${
+                        crescimentoReceitaMoM !== null && crescimentoReceitaMoM >= 0
+                          ? 'text-emerald-600'
+                          : 'text-red-600'
+                      }`}
+                    >
+                      {crescimentoReceitaMoM !== null
+                        ? `${crescimentoReceitaMoM >= 0 ? '+' : ''}${crescimentoReceitaMoM.toFixed(1)}%`
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Contas a Pagar em Aberto:</span>
+                    <span className="font-semibold text-red-600">
+                      R${' '}
+                      {totalContasAPagarPendente.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground pt-1">
+                    Soma dos saldos pendentes nas Contas a Pagar parceladas e fixas.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         )}
       </div>
