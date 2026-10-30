@@ -108,10 +108,15 @@ function addFractionalMonths(baseDate: Date, months: number): Date {
 export const PaybackTab: React.FC<PaybackTabProps> = ({ motos, contratos, caixa }) => {
   const [filtroStatus, setFiltroStatus] = useState<'todas' | 'locadas' | 'disponiveis'>('todas')
 
+  // Motos ativas na frota operacional (exclui motos vendidas e cedidas, pois o bem saiu do ativo imobilizado)
+  const motosOperacionais = useMemo(() => {
+    return motos.filter((m) => m.status !== 'vendida' && m.status !== 'cedida')
+  }, [motos])
+
   const processedMotos = useMemo<MotoPaybackData[]>(() => {
     const hoje = new Date()
 
-    return motos.map((moto) => {
+    return motosOperacionais.map((moto) => {
       const nomeExibicao = moto.nome?.trim() || moto.modelo || `Moto ${moto.placa}`
       const placa = moto.placa || ''
       const valorCompra =
@@ -325,7 +330,7 @@ export const PaybackTab: React.FC<PaybackTabProps> = ({ motos, contratos, caixa 
         mesesMaxEscala,
       }
     })
-  }, [motos, contratos, caixa])
+  }, [motosOperacionais, contratos, caixa])
 
   const filteredMotos = useMemo(() => {
     return processedMotos.filter((item) => {
