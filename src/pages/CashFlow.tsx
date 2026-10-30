@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import {
   Wallet,
   ArrowUpRight,
@@ -340,83 +339,61 @@ export default function CashFlow() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Fluxo de Caixa
+            Relatórios de Caixa e Edição de Lançamentos
           </h1>
           <p className="text-sm text-muted-foreground">
-            Registro de receitas e despesas por Moto e por Outros Participantes (
+            Consulta, extratos e edição de lançamentos por Moto e por Outros Participantes (
             {nomeEmpresaDisplay}, Sócios e Terceiros).
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link to="/lancamento-aluguel">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-            >
-              <ArrowUpRight className="w-4 h-4 text-emerald-600" />
-              Lançamento Entradas
-            </Button>
-          </Link>
-          <Link to="/lancamentos-rapidos">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40"
-            >
-              <ArrowDownRight className="w-4 h-4 text-blue-600" />
-              Lançamento Saídas
-            </Button>
-          </Link>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Card className="shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1">
+            <CardTitle className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
               Total de Entradas
             </CardTitle>
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
-              <ArrowUpRight className="w-4 h-4" />
+            <div className="p-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 rounded-md">
+              <ArrowUpRight className="w-3.5 h-3.5" />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">
+          <CardContent className="p-3 pt-0">
+            <div className="text-lg sm:text-xl font-bold text-emerald-600">
               R$ {totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">
+        <Card className="shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1">
+            <CardTitle className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
               Total de Saídas
             </CardTitle>
-            <div className="p-2 bg-red-50 text-red-600 rounded-lg">
-              <ArrowDownRight className="w-4 h-4" />
+            <div className="p-1 bg-red-50 dark:bg-red-950/50 text-red-600 rounded-md">
+              <ArrowDownRight className="w-3.5 h-3.5" />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+          <CardContent className="p-3 pt-0">
+            <div className="text-lg sm:text-xl font-bold text-red-600">
               R$ {totalSaidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase">
+        <Card className="shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1">
+            <CardTitle className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
               Saldo Líquido
             </CardTitle>
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-              <Wallet className="w-4 h-4" />
+            <div className="p-1 bg-blue-50 dark:bg-blue-950/50 text-blue-600 rounded-md">
+              <Wallet className="w-3.5 h-3.5" />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 pt-0">
             <div
-              className={`text-2xl font-bold ${saldoFinal >= 0 ? 'text-blue-600' : 'text-red-600'}`}
+              className={`text-lg sm:text-xl font-bold ${saldoFinal >= 0 ? 'text-blue-600' : 'text-red-600'}`}
             >
               R$ {saldoFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>

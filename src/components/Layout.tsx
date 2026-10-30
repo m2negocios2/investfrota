@@ -57,7 +57,7 @@ export default function Layout() {
     { name: 'ALUGUÉIS & CONTRATOS', href: '/alugueis', icon: KeyRound },
     { name: 'LANÇAMENTO ENTRADAS', href: '/lancamento-aluguel', icon: Zap },
     { name: 'LANÇAMENTO SAÍDAS', href: '/lancamentos-rapidos', icon: Zap },
-    { name: 'FLUXO DE CAIXA', href: '/caixa', icon: Wallet },
+    { name: 'Relatórios de Caixa e Edição de Lançamentos', href: '/caixa', icon: Wallet },
     { name: 'MÊS', href: '/mes', icon: CalendarRange },
     { name: 'SEMANA', href: '/semana', icon: CalendarDays },
     { name: 'CONTAS A PAGAR / RECEBER', href: '/contas-a-pagar', icon: CreditCard },
