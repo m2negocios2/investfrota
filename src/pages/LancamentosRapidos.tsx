@@ -110,6 +110,16 @@ const QUICK_BUTTONS_ITEM3: QuickButtonConfig[] = [
     colorClasses:
       'bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white border-violet-700 shadow-violet-600/30',
   },
+  {
+    id: 'bateria',
+    label: 'BATERIA',
+    emoji: '🔋',
+    categoriaNome: 'BATERIA',
+    descricaoPrefix: 'Bateria',
+    // Tom Amarelo / Âmbar Dourado com alto contraste (energia/bateria)
+    colorClasses:
+      'bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 text-slate-950 border-yellow-600 shadow-yellow-500/30',
+  },
 ]
 
 // Item 5 — Novos botões de taxas e impostos anuais/legais
