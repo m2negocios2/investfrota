@@ -25,6 +25,7 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -110,6 +111,7 @@ export default function MotoDetails() {
   const [editDiaSemana, setEditDiaSemana] = useState<DiaSemana>('SEG')
   const [editPrazoMeses, setEditPrazoMeses] = useState<number>(12)
   const [editDataEntrega, setEditDataEntrega] = useState('')
+  const [editIsIndefinido, setEditIsIndefinido] = useState(false)
   const [editValorSemanal, setEditValorSemanal] = useState<number>(245)
   const [editComissaoPercentual, setEditComissaoPercentual] = useState<string>('')
   const [editObservacoes, setEditObservacoes] = useState('')
@@ -311,6 +313,7 @@ export default function MotoDetails() {
       ? contrato.data_entrega.split('T')[0].split(' ')[0]
       : ''
     setEditDataEntrega(cleanEntrega)
+    setEditIsIndefinido(!cleanEntrega)
 
     const comVal = contrato.comissao_percentual ?? contrato.percentual_comissao
     setEditComissaoPercentual(
@@ -1243,27 +1246,79 @@ export default function MotoDetails() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="editDataEntrega">Data de Fim de Contrato</Label>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="editDataEntrega">Data de Fim</Label>
+                        <div className="flex items-center gap-1.5 cursor-pointer select-none bg-amber-100/80 dark:bg-amber-900/40 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-800">
+                          <Checkbox
+                            id="editIndefinidoConquista"
+                            checked={editIsIndefinido}
+                            onCheckedChange={(checked) => {
+                              const val = Boolean(checked)
+                              setEditIsIndefinido(val)
+                              if (val) setEditDataEntrega('')
+                            }}
+                            className="h-3.5 w-3.5 border-amber-700 data-[state=checked]:bg-amber-700 data-[state=checked]:border-amber-700"
+                          />
+                          <label
+                            htmlFor="editIndefinidoConquista"
+                            className="text-[10px] font-black tracking-wide text-amber-950 dark:text-amber-100 cursor-pointer uppercase"
+                          >
+                            INDEFINIDO
+                          </label>
+                        </div>
+                      </div>
                       <Input
                         id="editDataEntrega"
                         type="date"
                         value={editDataEntrega}
-                        onChange={(e) => setEditDataEntrega(e.target.value)}
+                        disabled={editIsIndefinido}
+                        onChange={(e) => {
+                          setEditDataEntrega(e.target.value)
+                          if (e.target.value) setEditIsIndefinido(false)
+                        }}
+                        className={editIsIndefinido ? 'opacity-40 cursor-not-allowed' : ''}
                       />
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/60 space-y-1.5">
-                  <Label htmlFor="editDataEntregaNormal">Data de Fim de Contrato (Opcional)</Label>
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="editDataEntregaNormal">Data de Fim de Contrato</Label>
+                    <div className="flex items-center gap-1.5 cursor-pointer select-none bg-blue-100/80 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-300 dark:border-blue-800">
+                      <Checkbox
+                        id="editIndefinidoNormal"
+                        checked={editIsIndefinido}
+                        onCheckedChange={(checked) => {
+                          const val = Boolean(checked)
+                          setEditIsIndefinido(val)
+                          if (val) setEditDataEntrega('')
+                        }}
+                        className="h-4 w-4 border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                      />
+                      <label
+                        htmlFor="editIndefinidoNormal"
+                        className="text-[11px] font-black tracking-wide text-blue-950 dark:text-blue-100 cursor-pointer uppercase"
+                      >
+                        INDEFINIDO
+                      </label>
+                    </div>
+                  </div>
                   <Input
                     id="editDataEntregaNormal"
                     type="date"
                     value={editDataEntrega}
-                    onChange={(e) => setEditDataEntrega(e.target.value)}
+                    disabled={editIsIndefinido}
+                    onChange={(e) => {
+                      setEditDataEntrega(e.target.value)
+                      if (e.target.value) setEditIsIndefinido(false)
+                    }}
+                    className={editIsIndefinido ? 'opacity-40 cursor-not-allowed' : ''}
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Deixe vazio para contratos contínuos ou preencha para estipular término.
+                    {editIsIndefinido
+                      ? 'Contrato sem data de término estipulada (INDEFINIDO).'
+                      : 'Deixe vazio ou marque INDEFINIDO para contratos contínuos/recorrentes.'}
                   </p>
                 </div>
               )}

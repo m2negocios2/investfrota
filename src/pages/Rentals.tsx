@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -65,6 +66,7 @@ export default function Rentals() {
   const [prazoMeses, setPrazoMeses] = useState<number>(12)
   const [dataEntrega, setDataEntrega] = useState('')
   const [dataFimContratoManual, setDataFimContratoManual] = useState(false)
+  const [isIndefinido, setIsIndefinido] = useState(false)
   const [comissaoPercentual, setComissaoPercentual] = useState<string>('')
   const [valorDiario, setValorDiario] = useState<number>(35)
   const [observacoes, setObservacoes] = useState('')
@@ -152,6 +154,7 @@ export default function Rentals() {
       tipo === 'plano_conquista' ? calculateEndDate(today, 12) : calculateEndDate(today, 1),
     )
     setDataFimContratoManual(false)
+    setIsIndefinido(false)
 
     // Derive dia da semana
     const daysMap: Array<'DOM' | 'SEG' | 'TER' | 'QUA' | 'QUI' | 'SEX' | 'SAB'> = [
@@ -197,6 +200,7 @@ export default function Rentals() {
       : ''
     setDataEntrega(cleanEntrega)
     setDataFimContratoManual(Boolean(cleanEntrega))
+    setIsIndefinido(!cleanEntrega)
 
     setTipoContrato(contrato.tipo || 'normal')
     setPrazoMeses(contrato.prazo_meses || 12)
@@ -359,6 +363,7 @@ export default function Rentals() {
       setComissaoPercentual('')
       setDataEntrega('')
       setDataFimContratoManual(false)
+      setIsIndefinido(false)
       loadData()
     } catch (err) {
       console.error(err)
@@ -957,46 +962,102 @@ export default function Rentals() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="dataFimContrato">Data de Fim de Contrato</Label>
-                      <span className="text-[10px] text-muted-foreground">(Opcional)</span>
+                      {/* Checkbox INDEFINIDO Plano Conquista */}
+                      <div className="flex items-center gap-1.5 cursor-pointer select-none bg-amber-100/80 dark:bg-amber-900/40 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-800">
+                        <Checkbox
+                          id="indefinidoConquistaCheckbox"
+                          checked={isIndefinido}
+                          onCheckedChange={(checked) => {
+                            const val = Boolean(checked)
+                            setIsIndefinido(val)
+                            setDataFimContratoManual(true)
+                            if (val) {
+                              setDataEntrega('')
+                            } else {
+                              setDataEntrega(calculateEndDate(dataInicio, prazoMeses || 12))
+                            }
+                          }}
+                          className="h-3.5 w-3.5 border-amber-700 data-[state=checked]:bg-amber-700 data-[state=checked]:border-amber-700"
+                        />
+                        <label
+                          htmlFor="indefinidoConquistaCheckbox"
+                          className="text-[10px] font-black tracking-wide text-amber-950 dark:text-amber-100 cursor-pointer uppercase"
+                        >
+                          INDEFINIDO
+                        </label>
+                      </div>
                     </div>
                     <Input
                       id="dataFimContrato"
                       type="date"
                       value={dataEntrega}
+                      disabled={isIndefinido}
                       onChange={(e) => {
                         setDataEntrega(e.target.value)
                         setDataFimContratoManual(true)
+                        if (e.target.value) {
+                          setIsIndefinido(false)
+                        }
                       }}
+                      className={isIndefinido ? 'opacity-40 cursor-not-allowed' : ''}
                     />
                   </div>
                 </div>
                 <p className="text-[11px] text-amber-800 dark:text-amber-300">
-                  Calculada automaticamente com base no prazo de {prazoMeses} meses. Você pode
-                  ajustar ou limpar se desejar.
+                  {isIndefinido
+                    ? 'Contrato registrado como INDEFINIDO (sem data de fim). O cliente segue com a moto sem prazo estipulado.'
+                    : `Calculada automaticamente com base no prazo de ${prazoMeses} meses. Marque INDEFINIDO para deixar sem prazo.`}
                 </p>
               </div>
             ) : (
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/60 space-y-1.5">
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/60 space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="dataFimContratoNormal">Data de Fim de Contrato</Label>
-                  <span className="text-[10px] font-medium text-slate-500 bg-slate-200/60 dark:bg-slate-700 px-1.5 py-0.5 rounded">
-                    Opcional
-                  </span>
+                  {/* Checkbox INDEFINIDO Locação Normal */}
+                  <div className="flex items-center gap-1.5 cursor-pointer select-none bg-blue-100/80 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-300 dark:border-blue-800">
+                    <Checkbox
+                      id="indefinidoNormalCheckbox"
+                      checked={isIndefinido}
+                      onCheckedChange={(checked) => {
+                        const val = Boolean(checked)
+                        setIsIndefinido(val)
+                        setDataFimContratoManual(true)
+                        if (val) {
+                          setDataEntrega('')
+                        } else {
+                          // Mantém o pré-preenchimento de 1 mês quando desmarcado
+                          setDataEntrega(calculateEndDate(dataInicio, 1))
+                        }
+                      }}
+                      className="h-4 w-4 border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                    />
+                    <label
+                      htmlFor="indefinidoNormalCheckbox"
+                      className="text-[11px] font-black tracking-wide text-blue-950 dark:text-blue-100 cursor-pointer uppercase"
+                    >
+                      INDEFINIDO
+                    </label>
+                  </div>
                 </div>
                 <Input
                   id="dataFimContratoNormal"
                   type="date"
                   value={dataEntrega}
+                  disabled={isIndefinido}
                   onChange={(e) => {
                     setDataEntrega(e.target.value)
                     setDataFimContratoManual(true)
+                    if (e.target.value) {
+                      setIsIndefinido(false)
+                    }
                   }}
                   placeholder="dd/mm/aaaa"
+                  className={isIndefinido ? 'opacity-40 cursor-not-allowed' : ''}
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Deixe vazio para contratos contínuos/recorrentes sem data de término definida.
-                  Preencha apenas se houver uma data estipulada para devolução ou término do
-                  contrato.
+                  {isIndefinido
+                    ? 'Contrato registrado como INDEFINIDO (sem data de fim). O cliente segue com a moto sem prazo estipulado.'
+                    : 'Padrão sugerido de 1 mês à frente. Marque INDEFINIDO para contratos contínuos/recorrentes sem data de término definida.'}
                 </p>
               </div>
             )}

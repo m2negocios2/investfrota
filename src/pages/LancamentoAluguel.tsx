@@ -47,6 +47,12 @@ export default function LancamentoAluguel() {
   const [valorInput, setValorInput] = useState<string>('')
   const [dataInput, setDataInput] = useState<string>(getTodayLocalDate())
   const [semComissao, setSemComissao] = useState<boolean>(false)
+
+  // Estado para Fim de Contrato / INDEFINIDO na moto selecionada
+  const [dataFimInput, setDataFimInput] = useState<string>('')
+  const [isIndefinido, setIsIndefinido] = useState<boolean>(false)
+  const [updatingFimContrato, setUpdatingFimContrato] = useState<boolean>(false)
+
   const [loading, setLoading] = useState<boolean>(true)
   const [submitting, setSubmitting] = useState<boolean>(false)
   const [recentLancamentos, setRecentLancamentos] = useState<CaixaLancamento[]>([])
@@ -115,10 +121,17 @@ export default function LancamentoAluguel() {
     ? contratos.find((c) => c.moto === selectedMotoId && c.status === 'ativo')
     : undefined
 
-  // Atualizar sugestão de valor quando selecionar a moto
+  // Sincronizar campos de Fim de Contrato e sugestão de valor ao trocar moto / contrato ativo
   useEffect(() => {
     if (selectedMoto) {
       if (activeContract) {
+        // Inicializar Fim de Contrato e INDEFINIDO conforme contrato ativo
+        const rawEntrega = activeContract.data_entrega
+          ? activeContract.data_entrega.split('T')[0].split(' ')[0]
+          : ''
+        setDataFimInput(rawEntrega)
+        setIsIndefinido(!rawEntrega)
+
         const val =
           activeContract.valor_semanal !== undefined && activeContract.valor_semanal !== null
             ? activeContract.valor_semanal
@@ -127,7 +140,11 @@ export default function LancamentoAluguel() {
           setValorInput(val.toFixed(2).replace('.', ','))
           return
         }
+      } else {
+        setDataFimInput('')
+        setIsIndefinido(false)
       }
+
       const valMoto =
         selectedMoto.valor_semanal !== undefined && selectedMoto.valor_semanal !== null
           ? selectedMoto.valor_semanal
@@ -135,8 +152,73 @@ export default function LancamentoAluguel() {
       if (valMoto > 0) {
         setValorInput(valMoto.toFixed(2).replace('.', ','))
       }
+    } else {
+      setDataFimInput('')
+      setIsIndefinido(false)
     }
-  }, [selectedMotoId])
+  }, [selectedMotoId, activeContract?.id, activeContract?.data_entrega])
+
+  // Ação ao marcar/desmarcar o checkbox INDEFINIDO na tela Lançamento Entradas
+  const handleToggleIndefinido = async (checked: boolean) => {
+    if (!activeContract) return
+
+    setIsIndefinido(checked)
+
+    if (checked) {
+      // Ao marcar: o campo da data de fim fica limpo e o contrato é gravado sem data de fim (indefinido)
+      setDataFimInput('')
+      setUpdatingFimContrato(true)
+      try {
+        const updated = await contratosService.update(activeContract.id, {
+          data_entrega: '',
+        })
+        setContratos((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+        toast.success(
+          `Contrato registrado como INDEFINIDO (sem data de término). O cliente segue com a moto normalmente.`,
+        )
+      } catch (err) {
+        console.error('Erro ao definir contrato como indefinido:', err)
+        toast.error('Não foi possível atualizar o contrato para indefinido.')
+      } finally {
+        setUpdatingFimContrato(false)
+      }
+    } else {
+      // Ao desmarcar: volta a permitir preencher a data de fim.
+      // Se não havia data antes, sugere 1 mês à frente ou deixa o campo focado
+      const fallbackDate = getTodayLocalDate()
+      setDataFimInput(fallbackDate)
+    }
+  }
+
+  // Ação ao alterar a data no input de data fim
+  const handleDataFimChange = async (newDate: string) => {
+    setDataFimInput(newDate)
+    if (!activeContract) return
+
+    if (!newDate) {
+      setIsIndefinido(true)
+    } else {
+      setIsIndefinido(false)
+    }
+
+    setUpdatingFimContrato(true)
+    try {
+      const updated = await contratosService.update(activeContract.id, {
+        data_entrega: newDate || '',
+      })
+      setContratos((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+      if (newDate) {
+        toast.success(`Fim do contrato atualizado para ${formatDateDisplay(newDate)}.`)
+      } else {
+        toast.success(`Contrato registrado como INDEFINIDO.`)
+      }
+    } catch (err) {
+      console.error('Erro ao salvar nova data de fim do contrato:', err)
+      toast.error('Erro ao atualizar a data de fim do contrato.')
+    } finally {
+      setUpdatingFimContrato(false)
+    }
+  }
 
   const valorNumerico = parseValor(valorInput)
   const isFormReady = Boolean(selectedMotoId && valorNumerico > 0)
@@ -451,6 +533,81 @@ export default function LancamentoAluguel() {
                           activeContract.valor_semanal || (activeContract.valor_diario || 0) * 7
                         ).toFixed(2)}
                       </span>
+                    </div>
+
+                    {/* Bloco: Fim do Contrato & Checkbox INDEFINIDO */}
+                    <div className="mt-2 pt-2 border-t border-emerald-200/70 dark:border-emerald-800/70 bg-white/70 dark:bg-slate-900/60 p-2.5 rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label
+                          htmlFor="dataFimContratoLancamento"
+                          className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5"
+                        >
+                          <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                          Fim do Contrato
+                        </Label>
+
+                        {/* Checkbox INDEFINIDO */}
+                        <div className="flex items-center gap-1.5 cursor-pointer select-none bg-emerald-100/70 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-300/80 dark:border-emerald-700/60">
+                          <Checkbox
+                            id="indefinidoLancamentoCheckbox"
+                            checked={isIndefinido}
+                            disabled={updatingFimContrato}
+                            onCheckedChange={(checked) => handleToggleIndefinido(Boolean(checked))}
+                            className="h-4 w-4 border-emerald-600 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                          />
+                          <label
+                            htmlFor="indefinidoLancamentoCheckbox"
+                            className="text-[11px] font-black tracking-wide text-emerald-900 dark:text-emerald-100 cursor-pointer uppercase"
+                          >
+                            INDEFINIDO
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="dataFimContratoLancamento"
+                          type="date"
+                          value={dataFimInput}
+                          disabled={isIndefinido || updatingFimContrato}
+                          onChange={(e) => handleDataFimChange(e.target.value)}
+                          className={`h-9 text-xs font-semibold bg-white dark:bg-slate-900 border transition-all ${
+                            isIndefinido
+                              ? 'opacity-40 cursor-not-allowed border-slate-200 dark:border-slate-800 text-slate-400'
+                              : 'border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white'
+                          }`}
+                        />
+                        {isIndefinido && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] font-bold text-emerald-800 dark:text-emerald-200 bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 whitespace-nowrap shrink-0 py-1"
+                          >
+                            Sem prazo / Contínuo
+                          </Badge>
+                        )}
+                      </div>
+
+                      <p className="text-[10px] text-muted-foreground leading-snug">
+                        {isIndefinido ? (
+                          <span className="text-emerald-700 dark:text-emerald-300 font-medium">
+                            Contrato sem data de término estipulada — o cliente pode ir seguindo com
+                            a moto sem prazo.
+                          </span>
+                        ) : dataFimInput ? (
+                          <span>
+                            Término estipulado:{' '}
+                            <strong className="text-slate-800 dark:text-slate-200">
+                              {formatDateDisplay(dataFimInput)}
+                            </strong>
+                            . Se for sem prazo, marque <strong>INDEFINIDO</strong>.
+                          </span>
+                        ) : (
+                          <span>
+                            Sem data definida. Marque <strong>INDEFINIDO</strong> ou preencha a data
+                            acima.
+                          </span>
+                        )}
+                      </p>
                     </div>
                   </div>
                 ) : (
