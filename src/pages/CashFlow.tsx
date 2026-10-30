@@ -339,7 +339,7 @@ export default function CashFlow() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Relatórios de Caixa e Edição de Lançamentos
+            FLUXO DE CAIXA
           </h1>
           <p className="text-sm text-muted-foreground">
             Consulta, extratos e edição de lançamentos por Moto e por Outros Participantes (
