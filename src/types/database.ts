@@ -39,6 +39,7 @@ export interface Moto {
   km_atualizado_em?: string
   km_ultimo_oleo?: number
   data_saida?: string
+  data_fim_locacao?: string
   tipo_operacao_saida?: TipoOperacaoSaida
   valor_venda?: number
   destinatario_saida?: string

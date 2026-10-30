@@ -71,6 +71,7 @@ export default function MotoDetails() {
   const [vendaModalOpen, setVendaModalOpen] = useState(false)
   const [vendaConfirmDialogOpen, setVendaConfirmDialogOpen] = useState(false)
   const [vendaData, setVendaData] = useState(getTodayLocalDate())
+  const [vendaDataFimLocacao, setVendaDataFimLocacao] = useState('')
   const [vendaValor, setVendaValor] = useState('')
   const [vendaComprador, setVendaComprador] = useState('')
   const [vendaFormaRecebimento, setVendaFormaRecebimento] = useState<
@@ -188,6 +189,9 @@ export default function MotoDetails() {
 
   const handleOpenVendaModal = () => {
     setVendaData(getTodayLocalDate())
+    setVendaDataFimLocacao(
+      moto.data_fim_locacao ? moto.data_fim_locacao.split('T')[0].split(' ')[0] : '',
+    )
     setVendaValor('')
     setVendaComprador(activeContract?.locatario_nome || '')
     setVendaFormaRecebimento('pago_agora')
@@ -215,6 +219,7 @@ export default function MotoDetails() {
       await motosService.registrarVenda({
         motoId: moto.id,
         data: vendaData,
+        dataFimLocacao: vendaDataFimLocacao.trim() || undefined,
         valor: Number(vendaValor),
         comprador: vendaComprador.trim(),
         formaRecebimento: vendaFormaRecebimento,
@@ -555,7 +560,19 @@ export default function MotoDetails() {
         refInicioStr = `${cAno}-${cMes}-${cDia}`
       }
 
-      const refFimStr = `${currentYear}-12-31`
+      // Se a moto teve fim de operação (data_fim_locacao ou data_saida),
+      // a data final do período de referência de locação não deve ultrapassar o fim da operação.
+      let refFimStr = `${currentYear}-12-31`
+      const dataFimOperacao = moto.data_fim_locacao || moto.data_saida
+      if (dataFimOperacao) {
+        const rawFimOperacao = dataFimOperacao.match(/^(\d{4})-(\d{2})-(\d{2})/)
+        if (rawFimOperacao) {
+          const anoFimOperacao = parseInt(rawFimOperacao[1], 10)
+          if (anoFimOperacao === currentYear && rawFimOperacao[0] < refFimStr) {
+            refFimStr = rawFimOperacao[0]
+          }
+        }
+      }
 
       if (refInicioStr <= refFimStr) {
         // Gerar conjunto de dias do período de referência
@@ -564,7 +581,11 @@ export default function MotoDetails() {
           parseInt(refInicioStr.slice(5, 7), 10) - 1,
           parseInt(refInicioStr.slice(8, 10), 10),
         )
-        const refEnd = new Date(currentYear, 11, 31)
+        const refEnd = new Date(
+          parseInt(refFimStr.slice(0, 4), 10),
+          parseInt(refFimStr.slice(5, 7), 10) - 1,
+          parseInt(refFimStr.slice(8, 10), 10),
+        )
 
         // Contratos válidos no período
         const diasLocadosSet = new Set<string>()
@@ -738,7 +759,12 @@ export default function MotoDetails() {
               </Badge>
               {moto.data_saida && (
                 <span className="text-xs text-muted-foreground">
-                  Data da operação: {formatDateDisplay(moto.data_saida)}
+                  Data da venda/operação: {formatDateDisplay(moto.data_saida)}
+                </span>
+              )}
+              {moto.data_fim_locacao && (
+                <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-950/50 px-2 py-0.5 rounded">
+                  Fim da locação: {formatDateDisplay(moto.data_fim_locacao)}
                 </span>
               )}
             </div>
@@ -1506,16 +1532,37 @@ export default function MotoDetails() {
           </DialogHeader>
 
           <form onSubmit={handleOpenVendaConfirm} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="vendaData">Data da Venda</Label>
-              <Input
-                id="vendaData"
-                type="date"
-                required
-                value={vendaData}
-                onChange={(e) => setVendaData(e.target.value)}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="vendaData">Data da Venda</Label>
+                <Input
+                  id="vendaData"
+                  type="date"
+                  required
+                  value={vendaData}
+                  onChange={(e) => setVendaData(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="vendaDataFimLocacao">
+                  Fim da locação{' '}
+                  <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
+                </Label>
+                <Input
+                  id="vendaDataFimLocacao"
+                  type="date"
+                  placeholder="Data em que parou de alugar"
+                  value={vendaDataFimLocacao}
+                  onChange={(e) => setVendaDataFimLocacao(e.target.value)}
+                />
+              </div>
             </div>
+            <p className="text-[11px] text-muted-foreground -mt-2">
+              Se a moto parou de ser alugada antes da venda, preencha a data de fim da locação para
+              que os relatórios (Média Moto, Lucro e Payback) usem o período correto de operação. Se
+              deixar em branco, usará a data da venda.
+            </p>
 
             <div className="space-y-1.5">
               <Label htmlFor="vendaValor">Valor da Venda (R$)</Label>
@@ -1742,6 +1789,14 @@ export default function MotoDetails() {
                   {formatDateDisplay(vendaData)}
                 </span>
               </div>
+              {vendaDataFimLocacao.trim() && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Fim da locação (operação):</span>
+                  <span className="font-semibold text-amber-700 dark:text-amber-400">
+                    {formatDateDisplay(vendaDataFimLocacao)}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Comprador:</span>
                 <span className="font-semibold text-slate-900 dark:text-white">

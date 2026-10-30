@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T20:33:33.749Z",
+  "generatedAt": "2026-10-30T21:32:28.431Z",
   "collections": [
     {
       "name": "users",
@@ -216,6 +216,12 @@
         {
           "name": "ano",
           "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_fim_locacao",
+          "type": "date",
           "required": false,
           "system": false
         }

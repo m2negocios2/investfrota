@@ -41,6 +41,7 @@ export const motosService = {
   async registrarVenda(params: {
     motoId: string
     data: string
+    dataFimLocacao?: string
     valor: number
     comprador: string
     formaRecebimento: 'pago_agora' | 'aguardando_recebimento'
@@ -49,6 +50,9 @@ export const motosService = {
   }): Promise<Moto> {
     const moto = await pb.collection('motos').getOne<Moto>(params.motoId)
     const safeDate = dateToApiMidday(params.data)
+    const safeDateFimLocacao = params.dataFimLocacao?.trim()
+      ? dateToApiMidday(params.dataFimLocacao)
+      : null
     const desc = `Venda da moto ${moto.nome || moto.modelo} — placa ${moto.placa}`
 
     let caixaId = ''
@@ -96,6 +100,7 @@ export const motosService = {
     return await pb.collection('motos').update<Moto>(moto.id, {
       status: 'vendida',
       data_saida: safeDate,
+      data_fim_locacao: safeDateFimLocacao,
       tipo_operacao_saida: 'venda',
       valor_venda: Number(params.valor),
       destinatario_saida: params.comprador,
@@ -189,6 +194,7 @@ export const motosService = {
     return await pb.collection('motos').update<Moto>(moto.id, {
       status: 'disponivel',
       data_saida: null,
+      data_fim_locacao: null,
       tipo_operacao_saida: null,
       valor_venda: 0,
       destinatario_saida: '',

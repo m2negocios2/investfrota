@@ -118,7 +118,8 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
 
       // 3. Determinar mês e ano final de contagem da janela:
       // Para motos VENDIDAS ou CEDIDAS: o período considera do mês da compra (ou primeiro lançamento)
-      // até o MÊS DA OPERAÇÃO (venda ou cessão), e não até o mês presente.
+      // até o mês em que a moto parou a operação (data_fim_locacao). Se não houver data_fim_locacao registrada,
+      // cai para a data da venda/saída (data_saida) como fallback, e não até o mês presente.
       const isVendidaOuCedida = moto.status === 'vendida' || moto.status === 'cedida'
       let anoFim = anoAtual
       let mesFim = mesAtual // 0-based
@@ -127,16 +128,20 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
         let anoOperacao: number | null = null
         let mesOperacao: number | null = null
 
-        if (moto.data_saida) {
-          const matchSaida = moto.data_saida.match(/^(\d{4})-(\d{2})/)
-          if (matchSaida) {
-            anoOperacao = parseInt(matchSaida[1], 10)
-            mesOperacao = parseInt(matchSaida[2], 10) - 1
+        // Regra geral: preferir data_fim_locacao (fim da locação/operação) se existir;
+        // senão usar data_saida (data da venda).
+        const dataEncerramentoOperacao = moto.data_fim_locacao || moto.data_saida
+
+        if (dataEncerramentoOperacao) {
+          const matchFim = dataEncerramentoOperacao.match(/^(\d{4})-(\d{2})/)
+          if (matchFim) {
+            anoOperacao = parseInt(matchFim[1], 10)
+            mesOperacao = parseInt(matchFim[2], 10) - 1
           } else {
-            const dSaida = new Date(moto.data_saida)
-            if (!isNaN(dSaida.getTime())) {
-              anoOperacao = dSaida.getFullYear()
-              mesOperacao = dSaida.getMonth()
+            const dFim = new Date(dataEncerramentoOperacao)
+            if (!isNaN(dFim.getTime())) {
+              anoOperacao = dFim.getFullYear()
+              mesOperacao = dFim.getMonth()
             }
           }
         }
@@ -196,16 +201,20 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
           return
         }
 
-        // Filtro de janela: anoInicio/mesInicio até anoFim/mesFim
+        // Filtro de janela:
+        // A data inicial da janela é anoInicio/mesInicio.
+        // A contagem dos meses ativos é do início até o encerramento da operação (data_fim_locacao ou data_saida).
+        // Conforme pedido expresso do usuário: "Lucro acumulado continua sendo todo o histórico do caixa dela."
+        // Portanto, para motos vendidas com receita de venda posterior ao fim da locação (ou despesas antes/depois),
+        // o lucro acumulado considera todo o histórico do caixa vinculado à moto (respeitando data de início da compra se houver).
         if (anoInicio !== null && mesInicio !== null) {
           const lAno = d.getFullYear()
           const lMes = d.getMonth()
           const lComp = lAno * 12 + lMes
           const inicioComp = anoInicio * 12 + mesInicio
-          const fimComp = anoFim * 12 + mesFim
 
-          // Se estiver fora da janela, desconsidera
-          if (lComp < inicioComp || lComp > fimComp) {
+          // Se for lançamento anterior ao início da moto, desconsidera
+          if (lComp < inicioComp) {
             return
           }
         }
@@ -356,7 +365,7 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
               </CardTitle>
               <CardDescription className="text-[11px] mt-0.5">
                 Apuração do indicador Média Moto (Lucro ÷ Meses Ativos) desde a Data Base até o mês
-                corrente (ou até o mês da operação para vendidas/cedidas).
+                corrente (ou até o fim da locação/operação para vendidas/cedidas).
               </CardDescription>
             </div>
             <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[10px] shrink-0 self-start sm:self-auto py-0.5 px-2">
@@ -513,8 +522,8 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                 Tabela Média Moto
               </CardTitle>
               <CardDescription className="text-[10px]">
-                Média Moto = Lucro ÷ Meses Ativos (Data Base até o mês corrente, ou mês da
-                venda/cessão)
+                Média Moto = Lucro ÷ Meses Ativos (Data Base até o mês corrente, ou fim da
+                locação/operação para vendidas/cedidas)
               </CardDescription>
             </div>
           </div>
@@ -808,7 +817,7 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
               </div>
             </div>
             <p className="text-[10px] text-muted-foreground">
-              Data Base ao mês corrente (ou mês da operação para vendidas/cedidas).
+              Data Base ao mês corrente (ou fim da locação/operação para vendidas/cedidas).
             </p>
           </div>
         </CardContent>
