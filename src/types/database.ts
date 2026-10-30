@@ -26,7 +26,7 @@ export interface Moto {
   nome?: string
   placa: string
   modelo: string
-  ano: number
+  ano: string | number
   cor: string
   valor_diario?: number
   valor_semanal?: number

@@ -36,7 +36,7 @@ export default function MotoForm() {
   const [nome, setNome] = useState('')
   const [placa, setPlaca] = useState('')
   const [modelo, setModelo] = useState('')
-  const [ano, setAno] = useState<number>(new Date().getFullYear())
+  const [ano, setAno] = useState<string>(String(new Date().getFullYear()))
   const [cor, setCor] = useState('')
   const [valorSemanal, setValorSemanal] = useState<number>(245)
   const [tipoLocacaoPadrao, setTipoLocacaoPadrao] = useState<TipoLocacao>('normal')
@@ -55,7 +55,7 @@ export default function MotoForm() {
           setNome(moto.nome || '')
           setPlaca(moto.placa)
           setModelo(moto.modelo)
-          setAno(moto.ano)
+          setAno(moto.ano !== undefined && moto.ano !== null ? String(moto.ano) : '')
           setCor(moto.cor)
           const sem =
             moto.valor_semanal !== undefined && moto.valor_semanal !== null
@@ -102,7 +102,7 @@ export default function MotoForm() {
       nome: finalNome,
       placa: placa.trim().toUpperCase(),
       modelo: modelo.trim(),
-      ano: Number(ano),
+      ano: ano.trim(),
       cor: cor.trim(),
       valor_semanal: Number(valorSemanal),
       valor_diario: Number((Number(valorSemanal) / 7).toFixed(2)),
@@ -223,15 +223,14 @@ export default function MotoForm() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="ano">
-                  Ano de Fabricação <span className="text-red-500">*</span>
+                  Ano / Modelo <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="ano"
-                  type="number"
-                  min={2000}
-                  max={2030}
+                  type="text"
+                  placeholder="Ex: 2023, 2023/2024, 2024..."
                   value={ano}
-                  onChange={(e) => setAno(Number(e.target.value))}
+                  onChange={(e) => setAno(e.target.value)}
                   required
                 />
               </div>

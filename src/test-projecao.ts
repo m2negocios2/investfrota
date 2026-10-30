@@ -99,7 +99,7 @@ export function runProjecaoTests(): { success: boolean; results: TestResult[] } 
   // - Mês de corte: Outubro/2026 (mesAtual = 10, anoAtual = 2026)
   // - Mês de início: Junho/2026 (mesInicio = 6, anoInicio = 2026)
   const baseMoto = {
-    ano: 2026,
+    ano: '2026',
     cor: 'Preta',
     tipo_locacao_padrao: 'normal' as const,
     created: '2026-01-01',

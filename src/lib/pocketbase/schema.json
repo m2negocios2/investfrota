@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T20:03:56.608Z",
+  "generatedAt": "2026-10-30T20:22:10.638Z",
   "collections": [
     {
       "name": "users",
@@ -71,12 +71,6 @@
         {
           "name": "modelo",
           "type": "text",
-          "required": true,
-          "system": false
-        },
-        {
-          "name": "ano",
-          "type": "number",
           "required": true,
           "system": false
         },
@@ -215,6 +209,12 @@
         },
         {
           "name": "conta_a_receber_saida",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ano",
           "type": "text",
           "required": false,
           "system": false

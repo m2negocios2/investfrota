@@ -944,7 +944,7 @@ export default function Semana() {
                           nome: 'Moto',
                           placa: '---',
                           modelo: 'Moto',
-                          ano: 2023,
+                          ano: '2023',
                           cor: '',
                           valor_diario: 35,
                           tipo_locacao_padrao: 'normal',
