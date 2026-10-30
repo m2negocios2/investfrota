@@ -798,7 +798,7 @@ export default function Reports() {
                       >
                         <Trophy className="w-4 h-4" />
                       </div>
-                      <span className="text-sm font-bold truncate">MÉDIA LUCRO POR MOTO</span>
+                      <span className="text-sm font-bold truncate">Média Moto</span>
                     </div>
                     {activeReportTab === 'kpi-media-lucro' && (
                       <Badge className="bg-purple-600 hover:bg-purple-600 text-white text-[10px] font-bold shrink-0">
@@ -1804,7 +1804,7 @@ export default function Reports() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB: MÉDIA LUCRO POR MOTO (KPI) */}
+        {/* TAB: MÉDIA MOTO (KPI) */}
         {/* ========================================================================= */}
         {activeReportTab === 'kpi-media-lucro' && (
           <MediaLucroPorMotoReport motos={motos} caixa={caixa} />
