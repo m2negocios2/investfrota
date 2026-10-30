@@ -70,18 +70,9 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
       const temMovimentacao = lancamentos.length > 0
 
       // Totais de entradas e saídas
-      let totalEntradas = 0
-      let totalSaidas = 0
+      // 1. Identificar primeiro lançamento do caixa (para caso de fallback da data base)
       let primeiroLancamentoData: Date | null = null
-
       lancamentos.forEach((l) => {
-        const val = Number(l.valor) || 0
-        if (l.tipo === 'entrada') {
-          totalEntradas += val
-        } else if (l.tipo === 'saida') {
-          totalSaidas += val
-        }
-
         if (l.data) {
           const d = new Date(l.data)
           if (!isNaN(d.getTime())) {
@@ -92,9 +83,7 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
         }
       })
 
-      const lucroTotal = totalEntradas - totalSaidas
-
-      // Determinar data e mês inicial de contagem
+      // 2. Determinar data e mês inicial de contagem (Data Base)
       let anoInicio: number | null = null
       let mesInicio: number | null = null // 0-based
       let dataInicioFormatada = '—'
@@ -127,14 +116,117 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
         origemInicio = 'primeiro_lancamento'
       }
 
-      // Cálculo de meses decorridos (inclusive)
+      // 3. Determinar mês e ano final de contagem da janela:
+      // Para motos VENDIDAS ou CEDIDAS: o período considera do mês da compra (ou primeiro lançamento)
+      // até o MÊS DA OPERAÇÃO (venda ou cessão), e não até o mês presente.
+      const isVendidaOuCedida = moto.status === 'vendida' || moto.status === 'cedida'
+      let anoFim = anoAtual
+      let mesFim = mesAtual // 0-based
+
+      if (isVendidaOuCedida) {
+        let anoOperacao: number | null = null
+        let mesOperacao: number | null = null
+
+        if (moto.data_saida) {
+          const matchSaida = moto.data_saida.match(/^(\d{4})-(\d{2})/)
+          if (matchSaida) {
+            anoOperacao = parseInt(matchSaida[1], 10)
+            mesOperacao = parseInt(matchSaida[2], 10) - 1
+          } else {
+            const dSaida = new Date(moto.data_saida)
+            if (!isNaN(dSaida.getTime())) {
+              anoOperacao = dSaida.getFullYear()
+              mesOperacao = dSaida.getMonth()
+            }
+          }
+        }
+
+        // Fallback se não tiver data_saida gravada: usa a data do último lançamento ou updated
+        if (anoOperacao === null || mesOperacao === null) {
+          if (lancamentos.length > 0) {
+            let ultimoLanc: Date | null = null
+            lancamentos.forEach((l) => {
+              if (l.data) {
+                const d = new Date(l.data)
+                if (!isNaN(d.getTime())) {
+                  if (!ultimoLanc || d.getTime() > ultimoLanc.getTime()) {
+                    ultimoLanc = d
+                  }
+                }
+              }
+            })
+            if (ultimoLanc) {
+              const dU = ultimoLanc as Date
+              anoOperacao = dU.getFullYear()
+              mesOperacao = dU.getMonth()
+            }
+          } else if (moto.updated) {
+            const dUp = new Date(moto.updated)
+            if (!isNaN(dUp.getTime())) {
+              anoOperacao = dUp.getFullYear()
+              mesOperacao = dUp.getMonth()
+            }
+          }
+        }
+
+        if (anoOperacao !== null && mesOperacao !== null) {
+          anoFim = anoOperacao
+          mesFim = mesOperacao
+        }
+      }
+
+      // 4. Totais de entradas e saídas DENTRO DA JANELA:
+      // "A média (lucro ÷ meses ativos) e o lucro acumulado devem seguir essa janela
+      // (lucro da janela, não de todos os tempos, para os números baterem com a janela)."
+      let totalEntradas = 0
+      let totalSaidas = 0
+
+      lancamentos.forEach((l) => {
+        const val = Number(l.valor) || 0
+        if (!l.data) {
+          if (l.tipo === 'entrada') totalEntradas += val
+          else if (l.tipo === 'saida') totalSaidas += val
+          return
+        }
+
+        const d = new Date(l.data)
+        if (isNaN(d.getTime())) {
+          if (l.tipo === 'entrada') totalEntradas += val
+          else if (l.tipo === 'saida') totalSaidas += val
+          return
+        }
+
+        // Filtro de janela: anoInicio/mesInicio até anoFim/mesFim
+        if (anoInicio !== null && mesInicio !== null) {
+          const lAno = d.getFullYear()
+          const lMes = d.getMonth()
+          const lComp = lAno * 12 + lMes
+          const inicioComp = anoInicio * 12 + mesInicio
+          const fimComp = anoFim * 12 + mesFim
+
+          // Se estiver fora da janela, desconsidera
+          if (lComp < inicioComp || lComp > fimComp) {
+            return
+          }
+        }
+
+        if (l.tipo === 'entrada') {
+          totalEntradas += val
+        } else if (l.tipo === 'saida') {
+          totalSaidas += val
+        }
+      })
+
+      const lucroTotal = totalEntradas - totalSaidas
+
+      // 5. Cálculo de meses decorridos (inclusive)
       let mesesDecorridos = 0
       let mediaMensal: number | null = null
 
       if (anoInicio !== null && mesInicio !== null) {
-        // Quantidade de meses decorridos desde o mês de início até o mês presente (inclusive)
-        const diffMeses = (anoAtual - anoInicio) * 12 + (mesAtual - mesInicio) + 1
-        // Se a data de compra for no futuro por engano ou mês corrente, divisor mínimo é 1
+        // Quantidade de meses decorridos desde o mês de início até o mês final da janela (inclusive)
+        const diffMeses = (anoFim - anoInicio) * 12 + (mesFim - mesInicio) + 1
+        // Divisor mínimo é 1 se diffMeses >= 1, ou 1 se a operação ocorreu no mesmo mês da base
         mesesDecorridos = Math.max(1, diffMeses)
         mediaMensal = lucroTotal / mesesDecorridos
       } else if (temMovimentacao) {
@@ -263,8 +355,8 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                 Média Moto
               </CardTitle>
               <CardDescription className="text-[11px] mt-0.5">
-                Apuração do indicador Média Moto (Lucro ÷ Meses Ativos) desde a Data Base (compra da
-                moto ou 1º lançamento) até o mês corrente.
+                Apuração do indicador Média Moto (Lucro ÷ Meses Ativos) desde a Data Base até o mês
+                corrente (ou até o mês da operação para vendidas/cedidas).
               </CardDescription>
             </div>
             <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[10px] shrink-0 self-start sm:self-auto py-0.5 px-2">
@@ -421,7 +513,8 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                 Tabela Média Moto
               </CardTitle>
               <CardDescription className="text-[10px]">
-                Média Moto = Lucro ÷ Meses Ativos (desde a Data Base até o mês corrente)
+                Média Moto = Lucro ÷ Meses Ativos (Data Base até o mês corrente, ou mês da
+                venda/cessão)
               </CardDescription>
             </div>
           </div>
@@ -715,7 +808,7 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
               </div>
             </div>
             <p className="text-[10px] text-muted-foreground">
-              Data Base ao mês corrente (inclusive).
+              Data Base ao mês corrente (ou mês da operação para vendidas/cedidas).
             </p>
           </div>
         </CardContent>

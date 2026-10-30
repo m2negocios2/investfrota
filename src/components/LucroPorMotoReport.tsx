@@ -260,7 +260,10 @@ export function LucroPorMotoReport({
                   <th className="py-3 px-3 text-left font-bold uppercase tracking-wider sticky left-0 bg-slate-100 dark:bg-slate-900 z-10 min-w-[170px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
                     Moto / Veículo
                   </th>
-                  {MESES_ABREV.map((mes, idx) => (
+                  <th className="py-3 px-3 text-right font-black uppercase tracking-wider bg-slate-200/90 dark:bg-slate-800 text-slate-900 dark:text-white min-w-[115px] border-r border-slate-200 dark:border-slate-800">
+                    Somatório
+                  </th>
+                  {MESES_ABREV.map((mes) => (
                     <th
                       key={mes}
                       className="py-3 px-2 text-right font-bold uppercase tracking-wider min-w-[82px]"
@@ -268,9 +271,6 @@ export function LucroPorMotoReport({
                       {mes}
                     </th>
                   ))}
-                  <th className="py-3 px-3 text-right font-black uppercase tracking-wider bg-slate-200/80 dark:bg-slate-800 text-slate-900 dark:text-white min-w-[110px]">
-                    Total Ano
-                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -283,8 +283,6 @@ export function LucroPorMotoReport({
                 ) : (
                   matriz.map((item) => {
                     const isCampeao = item.moto.id === motoCampeaoId
-                    const isVendidaOuCedida =
-                      item.moto.status === 'vendida' || item.moto.status === 'cedida'
 
                     return (
                       <tr
@@ -293,7 +291,7 @@ export function LucroPorMotoReport({
                           isCampeao ? 'bg-amber-50/30 dark:bg-amber-950/10' : ''
                         }`}
                       >
-                        {/* Coluna Fixa: Moto */}
+                        {/* Coluna 1 Fixa: Moto */}
                         <td
                           className={`py-2.5 px-3 sticky left-0 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] ${
                             isCampeao
@@ -336,17 +334,17 @@ export function LucroPorMotoReport({
                           </div>
                         </td>
 
-                        {/* Meses Jan a Dez */}
+                        {/* Coluna 2: Somatório (Total Ano) logo após a Moto */}
+                        <td className="py-2.5 px-3 text-right tabular-nums bg-slate-50 dark:bg-slate-900 font-black border-r border-slate-200 dark:border-slate-800">
+                          {renderCell(item.totalLucro)}
+                        </td>
+
+                        {/* Coluna 3 em diante: Meses Jan a Dez */}
                         {item.lucroPorMes.map((lucroMes, idx) => (
                           <td key={idx} className="py-2.5 px-2 text-right tabular-nums">
                             {renderCell(lucroMes)}
                           </td>
                         ))}
-
-                        {/* Coluna Total Ano */}
-                        <td className="py-2.5 px-3 text-right tabular-nums bg-slate-50 dark:bg-slate-900 font-bold border-l border-slate-200 dark:border-slate-800">
-                          {renderCell(item.totalLucro)}
-                        </td>
                       </tr>
                     )
                   })
@@ -358,6 +356,17 @@ export function LucroPorMotoReport({
                 <tr className="bg-slate-900 dark:bg-slate-900 text-white font-bold border-t-2 border-slate-700">
                   <td className="py-3 px-3 text-left uppercase tracking-wider sticky left-0 bg-slate-900 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.3)]">
                     TOTAL GERAL
+                  </td>
+                  <td className="py-3 px-3 text-right tabular-nums bg-slate-950 text-white font-black text-sm border-r border-slate-700">
+                    {totalGeralAno >= 0 ? (
+                      <span className="text-emerald-300 font-extrabold">
+                        R$ {formatValor(totalGeralAno)}
+                      </span>
+                    ) : (
+                      <span className="text-red-300 font-extrabold">
+                        -R$ {formatValor(Math.abs(totalGeralAno))}
+                      </span>
+                    )}
                   </td>
                   {totaisMes.map((tot, idx) => (
                     <td key={idx} className="py-3 px-2 text-right tabular-nums">
@@ -374,17 +383,6 @@ export function LucroPorMotoReport({
                       )}
                     </td>
                   ))}
-                  <td className="py-3 px-3 text-right tabular-nums bg-slate-950 text-white font-black text-sm border-l border-slate-700">
-                    {totalGeralAno >= 0 ? (
-                      <span className="text-emerald-300 font-extrabold">
-                        R$ {formatValor(totalGeralAno)}
-                      </span>
-                    ) : (
-                      <span className="text-red-300 font-extrabold">
-                        -R$ {formatValor(Math.abs(totalGeralAno))}
-                      </span>
-                    )}
-                  </td>
                 </tr>
               </tfoot>
             </table>
