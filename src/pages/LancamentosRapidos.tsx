@@ -226,24 +226,14 @@ export default function LancamentosRapidos() {
     loadData()
   }, [])
 
-  // Garante que a categoria exista no banco; se não existir, cria
-  const ensureCategoriaExists = async (nomeCategoria: string): Promise<string> => {
+  // Resolve o nome da categoria para o lançamento sem NUNCA criar categorias no banco:
+  // Se existir na lista de categorias da usuária, usa o nome formatado cadastrado;
+  // senão, grava com o nome configurado no botão sem criar nada em categorias_gastos.
+  const resolveCategoriaNome = (nomeCategoria: string): string => {
     const existing = categorias.find(
       (c) => c.nome.trim().toLowerCase() === nomeCategoria.trim().toLowerCase(),
     )
-    if (existing) return existing.nome
-
-    try {
-      const created = await categoriasService.create({
-        nome: nomeCategoria,
-        descricao: `Categoria ${nomeCategoria} criada via Lançamentos Rápidos`,
-      })
-      setCategorias((prev) => [...prev, created])
-      return created.nome
-    } catch (err) {
-      console.warn(`Aviso ao criar categoria ${nomeCategoria}:`, err)
-      return nomeCategoria
-    }
+    return existing ? existing.nome : nomeCategoria
   }
 
   // Parse do preço aceitando tanto vírgula quanto ponto
@@ -531,8 +521,8 @@ export default function LancamentosRapidos() {
     setSubmittingButton(btn.id)
 
     try {
-      // 1. Categoria garantida
-      const categoriaFinal = await ensureCategoriaExists(btn.categoriaNome)
+      // 1. Categoria: usa nome existente se houver, ou fallback em texto sem criar nada no banco
+      const categoriaFinal = resolveCategoriaNome(btn.categoriaNome)
 
       // 2. Descrição no padrão pedido: "Óleo — {nome da moto}" ou "Óleo — {nome da moto} — {observação}"
       const obsTrimmed = observacaoInput.trim()
