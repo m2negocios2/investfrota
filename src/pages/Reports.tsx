@@ -177,17 +177,35 @@ export default function Reports() {
     )
     .reduce((acc, c) => acc + c.valor, 0)
 
-  // Despesas Administrativas & Outros (Rastreador, Seguro, Documentação, Taxas)
-  const despesasFixasMes = caixaDoMes
-    .filter(
-      (c) =>
-        c.tipo === 'saida' &&
-        !c.categoria?.toLowerCase().includes('manuten') &&
-        !c.categoria?.toLowerCase().includes('peça') &&
-        !c.categoria?.toLowerCase().includes('combust') &&
-        !c.categoria?.toLowerCase().includes('oficina'),
-    )
-    .reduce((acc, c) => acc + c.valor, 0)
+  // Despesas Administrativas & Outros (Rastreador, Seguro, Documentação, Taxas, etc.)
+  const lancamentosDespesasFixasMes = caixaDoMes.filter(
+    (c) =>
+      c.tipo === 'saida' &&
+      !c.categoria?.toLowerCase().includes('manuten') &&
+      !c.categoria?.toLowerCase().includes('peça') &&
+      !c.categoria?.toLowerCase().includes('combust') &&
+      !c.categoria?.toLowerCase().includes('oficina'),
+  )
+
+  // Agrupamento detalhado por categoria de despesa fixa no mês
+  const despesasFixasDetalhadasMes = (() => {
+    const mapa = new Map<string, { total: number; count: number }>()
+    lancamentosDespesasFixasMes.forEach((c) => {
+      const cat = (c.categoria || '').trim() || 'Outros'
+      const valor = Number(c.valor) || 0
+      const atual = mapa.get(cat) || { total: 0, count: 0 }
+      mapa.set(cat, { total: atual.total + valor, count: atual.count + 1 })
+    })
+    return Array.from(mapa.entries())
+      .map(([categoria, dados]) => ({
+        categoria,
+        total: dados.total,
+        count: dados.count,
+      }))
+      .sort((a, b) => b.total - a.total)
+  })()
+
+  const despesasFixasMes = lancamentosDespesasFixasMes.reduce((acc, c) => acc + c.valor, 0)
 
   const totalDespesasMes = custosOperacionaisMes + despesasFixasMes
   const lucroBrutoMes = receitaBrutaMes - custosOperacionaisMes
@@ -255,16 +273,69 @@ export default function Reports() {
     )
     .reduce((acc, c) => acc + c.valor, 0)
 
-  const despesasFixasAno = caixaDoAno
-    .filter(
-      (c) =>
-        c.tipo === 'saida' &&
-        !c.categoria?.toLowerCase().includes('manuten') &&
-        !c.categoria?.toLowerCase().includes('peça') &&
-        !c.categoria?.toLowerCase().includes('combust') &&
-        !c.categoria?.toLowerCase().includes('oficina'),
-    )
-    .reduce((acc, c) => acc + c.valor, 0)
+  const lancamentosDespesasFixasAno = caixaDoAno.filter(
+    (c) =>
+      c.tipo === 'saida' &&
+      !c.categoria?.toLowerCase().includes('manuten') &&
+      !c.categoria?.toLowerCase().includes('peça') &&
+      !c.categoria?.toLowerCase().includes('combust') &&
+      !c.categoria?.toLowerCase().includes('oficina'),
+  )
+
+  // Agrupamento detalhado por categoria de despesa fixa no ano com distribuição mensal (1..12)
+  const despesasFixasDetalhadasAno = (() => {
+    const mapa = new Map<
+      string,
+      { total: number; count: number; meses: { [mes: number]: number } }
+    >()
+    lancamentosDespesasFixasAno.forEach((c) => {
+      const cat = (c.categoria || '').trim() || 'Outros'
+      const valor = Number(c.valor) || 0
+      const mes = c.data ? new Date(c.data).getMonth() + 1 : 1
+      const atual = mapa.get(cat) || {
+        total: 0,
+        count: 0,
+        meses: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0 },
+      }
+      atual.total += valor
+      atual.count += 1
+      atual.meses[mes] = (atual.meses[mes] || 0) + valor
+      mapa.set(cat, atual)
+    })
+    return Array.from(mapa.entries())
+      .map(([categoria, dados]) => ({
+        categoria,
+        total: dados.total,
+        count: dados.count,
+        meses: dados.meses,
+      }))
+      .sort((a, b) => b.total - a.total)
+  })()
+
+  // Totais de despesas fixas por mês para o resumo anual
+  const totaisDespesasFixasPorMesAno = (() => {
+    const meses: { [mes: number]: number } = {
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+      6: 0,
+      7: 0,
+      8: 0,
+      9: 0,
+      10: 0,
+      11: 0,
+      12: 0,
+    }
+    lancamentosDespesasFixasAno.forEach((c) => {
+      const mes = c.data ? new Date(c.data).getMonth() + 1 : 1
+      meses[mes] = (meses[mes] || 0) + (Number(c.valor) || 0)
+    })
+    return meses
+  })()
+
+  const despesasFixasAno = lancamentosDespesasFixasAno.reduce((acc, c) => acc + c.valor, 0)
 
   const totalDespesasAno = custosOperacionaisAno + despesasFixasAno
   const lucroBrutoAno = receitaBrutaAno - custosOperacionaisAno
@@ -1011,19 +1082,83 @@ export default function Reports() {
                   </span>
                 </div>
 
-                {/* Linha 4: Despesas Fixas */}
-                <div className="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border flex items-center justify-between">
-                  <div>
-                    <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">
-                      (-) DESPESAS OPERACIONAIS & ADMINISTRATIVAS
+                {/* Linha 4: Despesas Fixas (com Detalhamento por Categoria) */}
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl border overflow-hidden">
+                  <div className="p-3.5 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-800/60">
+                    <div>
+                      <span className="font-semibold text-sm text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        (-) DESPESAS FIXAS (Operacionais & Administrativas)
+                        {despesasFixasDetalhadasMes.length > 0 && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-bold py-0 h-4 bg-white dark:bg-slate-900"
+                          >
+                            {despesasFixasDetalhadasMes.length}{' '}
+                            {despesasFixasDetalhadasMes.length === 1 ? 'categoria' : 'categorias'}
+                          </Badge>
+                        )}
+                      </span>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Detalhamento por categoria (seguros, impostos, licenciamento, taxas, etc.)
+                      </p>
+                    </div>
+                    <span className="font-bold text-base text-red-600 dark:text-red-400">
+                      - R$ {despesasFixasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Rastreadores GPS, seguros, documentações e outros gastos
-                    </p>
                   </div>
-                  <span className="font-bold text-base text-red-600 dark:text-red-400">
-                    - R$ {despesasFixasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
+
+                  {/* Lista detalhada das despesas fixas por categoria */}
+                  <div className="p-3.5 space-y-2">
+                    {despesasFixasDetalhadasMes.length === 0 ? (
+                      <div className="text-xs text-muted-foreground py-1 text-center italic">
+                        Nenhuma despesa fixa registrada no mês de {monthNames[selectedMonth - 1]}/
+                        {selectedYear}.
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-1.5">
+                          {despesasFixasDetalhadasMes.map((item) => {
+                            const pctSobreFixas =
+                              despesasFixasMes > 0 ? (item.total / despesasFixasMes) * 100 : 0
+                            return (
+                              <div
+                                key={item.categoria}
+                                className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-white dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                                  <span className="font-medium text-slate-800 dark:text-slate-200 truncate">
+                                    {item.categoria}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground hidden sm:inline">
+                                    ({item.count} {item.count === 1 ? 'lançamento' : 'lançamentos'})
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                  <span className="text-[11px] text-muted-foreground font-mono">
+                                    {pctSobreFixas.toFixed(1)}%
+                                  </span>
+                                  <span className="font-bold text-red-600 dark:text-red-400 font-mono">
+                                    - R${' '}
+                                    {item.total.toLocaleString('pt-BR', {
+                                      minimumFractionDigits: 2,
+                                    })}
+                                  </span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <div className="pt-2 border-t border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 px-1">
+                          <span>Total Despesas Fixas do Mês:</span>
+                          <span className="text-red-600 dark:text-red-400">
+                            - R${' '}
+                            {despesasFixasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {/* Linha 5: Resultado Líquido Final */}
@@ -1103,15 +1238,119 @@ export default function Reports() {
                   </span>
                 </div>
 
-                <div className="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border flex items-center justify-between">
-                  <div>
-                    <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">
-                      (-) DESPESAS FIXAS ANUAIS (Rastreador, Seguro, IPVA)
+                {/* Linha 4: Despesas Fixas Anuais (com Detalhamento por Categoria) */}
+                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl border overflow-hidden">
+                  <div className="p-3.5 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-800/60">
+                    <div>
+                      <span className="font-semibold text-sm text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        (-) DESPESAS FIXAS ANUAIS (Operacionais & Administrativas)
+                        {despesasFixasDetalhadasAno.length > 0 && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-bold py-0 h-4 bg-white dark:bg-slate-900"
+                          >
+                            {despesasFixasDetalhadasAno.length}{' '}
+                            {despesasFixasDetalhadasAno.length === 1 ? 'categoria' : 'categorias'}
+                          </Badge>
+                        )}
+                      </span>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Detalhamento consolidado por categoria no exercício {selectedYear}
+                      </p>
+                    </div>
+                    <span className="font-bold text-base text-red-600 dark:text-red-400">
+                      - R$ {despesasFixasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
-                  <span className="font-bold text-base text-red-600 dark:text-red-400">
-                    - R$ {despesasFixasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
+
+                  {/* Detalhamento por Categoria no Ano */}
+                  <div className="p-3.5 space-y-2.5">
+                    {despesasFixasDetalhadasAno.length === 0 ? (
+                      <div className="text-xs text-muted-foreground py-1 text-center italic">
+                        Nenhuma despesa fixa registrada no exercício de {selectedYear}.
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-2">
+                          {despesasFixasDetalhadasAno.map((item) => {
+                            const pctSobreFixas =
+                              despesasFixasAno > 0 ? (item.total / despesasFixasAno) * 100 : 0
+                            return (
+                              <div
+                                key={item.categoria}
+                                className="p-2.5 rounded-lg bg-white dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors space-y-1.5"
+                              >
+                                <div className="flex items-center justify-between text-xs">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                                    <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                                      {item.categoria}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground hidden sm:inline">
+                                      ({item.count}{' '}
+                                      {item.count === 1
+                                        ? 'lançamento no ano'
+                                        : 'lançamentos no ano'}
+                                      )
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-3 shrink-0">
+                                    <span className="text-[11px] text-muted-foreground font-mono">
+                                      {pctSobreFixas.toFixed(1)}% do total
+                                    </span>
+                                    <span className="font-bold text-red-600 dark:text-red-400 font-mono text-sm">
+                                      - R${' '}
+                                      {item.total.toLocaleString('pt-BR', {
+                                        minimumFractionDigits: 2,
+                                      })}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Mini distribuição mensal (12 meses) */}
+                                <div className="grid grid-cols-6 sm:grid-cols-12 gap-1 pt-1 border-t border-slate-100 dark:border-slate-800/60">
+                                  {monthNames.map((mNome, idx) => {
+                                    const mesNum = idx + 1
+                                    const valorMes = item.meses[mesNum] || 0
+                                    const temValor = valorMes > 0
+                                    return (
+                                      <div
+                                        key={mesNum}
+                                        className={`text-center py-1 px-0.5 rounded text-[10px] leading-tight ${
+                                          temValor
+                                            ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 font-medium'
+                                            : 'bg-slate-50 dark:bg-slate-900/40 text-slate-400 dark:text-slate-600'
+                                        }`}
+                                        title={`${mNome}: R$ ${valorMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                      >
+                                        <div className="text-[9px] uppercase tracking-tighter opacity-70">
+                                          {mNome.slice(0, 3)}
+                                        </div>
+                                        <div className="truncate font-mono">
+                                          {temValor
+                                            ? `${valorMes >= 1000 ? `${(valorMes / 1000).toFixed(1)}k` : valorMes.toFixed(0)}`
+                                            : '—'}
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        {/* Linha de Totalização com Resumo Anual */}
+                        <div className="pt-2 border-t border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 px-1">
+                          <span>Total Despesas Fixas Anuais ({selectedYear}):</span>
+                          <span className="text-red-600 dark:text-red-400 font-mono text-sm">
+                            - R${' '}
+                            {despesasFixasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <div className="p-4 bg-slate-900 dark:bg-slate-800 text-white rounded-xl shadow-md flex items-center justify-between">
