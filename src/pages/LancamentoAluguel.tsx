@@ -35,15 +35,36 @@ import { caixaService } from '@/services/caixa'
 import { motosService } from '@/services/motos'
 import { contratosService } from '@/services/contratos'
 import { categoriasService } from '@/services/categorias'
+import { empresaService, sociosService } from '@/services/cadastros'
+import { contasAPagarService } from '@/services/contasAPagar'
 import { getTodayLocalDate, formatDateDisplay, dateToApiMidday } from '@/lib/dateUtils'
-import { Moto, Contrato, CaixaLancamento, CategoriaGasto, FormaPagamento } from '@/types/database'
+import {
+  Moto,
+  Contrato,
+  CaixaLancamento,
+  CategoriaGasto,
+  FormaPagamento,
+  Socio,
+  ContaAPagarComProgresso,
+  EmpresaConfig,
+} from '@/types/database'
 import { MotoCardButton } from '@/components/MotoSelectorGrid'
+import { ParticipantSelectorGrid, SelectedParticipant } from '@/components/ParticipantSelectorGrid'
+import { Building2, User, Users } from 'lucide-react'
 
 export default function LancamentoAluguel() {
   const [motos, setMotos] = useState<Moto[]>([])
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [categorias, setCategorias] = useState<CategoriaGasto[]>([])
+  const [empresaConfig, setEmpresaConfig] = useState<EmpresaConfig | null>(null)
+  const [socios, setSocios] = useState<Socio[]>([])
+  const [contasAPagar, setContasAPagar] = useState<ContaAPagarComProgresso[]>([])
+
+  // Modo de destino: 'moto' | 'participante'
+  const [destinoTipo, setDestinoTipo] = useState<'moto' | 'participante'>('moto')
   const [selectedMotoId, setSelectedMotoId] = useState<string>('')
+  const [selectedParticipant, setSelectedParticipant] = useState<SelectedParticipant | null>(null)
+
   const [valorInput, setValorInput] = useState<string>('')
   const [dataInput, setDataInput] = useState<string>(getTodayLocalDate())
   const [semComissao, setSemComissao] = useState<boolean>(false)
@@ -69,12 +90,18 @@ export default function LancamentoAluguel() {
 
   const loadData = async () => {
     try {
-      const [mList, cList, allCaixa, catList] = await Promise.all([
+      const [mList, cList, allCaixa, catList, emp, socList, contList] = await Promise.all([
         motosService.getAll(),
         contratosService.getAll(),
         caixaService.getAll(),
         categoriasService.getAll(),
+        empresaService.get(),
+        sociosService.getAll(),
+        contasAPagarService.getAllWithProgresso(),
       ])
+      setEmpresaConfig(emp)
+      setSocios(socList)
+      setContasAPagar(contList)
 
       // Excluir motos vendidas/cedidas do Lançamento de Aluguel e ordenar por nome
       const sortedMotos = [...mList]
@@ -221,24 +248,68 @@ export default function LancamentoAluguel() {
   }
 
   const valorNumerico = parseValor(valorInput)
-  const isFormReady = Boolean(selectedMotoId && valorNumerico > 0)
+  const isFormReady =
+    destinoTipo === 'moto'
+      ? Boolean(selectedMotoId && valorNumerico > 0)
+      : Boolean(selectedParticipant && valorNumerico > 0)
+
+  // Nome da empresa cadastrada (fallback 'Empresa')
+  const nomeEmpresaDisplay = empresaConfig?.nome_empresa?.trim() || 'Empresa'
+
+  // Identificação do participante selecionado
+  const selectedSocioObj =
+    selectedParticipant?.tipo === 'socia' && selectedParticipant.socioId
+      ? socios.find((s) => s.id === selectedParticipant.socioId)
+      : null
+  const selectedContaObj =
+    selectedParticipant?.tipo === 'terceiros' && selectedParticipant.contaAPagarId
+      ? contasAPagar.find((c) => c.id === selectedParticipant.contaAPagarId)
+      : null
+
+  const getParticipantDisplayName = () => {
+    if (!selectedParticipant) return ''
+    if (selectedParticipant.tipo === 'empresa') return nomeEmpresaDisplay
+    if (selectedParticipant.tipo === 'socia') {
+      return selectedSocioObj?.nome ? `Sócio: ${selectedSocioObj.nome}` : 'Sócios (Geral)'
+    }
+    if (selectedParticipant.tipo === 'terceiros') {
+      return selectedContaObj?.credor ? `Terceiro: ${selectedContaObj.credor}` : 'Terceiros (Geral)'
+    }
+    return ''
+  }
 
   // Abrir modal tradicional de OUTRAS ENTRADAS
   const handleOpenOutrasEntradas = () => {
-    if (!selectedMotoId) {
+    if (destinoTipo === 'moto' && !selectedMotoId) {
       toast.error('Selecione primeiro a Moto (no item 1) antes de abrir Outras Entradas!')
       return
     }
-    // Inicializar campos com valores padrões para receitas
-    const motoNomeDisplay = selectedMoto?.nome?.trim() || selectedMoto?.modelo?.trim() || 'Moto'
-    setOutroDescricao(`Receita — ${motoNomeDisplay}`)
-    // Categoria default: Aluguel se existir ou primeira da lista
-    const defaultCat =
-      categorias.find((c) => c.nome.toLowerCase() === 'aluguel')?.nome ||
-      categorias[0]?.nome ||
-      'Aluguel'
-    setOutroCategoria(defaultCat)
-    setOutroValor('')
+    if (destinoTipo === 'participante' && !selectedParticipant) {
+      toast.error('Selecione primeiro o Participante (no item 1) antes de abrir Outras Entradas!')
+      return
+    }
+
+    if (destinoTipo === 'moto') {
+      const motoNomeDisplay = selectedMoto?.nome?.trim() || selectedMoto?.modelo?.trim() || 'Moto'
+      setOutroDescricao(`Receita — ${motoNomeDisplay}`)
+      const defaultCat =
+        categorias.find((c) => c.nome.toLowerCase() === 'aluguel')?.nome ||
+        categorias[0]?.nome ||
+        'Aluguel'
+      setOutroCategoria(defaultCat)
+    } else {
+      const pName = getParticipantDisplayName()
+      setOutroDescricao(`Receita — ${pName}`)
+      setOutroCategoria(
+        selectedParticipant?.tipo === 'empresa'
+          ? 'Receita Empresa'
+          : selectedParticipant?.tipo === 'socia'
+            ? 'Aporte Sócio'
+            : 'Receita Terceiro',
+      )
+    }
+
+    setOutroValor(valorNumerico > 0 ? valorNumerico : '')
     // Preserva a data escolhida no campo de data da tela principal para coerência
     setOutroData(dataInput || getTodayLocalDate())
     setOutroFormaPagamento('pix')
@@ -250,8 +321,12 @@ export default function LancamentoAluguel() {
   const handleSubmitOutraEntrada = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!selectedMotoId) {
+    if (destinoTipo === 'moto' && !selectedMotoId) {
       toast.error('Nenhuma moto selecionada!')
+      return
+    }
+    if (destinoTipo === 'participante' && !selectedParticipant) {
+      toast.error('Nenhum participante selecionado!')
       return
     }
 
@@ -266,32 +341,59 @@ export default function LancamentoAluguel() {
       return
     }
 
-    const motoNomeDisplay = selectedMoto?.nome?.trim() || selectedMoto?.modelo?.trim() || 'Moto'
     const catFinal = outroCategoria.trim() || 'Receitas'
     const safeData = outroData || getTodayLocalDate()
     const safeDataMidday = dateToApiMidday(safeData)
 
     setSubmittingOutro(true)
     try {
-      const createdEntry = await caixaService.create({
-        moto: selectedMotoId,
+      const payload: any = {
         tipo: 'entrada',
         descricao: outroDescricao.trim(),
         categoria: catFinal,
         valor: valorFinal,
         data: safeDataMidday,
         forma_pagamento: outroFormaPagamento,
-        observacoes: outroObservacoes.trim()
+      }
+
+      let targetLabel = ''
+      if (destinoTipo === 'moto') {
+        payload.moto = selectedMotoId
+        payload.entidade = ''
+        payload.socio = ''
+        payload.conta_a_pagar = ''
+        payload.observacoes = outroObservacoes.trim()
           ? `Lançado via Outras Entradas: ${outroObservacoes.trim()}`
-          : 'Lançado via Outras Entradas',
-      })
+          : 'Lançado via Outras Entradas'
+        targetLabel = selectedMoto?.nome?.trim() || selectedMoto?.modelo?.trim() || 'Moto'
+      } else if (selectedParticipant) {
+        payload.moto = ''
+        payload.entidade = selectedParticipant.tipo
+        payload.socio =
+          selectedParticipant.tipo === 'socia' ? selectedParticipant.socioId || '' : ''
+        payload.conta_a_pagar =
+          selectedParticipant.tipo === 'terceiros' ? selectedParticipant.contaAPagarId || '' : ''
+
+        let obs = outroObservacoes.trim()
+          ? `Lançado via Outras Entradas: ${outroObservacoes.trim()}`
+          : 'Lançado via Outras Entradas'
+        if (selectedParticipant.tipo === 'socia' && selectedSocioObj?.nome) {
+          obs += ` (Sócio: ${selectedSocioObj.nome})`
+        } else if (selectedParticipant.tipo === 'terceiros' && selectedContaObj?.credor) {
+          obs += ` (Terceiro: ${selectedContaObj.credor})`
+        }
+        payload.observacoes = obs
+        targetLabel = getParticipantDisplayName()
+      }
+
+      const createdEntry = await caixaService.create(payload)
 
       const valorFormatado = valorFinal.toLocaleString('pt-BR', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })
 
-      toast.success(`Entrada de R$ ${valorFormatado} registrada no caixa da ${motoNomeDisplay}!`, {
+      toast.success(`Entrada de R$ ${valorFormatado} registrada no caixa de ${targetLabel}!`, {
         duration: 4000,
       })
 
@@ -305,7 +407,11 @@ export default function LancamentoAluguel() {
       setRecentLancamentos((prev) => [
         {
           ...createdEntry,
-          expand: { moto: selectedMoto },
+          expand: {
+            moto: destinoTipo === 'moto' ? selectedMoto : undefined,
+            socio: selectedSocioObj || undefined,
+            conta_a_pagar: selectedContaObj || undefined,
+          },
         },
         ...prev.slice(0, 9),
       ])
@@ -318,118 +424,194 @@ export default function LancamentoAluguel() {
   }
 
   const handleLancar = async () => {
-    if (!selectedMotoId) {
-      toast.error('Selecione primeiro a Moto (pelo Nome)!')
-      return
-    }
-
-    if (valorNumerico <= 0) {
-      toast.error('Informe o VALOR do aluguel antes de lançar!')
-      return
-    }
-
-    // Regra: se a moto não tem contrato ativo, avisar e NÃO lançar
-    if (!activeContract) {
-      toast.error(
-        `A moto "${selectedMoto?.nome || selectedMoto?.modelo}" não possui contrato ativo. Não é possível lançar aluguel.`,
-        { duration: 5000 },
-      )
-      return
-    }
-
-    const motoNomeDisplay = selectedMoto?.nome?.trim() || selectedMoto?.modelo?.trim() || 'Moto'
-    const locatarioNome = activeContract.locatario_nome?.trim() || ''
-    const safeDataMidday = dateToApiMidday(dataInput || getTodayLocalDate())
-
-    setSubmitting(true)
-
-    try {
-      // 1. Criar lançamento de RECEITA do aluguel no Fluxo de Caixa
-      // Regra pedida: na tela Lançamento Aluguel do menu, a descrição deve ser apenas 'Aluguel'
-      const descReceita = 'Aluguel'
-
-      const receitaCriada = await caixaService.create({
-        moto: selectedMotoId,
-        tipo: 'entrada',
-        descricao: descReceita,
-        categoria: 'Aluguel',
-        valor: valorNumerico,
-        data: safeDataMidday,
-        forma_pagamento: 'pix',
-        observacoes: `Lançado via Lançamento Aluguel (Contrato: ${activeContract.id})`,
-      })
-
-      // 2. Verificar percentual de comissão do contrato ativo
-      const percentualComissao = Number(
-        activeContract.comissao_percentual ?? activeContract.percentual_comissao ?? 0,
-      )
-
-      let comissaoCriada: CaixaLancamento | null = null
-
-      if (!semComissao && percentualComissao > 0) {
-        // Calcular valor da comissão
-        const valorComissao = Number(((valorNumerico * percentualComissao) / 100).toFixed(2))
-        if (valorComissao > 0) {
-          // Lançar despesa de comissão no Caixa
-          comissaoCriada = await caixaService.create({
-            moto: selectedMotoId,
-            tipo: 'saida',
-            descricao: 'Comissão',
-            categoria: 'Comissão',
-            valor: valorComissao,
-            data: safeDataMidday,
-            forma_pagamento: 'pix',
-            comissao_de: activeContract.id,
-            recebimento: '',
-            observacoes: `Comissão automática de ${percentualComissao}% sobre receita de R$ ${valorNumerico.toFixed(2)}`,
-          })
-        }
+    if (destinoTipo === 'moto') {
+      if (!selectedMotoId) {
+        toast.error('Selecione primeiro a Moto (pelo Nome)!')
+        return
       }
 
-      // 3. Feedback visual para a usuária conforme o resultado
-      const valorFormatado = valorNumerico.toLocaleString('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })
+      if (valorNumerico <= 0) {
+        toast.error('Informe o VALOR do aluguel antes de lançar!')
+        return
+      }
 
-      if (semComissao) {
-        toast.success(
-          `Receita de aluguel de R$ ${valorFormatado} lançada com sucesso no Caixa da ${motoNomeDisplay} (sem comissão)!`,
+      // Regra: se a moto não tem contrato ativo, avisar e NÃO lançar
+      if (!activeContract) {
+        toast.error(
+          `A moto "${selectedMoto?.nome || selectedMoto?.modelo}" não possui contrato ativo. Não é possível lançar aluguel.`,
           { duration: 5000 },
         )
-      } else if (percentualComissao > 0 && comissaoCriada) {
-        const comissaoFormatada = Number(comissaoCriada.valor).toLocaleString('pt-BR', {
+        return
+      }
+
+      const motoNomeDisplay = selectedMoto?.nome?.trim() || selectedMoto?.modelo?.trim() || 'Moto'
+      const safeDataMidday = dateToApiMidday(dataInput || getTodayLocalDate())
+
+      setSubmitting(true)
+
+      try {
+        // 1. Criar lançamento de RECEITA do aluguel no Fluxo de Caixa
+        const descReceita = 'Aluguel'
+
+        const receitaCriada = await caixaService.create({
+          moto: selectedMotoId,
+          tipo: 'entrada',
+          descricao: descReceita,
+          categoria: 'Aluguel',
+          valor: valorNumerico,
+          data: safeDataMidday,
+          forma_pagamento: 'pix',
+          observacoes: `Lançado via Lançamento Aluguel (Contrato: ${activeContract.id})`,
+        })
+
+        // 2. Verificar percentual de comissão do contrato ativo
+        const percentualComissao = Number(
+          activeContract.comissao_percentual ?? activeContract.percentual_comissao ?? 0,
+        )
+
+        let comissaoCriada: CaixaLancamento | null = null
+
+        if (!semComissao && percentualComissao > 0) {
+          const valorComissao = Number(((valorNumerico * percentualComissao) / 100).toFixed(2))
+          if (valorComissao > 0) {
+            comissaoCriada = await caixaService.create({
+              moto: selectedMotoId,
+              tipo: 'saida',
+              descricao: 'Comissão',
+              categoria: 'Comissão',
+              valor: valorComissao,
+              data: safeDataMidday,
+              forma_pagamento: 'pix',
+              comissao_de: activeContract.id,
+              recebimento: '',
+              observacoes: `Comissão automática de ${percentualComissao}% sobre receita de R$ ${valorNumerico.toFixed(2)}`,
+            })
+          }
+        }
+
+        // 3. Feedback visual para a usuária conforme o resultado
+        const valorFormatado = valorNumerico.toLocaleString('pt-BR', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })
+
+        if (semComissao) {
+          toast.success(
+            `Receita de aluguel de R$ ${valorFormatado} lançada com sucesso no Caixa da ${motoNomeDisplay} (sem comissão)!`,
+            { duration: 5000 },
+          )
+        } else if (percentualComissao > 0 && comissaoCriada) {
+          const comissaoFormatada = Number(comissaoCriada.valor).toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+          toast.success(
+            `Aluguel de R$ ${valorFormatado} e Comissão de R$ ${comissaoFormatada} (${percentualComissao}%) lançados no Caixa da ${motoNomeDisplay}!`,
+            { duration: 5000 },
+          )
+        } else {
+          toast.warning(
+            `Receita de aluguel de R$ ${valorFormatado} lançada no Caixa. Atenção: Contrato ativo sem % de comissão cadastrado (nenhuma despesa de comissão gerada).`,
+            { duration: 6000 },
+          )
+        }
+
+        // 4. Limpar campos e redefinir data para 'hoje' prontos para o próximo lançamento
+        setValorInput('')
+        setDataInput(getTodayLocalDate())
+        setSemComissao(false)
+
+        // 5. Atualizar lista recente
+        const novosItens: CaixaLancamento[] = [{ ...receitaCriada, expand: { moto: selectedMoto } }]
+        if (comissaoCriada) {
+          novosItens.push({ ...comissaoCriada, expand: { moto: selectedMoto } })
+        }
+        setRecentLancamentos((prev) => [...novosItens, ...prev].slice(0, 10))
+      } catch (err) {
+        console.error('Erro ao efetuar lançamento de aluguel:', err)
+        toast.error('Erro ao registrar lançamento no Fluxo de Caixa. Tente novamente.')
+      } finally {
+        setSubmitting(false)
+      }
+    } else {
+      // LANÇAMENTO POR OUTROS PARTICIPANTES (sem comissão / sem contrato)
+      if (!selectedParticipant) {
+        toast.error('Selecione um participante (Empresa, Sócio ou Terceiro)!')
+        return
+      }
+
+      if (valorNumerico <= 0) {
+        toast.error('Informe o VALOR da entrada antes de lançar!')
+        return
+      }
+
+      const pName = getParticipantDisplayName()
+      const safeDataMidday = dateToApiMidday(dataInput || getTodayLocalDate())
+
+      setSubmitting(true)
+
+      try {
+        const descFinal = `Receita — ${pName}`
+        const catFinal =
+          selectedParticipant.tipo === 'empresa'
+            ? 'Receita Empresa'
+            : selectedParticipant.tipo === 'socia'
+              ? 'Aporte Sócio'
+              : 'Receita Terceiro'
+
+        const payload: any = {
+          moto: '',
+          entidade: selectedParticipant.tipo,
+          socio: selectedParticipant.tipo === 'socia' ? selectedParticipant.socioId || '' : '',
+          conta_a_pagar:
+            selectedParticipant.tipo === 'terceiros' ? selectedParticipant.contaAPagarId || '' : '',
+          tipo: 'entrada',
+          descricao: descFinal,
+          categoria: catFinal,
+          valor: valorNumerico,
+          data: safeDataMidday,
+          forma_pagamento: 'pix',
+          observacoes:
+            selectedParticipant.tipo === 'socia' && selectedSocioObj?.nome
+              ? `Sócio vinculado: ${selectedSocioObj.nome}`
+              : selectedParticipant.tipo === 'terceiros' && selectedContaObj?.credor
+                ? `Conta a pagar vinculada: ${selectedContaObj.credor}`
+                : `Lançado via Lançamento Entradas (${pName})`,
+        }
+
+        const entradaCriada = await caixaService.create(payload)
+
+        const valorFormatado = valorNumerico.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+
         toast.success(
-          `Aluguel de R$ ${valorFormatado} e Comissão de R$ ${comissaoFormatada} (${percentualComissao}%) lançados no Caixa da ${motoNomeDisplay}!`,
+          `Receita de R$ ${valorFormatado} lançada com sucesso no Caixa vinculada a ${pName}!`,
           { duration: 5000 },
         )
-      } else {
-        // Contrato ativo sem comissão configurada: lança só a receita e avisa
-        toast.warning(
-          `Receita de aluguel de R$ ${valorFormatado} lançada no Caixa. Atenção: Contrato ativo sem % de comissão cadastrado (nenhuma despesa de comissão gerada).`,
-          { duration: 6000 },
-        )
-      }
 
-      // 4. Limpar campos e redefinir data para 'hoje' prontos para o próximo lançamento
-      setValorInput('')
-      setDataInput(getTodayLocalDate())
-      setSemComissao(false)
+        // Limpar campos
+        setValorInput('')
+        setDataInput(getTodayLocalDate())
 
-      // 5. Atualizar lista recente
-      const novosItens: CaixaLancamento[] = [{ ...receitaCriada, expand: { moto: selectedMoto } }]
-      if (comissaoCriada) {
-        novosItens.push({ ...comissaoCriada, expand: { moto: selectedMoto } })
+        // Atualizar lista recente
+        setRecentLancamentos((prev) => [
+          {
+            ...entradaCriada,
+            expand: {
+              socio: selectedSocioObj || undefined,
+              conta_a_pagar: selectedContaObj || undefined,
+            },
+          },
+          ...prev.slice(0, 9),
+        ])
+      } catch (err) {
+        console.error('Erro ao efetuar lançamento de participante:', err)
+        toast.error('Erro ao registrar lançamento no Fluxo de Caixa. Tente novamente.')
+      } finally {
+        setSubmitting(false)
       }
-      setRecentLancamentos((prev) => [...novosItens, ...prev].slice(0, 10))
-    } catch (err) {
-      console.error('Erro ao efetuar lançamento de aluguel:', err)
-      toast.error('Erro ao registrar lançamento no Fluxo de Caixa. Tente novamente.')
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -453,175 +635,243 @@ export default function LancamentoAluguel() {
       {/* Cartão Principal de Operação */}
       <Card className="border-2 border-slate-200 dark:border-slate-800 shadow-md">
         <CardHeader className="pb-4">
-          <CardTitle className="text-base font-bold flex items-center gap-2">
-            <Bike className="w-5 h-5 text-blue-600" />
-            1. Selecione a Moto (pelo Nome)
-          </CardTitle>
-          <CardDescription>
-            Botões compactos na cor cadastrada da moto. O sistema valida o contrato ativo
-            automaticamente.
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                {destinoTipo === 'moto' ? (
+                  <>
+                    <Bike className="w-5 h-5 text-blue-600" />
+                    1. Selecione a Moto (pelo Nome)
+                  </>
+                ) : (
+                  <>
+                    <Users className="w-5 h-5 text-indigo-600" />
+                    1. Selecione o Participante
+                  </>
+                )}
+              </CardTitle>
+              <CardDescription>
+                {destinoTipo === 'moto'
+                  ? 'Botões compactos na cor da moto. Validação de contrato ativo automática.'
+                  : 'Lance receitas de Empresa, Sócios ou Terceiros diretamente no caixa.'}
+              </CardDescription>
+            </div>
+
+            {/* Alternador de Destino: Moto vs Outros Participantes */}
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl self-start sm:self-auto border border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setDestinoTipo('moto')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                  destinoTipo === 'moto'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Bike className="w-3.5 h-3.5" />
+                MOTOS
+              </button>
+              <button
+                type="button"
+                onClick={() => setDestinoTipo('participante')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                  destinoTipo === 'participante'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                OUTROS PARTICIPANTES
+              </button>
+            </div>
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Grade de Botões-Ícone Compactos */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Toque na moto *
-              </Label>
-              {selectedMoto && (
-                <span className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  {selectedMoto.nome?.trim() || selectedMoto.modelo?.trim() || selectedMoto.placa}
-                </span>
-              )}
-            </div>
-
-            {loading ? (
-              <div className="p-6 text-center text-sm text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                Carregando motos...
-              </div>
-            ) : motos.length === 0 ? (
-              <div className="p-6 text-center text-sm text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                Nenhuma moto cadastrada.
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5">
-                {motos.map((m) => (
-                  <MotoCardButton
-                    key={m.id}
-                    moto={m}
-                    isSelected={selectedMotoId === m.id}
-                    onClick={() => setSelectedMotoId(m.id)}
-                    compact={true}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Aviso de Contrato Ativo */}
-            {selectedMoto && (
-              <div className="mt-2">
-                {activeContract ? (
-                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-emerald-900 dark:text-emerald-100 flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        Contrato Ativo: {activeContract.locatario_nome?.trim() || 'Sem nome'}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] bg-white dark:bg-slate-900 border-emerald-300 text-emerald-700 dark:text-emerald-300 font-bold"
-                      >
-                        {activeContract.tipo === 'plano_conquista' ? 'Conquista' : 'Normal'}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300 text-[11px] pt-1 border-t border-emerald-200/60 dark:border-emerald-800/60">
-                      <span>
-                        Comissão configurada:{' '}
-                        <strong>
-                          {activeContract.comissao_percentual ??
-                            activeContract.percentual_comissao ??
-                            0}
-                          %
-                        </strong>
-                      </span>
-                      <span>
-                        Semanal sugerido: R${' '}
-                        {(
-                          activeContract.valor_semanal || (activeContract.valor_diario || 0) * 7
-                        ).toFixed(2)}
-                      </span>
-                    </div>
-
-                    {/* Bloco: Fim do Contrato & Checkbox INDEFINIDO */}
-                    <div className="mt-2 pt-2 border-t border-emerald-200/70 dark:border-emerald-800/70 bg-white/70 dark:bg-slate-900/60 p-2.5 rounded-lg space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label
-                          htmlFor="dataFimContratoLancamento"
-                          className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5"
-                        >
-                          <Calendar className="w-3.5 h-3.5 text-blue-600" />
-                          Fim do Contrato
-                        </Label>
-
-                        {/* Checkbox INDEFINIDO */}
-                        <div className="flex items-center gap-1.5 cursor-pointer select-none bg-emerald-100/70 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-300/80 dark:border-emerald-700/60">
-                          <Checkbox
-                            id="indefinidoLancamentoCheckbox"
-                            checked={isIndefinido}
-                            disabled={updatingFimContrato}
-                            onCheckedChange={(checked) => handleToggleIndefinido(Boolean(checked))}
-                            className="h-4 w-4 border-emerald-600 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
-                          />
-                          <label
-                            htmlFor="indefinidoLancamentoCheckbox"
-                            className="text-[11px] font-black tracking-wide text-emerald-900 dark:text-emerald-100 cursor-pointer uppercase"
-                          >
-                            INDEFINIDO
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id="dataFimContratoLancamento"
-                          type="date"
-                          value={dataFimInput}
-                          disabled={isIndefinido || updatingFimContrato}
-                          onChange={(e) => handleDataFimChange(e.target.value)}
-                          className={`h-9 text-xs font-semibold bg-white dark:bg-slate-900 border transition-all ${
-                            isIndefinido
-                              ? 'opacity-40 cursor-not-allowed border-slate-200 dark:border-slate-800 text-slate-400'
-                              : 'border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white'
-                          }`}
-                        />
-                        {isIndefinido && (
-                          <Badge
-                            variant="secondary"
-                            className="text-[10px] font-bold text-emerald-800 dark:text-emerald-200 bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 whitespace-nowrap shrink-0 py-1"
-                          >
-                            Sem prazo / Contínuo
-                          </Badge>
-                        )}
-                      </div>
-
-                      <p className="text-[10px] text-muted-foreground leading-snug">
-                        {isIndefinido ? (
-                          <span className="text-emerald-700 dark:text-emerald-300 font-medium">
-                            Contrato sem data de término estipulada — o cliente pode ir seguindo com
-                            a moto sem prazo.
-                          </span>
-                        ) : dataFimInput ? (
-                          <span>
-                            Término estipulado:{' '}
-                            <strong className="text-slate-800 dark:text-slate-200">
-                              {formatDateDisplay(dataFimInput)}
-                            </strong>
-                            . Se for sem prazo, marque <strong>INDEFINIDO</strong>.
-                          </span>
-                        ) : (
-                          <span>
-                            Sem data definida. Marque <strong>INDEFINIDO</strong> ou preencha a data
-                            acima.
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-800 dark:text-rose-200 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>
-                      <strong>Sem contrato ativo!</strong> Esta moto não tem locatário vinculado no
-                      momento. O botão <strong>LANÇAR</strong> ficará bloqueado.
-                    </span>
-                  </div>
+          {/* SEÇÃO 1: MOTO OU PARTICIPANTE */}
+          {destinoTipo === 'moto' ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Toque na moto *
+                </Label>
+                {selectedMoto && (
+                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {selectedMoto.nome?.trim() || selectedMoto.modelo?.trim() || selectedMoto.placa}
+                  </span>
                 )}
               </div>
-            )}
-          </div>
+
+              {loading ? (
+                <div className="p-6 text-center text-sm text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  Carregando motos...
+                </div>
+              ) : motos.length === 0 ? (
+                <div className="p-6 text-center text-sm text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  Nenhuma moto cadastrada.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5">
+                  {motos.map((m) => (
+                    <MotoCardButton
+                      key={m.id}
+                      moto={m}
+                      isSelected={selectedMotoId === m.id}
+                      onClick={() => setSelectedMotoId(m.id)}
+                      compact={true}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Aviso de Contrato Ativo */}
+              {selectedMoto && (
+                <div className="mt-2">
+                  {activeContract ? (
+                    <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-emerald-900 dark:text-emerald-100 flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          Contrato Ativo: {activeContract.locatario_nome?.trim() || 'Sem nome'}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] bg-white dark:bg-slate-900 border-emerald-300 text-emerald-700 dark:text-emerald-300 font-bold"
+                        >
+                          {activeContract.tipo === 'plano_conquista' ? 'Conquista' : 'Normal'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300 text-[11px] pt-1 border-t border-emerald-200/60 dark:border-emerald-800/60">
+                        <span>
+                          Comissão configurada:{' '}
+                          <strong>
+                            {activeContract.comissao_percentual ??
+                              activeContract.percentual_comissao ??
+                              0}
+                            %
+                          </strong>
+                        </span>
+                        <span>
+                          Semanal sugerido: R${' '}
+                          {(
+                            activeContract.valor_semanal || (activeContract.valor_diario || 0) * 7
+                          ).toFixed(2)}
+                        </span>
+                      </div>
+
+                      {/* Bloco: Fim do Contrato & Checkbox INDEFINIDO */}
+                      <div className="mt-2 pt-2 border-t border-emerald-200/70 dark:border-emerald-800/70 bg-white/70 dark:bg-slate-900/60 p-2.5 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label
+                            htmlFor="dataFimContratoLancamento"
+                            className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5"
+                          >
+                            <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                            Fim do Contrato
+                          </Label>
+
+                          {/* Checkbox INDEFINIDO */}
+                          <div className="flex items-center gap-1.5 cursor-pointer select-none bg-emerald-100/70 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-300/80 dark:border-emerald-700/60">
+                            <Checkbox
+                              id="indefinidoLancamentoCheckbox"
+                              checked={isIndefinido}
+                              disabled={updatingFimContrato}
+                              onCheckedChange={(checked) =>
+                                handleToggleIndefinido(Boolean(checked))
+                              }
+                              className="h-4 w-4 border-emerald-600 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                            />
+                            <label
+                              htmlFor="indefinidoLancamentoCheckbox"
+                              className="text-[11px] font-black tracking-wide text-emerald-900 dark:text-emerald-100 cursor-pointer uppercase"
+                            >
+                              INDEFINIDO
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="dataFimContratoLancamento"
+                            type="date"
+                            value={dataFimInput}
+                            disabled={isIndefinido || updatingFimContrato}
+                            onChange={(e) => handleDataFimChange(e.target.value)}
+                            className={`h-9 text-xs font-semibold bg-white dark:bg-slate-900 border transition-all ${
+                              isIndefinido
+                                ? 'opacity-40 cursor-not-allowed border-slate-200 dark:border-slate-800 text-slate-400'
+                                : 'border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white'
+                            }`}
+                          />
+                          {isIndefinido && (
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] font-bold text-emerald-800 dark:text-emerald-200 bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 whitespace-nowrap shrink-0 py-1"
+                            >
+                              Sem prazo / Contínuo
+                            </Badge>
+                          )}
+                        </div>
+
+                        <p className="text-[10px] text-muted-foreground leading-snug">
+                          {isIndefinido ? (
+                            <span className="text-emerald-700 dark:text-emerald-300 font-medium">
+                              Contrato sem data de término estipulada — o cliente pode ir seguindo
+                              com a moto sem prazo.
+                            </span>
+                          ) : dataFimInput ? (
+                            <span>
+                              Término estipulado:{' '}
+                              <strong className="text-slate-800 dark:text-slate-200">
+                                {formatDateDisplay(dataFimInput)}
+                              </strong>
+                              . Se for sem prazo, marque <strong>INDEFINIDO</strong>.
+                            </span>
+                          ) : (
+                            <span>
+                              Sem data definida. Marque <strong>INDEFINIDO</strong> ou preencha a
+                              data acima.
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-800 dark:text-rose-200 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>
+                        <strong>Sem contrato ativo!</strong> Esta moto não tem locatário vinculado
+                        no momento. O botão <strong>LANÇAR</strong> ficará bloqueado.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Escolha o participante vinculado *
+                </Label>
+                {selectedParticipant && (
+                  <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {getParticipantDisplayName()}
+                  </span>
+                )}
+              </div>
+
+              <ParticipantSelectorGrid
+                nomeEmpresa={nomeEmpresaDisplay}
+                socios={socios}
+                contasAPagar={contasAPagar}
+                selectedParticipant={selectedParticipant}
+                onSelectParticipant={(p) => setSelectedParticipant(p)}
+              />
+            </div>
+          )}
 
           {/* 2. Campo de DATA (padrão Hoje já selecionado, com opção de trocar) */}
           <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -690,7 +940,7 @@ export default function LancamentoAluguel() {
                 htmlFor="valorAluguelInput"
                 className="text-sm font-semibold text-slate-700 dark:text-slate-200"
               >
-                3. Valor do Aluguel (R$) *
+                3. {destinoTipo === 'moto' ? 'Valor do Aluguel (R$) *' : 'Valor da Entrada (R$) *'}
               </Label>
               {valorNumerico > 0 && (
                 <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
@@ -715,9 +965,9 @@ export default function LancamentoAluguel() {
             </div>
           </div>
 
-          {/* 4. Resumo da Ação, Checkbox sem comissão e Botão LANÇAR */}
+          {/* 4. Resumo da Ação, Checkbox sem comissão (se moto) e Botão LANÇAR */}
           <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-            {isFormReady && activeContract && (
+            {destinoTipo === 'moto' && isFormReady && activeContract && (
               <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 text-xs space-y-1">
                 <span className="font-bold text-slate-900 dark:text-white block">
                   Ao clicar em LANÇAR serão gerados no Fluxo de Caixa:
@@ -763,30 +1013,59 @@ export default function LancamentoAluguel() {
               </div>
             )}
 
-            {/* Checkbox: Lançar aluguel sem comissão */}
-            <div className="flex items-center space-x-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition-colors cursor-pointer select-none">
-              <Checkbox
-                id="semComissaoCheckbox"
-                checked={semComissao}
-                onCheckedChange={(checked) => setSemComissao(Boolean(checked))}
-                className="h-5 w-5 border-2 border-slate-400 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-              />
-              <label
-                htmlFor="semComissaoCheckbox"
-                className="text-sm font-semibold text-slate-800 dark:text-slate-200 cursor-pointer flex-1 leading-snug"
-              >
-                Lançar aluguel sem comissão
-              </label>
-            </div>
+            {destinoTipo === 'participante' && isFormReady && (
+              <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800 text-xs space-y-1">
+                <span className="font-bold text-indigo-900 dark:text-indigo-100 block">
+                  Ao clicar em LANÇAR será gerada no Fluxo de Caixa:
+                </span>
+                <div className="flex items-center justify-between text-emerald-600 font-bold text-sm">
+                  <span>Receita ({getParticipantDisplayName()}):</span>
+                  <span>
+                    + R$ {valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground pt-1">
+                  Lançamento direto sem cálculo de comissão nem vínculo de contrato.
+                </p>
+              </div>
+            )}
+
+            {/* Checkbox: Lançar aluguel sem comissão (somente para moto) */}
+            {destinoTipo === 'moto' && (
+              <div className="flex items-center space-x-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition-colors cursor-pointer select-none">
+                <Checkbox
+                  id="semComissaoCheckbox"
+                  checked={semComissao}
+                  onCheckedChange={(checked) => setSemComissao(Boolean(checked))}
+                  className="h-5 w-5 border-2 border-slate-400 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                />
+                <label
+                  htmlFor="semComissaoCheckbox"
+                  className="text-sm font-semibold text-slate-800 dark:text-slate-200 cursor-pointer flex-1 leading-snug"
+                >
+                  Lançar aluguel sem comissão
+                </label>
+              </div>
+            )}
 
             <Button
               type="button"
-              disabled={!isFormReady || !activeContract || submitting}
+              disabled={
+                submitting ||
+                (destinoTipo === 'moto'
+                  ? !isFormReady || !activeContract
+                  : !isFormReady || !selectedParticipant)
+              }
               onClick={handleLancar}
               className={`w-full h-14 text-lg font-black uppercase tracking-wider shadow-lg transition-all ${
-                !isFormReady || !activeContract
+                submitting ||
+                (destinoTipo === 'moto'
+                  ? !isFormReady || !activeContract
+                  : !isFormReady || !selectedParticipant)
                   ? 'opacity-40 cursor-not-allowed bg-slate-300 dark:bg-slate-800 text-slate-500'
-                  : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white shadow-blue-500/20'
+                  : destinoTipo === 'moto'
+                    ? 'bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white shadow-blue-500/20'
+                    : 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white shadow-indigo-500/20'
               }`}
             >
               {submitting ? (
@@ -815,7 +1094,8 @@ export default function LancamentoAluguel() {
               </Button>
               <p className="text-xs text-muted-foreground text-center mt-1.5">
                 Abre as caixas de lançamento tradicionais (descrição, categoria, valor, data etc.)
-                sendo apenas <strong>RECEITAS/ENTRADAS</strong> vinculadas à moto.
+                sendo apenas <strong>RECEITAS/ENTRADAS</strong> vinculadas a{' '}
+                {destinoTipo === 'moto' ? 'uma moto' : 'um participante'}.
               </p>
             </div>
           </div>
@@ -842,7 +1122,27 @@ export default function LancamentoAluguel() {
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {recentLancamentos.slice(0, 6).map((item) => {
                 const motoItem = item.expand?.moto || motos.find((m) => m.id === item.moto)
-                const motoName = motoItem?.nome || motoItem?.modelo || 'Moto'
+                const socioItem =
+                  item.expand?.socio ||
+                  (item.socio ? socios.find((s) => s.id === item.socio) : undefined)
+                const contaItem =
+                  item.expand?.conta_a_pagar ||
+                  (item.conta_a_pagar
+                    ? contasAPagar.find((c) => c.id === item.conta_a_pagar)
+                    : undefined)
+
+                let destinoLabel = 'Geral'
+                if (motoItem) {
+                  destinoLabel = motoItem.nome || motoItem.modelo || 'Moto'
+                  if (motoItem.placa) destinoLabel += ` (${motoItem.placa})`
+                } else if (item.entidade === 'empresa') {
+                  destinoLabel = nomeEmpresaDisplay
+                } else if (item.entidade === 'socia') {
+                  destinoLabel = socioItem?.nome ? `Sócio: ${socioItem.nome}` : 'Sócio'
+                } else if (item.entidade === 'terceiros') {
+                  destinoLabel = contaItem?.credor ? `Terceiro: ${contaItem.credor}` : 'Terceiro'
+                }
+
                 const isEntrada = item.tipo === 'entrada'
                 return (
                   <div
@@ -860,8 +1160,7 @@ export default function LancamentoAluguel() {
                           {item.descricao}
                         </p>
                         <p className="text-[11px] text-muted-foreground">
-                          {formatDateDisplay(item.data)} • {motoName}
-                          {motoItem?.placa ? ` (${motoItem.placa})` : ''} • {item.categoria}
+                          {formatDateDisplay(item.data)} • {destinoLabel} • {item.categoria}
                         </p>
                       </div>
                     </div>
@@ -906,7 +1205,7 @@ export default function LancamentoAluguel() {
             </div>
           </DialogHeader>
 
-          {selectedMoto && (
+          {destinoTipo === 'moto' && selectedMoto && (
             <div className="p-3 bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bike className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -915,6 +1214,26 @@ export default function LancamentoAluguel() {
                 </span>
                 <span className="text-xs font-black text-blue-700 dark:text-blue-300">
                   {selectedMoto.nome?.trim() || selectedMoto.modelo?.trim() || selectedMoto.placa}
+                </span>
+              </div>
+              <Badge
+                variant="outline"
+                className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800"
+              >
+                Apenas Entrada (Receita)
+              </Badge>
+            </div>
+          )}
+
+          {destinoTipo === 'participante' && selectedParticipant && (
+            <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/30 rounded-xl border border-indigo-200 dark:border-indigo-900 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Participante vinculado:
+                </span>
+                <span className="text-xs font-black text-indigo-700 dark:text-indigo-300">
+                  {getParticipantDisplayName()}
                 </span>
               </div>
               <Badge

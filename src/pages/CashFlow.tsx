@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Wallet,
-  Plus,
   ArrowUpRight,
   ArrowDownRight,
   Search,
@@ -102,55 +102,6 @@ export default function CashFlow() {
   // motoFilter pode ser 'todas', 'entidade:empresa', 'entidade:socia', 'entidade:terceiros' ou id da moto
   const [targetFilter, setTargetFilter] = useState<string>('todas')
 
-  // New Entry Modal
-  const [newModalOpen, setNewModalOpen] = useState(false)
-  const [vinculoTipo, setVinculoTipo] = useState<'moto' | 'entidade'>('moto')
-  const [motoId, setMotoId] = useState('')
-  const [entidade, setEntidade] = useState<EntidadeTipo>('empresa')
-  const [socioId, setSocioId] = useState<string>('')
-  const [contaAPagarId, setContaAPagarId] = useState<string>('')
-  const [tipo, setTipo] = useState<CaixaTipo>('entrada')
-  const [descricao, setDescricao] = useState('Aluguel')
-  const [categoria, setCategoria] = useState('')
-  const [valor, setValor] = useState<number>(0)
-  const [data, setData] = useState(getTodayLocalDate())
-  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('pix')
-  const [submitting, setSubmitting] = useState(false)
-
-  const handleOpenNewModal = () => {
-    setTipo('entrada')
-    setVinculoTipo('moto')
-    setMotoId('')
-    setEntidade('empresa')
-    setSocioId('')
-    setContaAPagarId('')
-    // Preenche com "Aluguel" se estiver vazio ou se for a sugestão padrão
-    setDescricao((prev) => (prev.trim() === '' ? 'Aluguel' : prev))
-    setNewModalOpen(true)
-  }
-
-  const handleSelectTipo = (newTipo: CaixaTipo) => {
-    setTipo(newTipo)
-    if (newTipo === 'entrada') {
-      if (vinculoTipo === 'moto') {
-        setDescricao((prev) => (prev.trim() === '' || prev === 'Despesa' ? 'Aluguel' : prev))
-      }
-    } else {
-      if (descricao === 'Aluguel') {
-        setDescricao('')
-      }
-    }
-  }
-
-  const handleVinculoTipoChange = (novoVinculo: 'moto' | 'entidade') => {
-    setVinculoTipo(novoVinculo)
-    if (novoVinculo === 'entidade' && descricao === 'Aluguel') {
-      setDescricao('')
-    } else if (novoVinculo === 'moto' && tipo === 'entrada' && !descricao.trim()) {
-      setDescricao('Aluguel')
-    }
-  }
-
   // Edit Entry Modal
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -194,112 +145,6 @@ export default function CashFlow() {
   useEffect(() => {
     loadData()
   }, [])
-
-  const handleCreateEntry = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (vinculoTipo === 'moto' && !motoId) {
-      toast.error('Selecione uma moto para este lançamento')
-      return
-    }
-    if (vinculoTipo === 'entidade' && !entidade) {
-      toast.error('Selecione um participante para este lançamento')
-      return
-    }
-    if (!descricao.trim() || valor <= 0 || !data) {
-      toast.error('Preencha os campos obrigatórios e um valor válido')
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      const socioObj = entidade === 'socia' && socioId ? socios.find((s) => s.id === socioId) : null
-      const contaObj =
-        entidade === 'terceiros' && contaAPagarId
-          ? contasAPagar.find((c) => c.id === contaAPagarId)
-          : null
-
-      const fallbackCat =
-        tipo === 'entrada'
-          ? vinculoTipo === 'moto'
-            ? 'Aluguel'
-            : 'Receita'
-          : vinculoTipo === 'entidade'
-            ? ENTIDADES_CONFIG[entidade].chipLabel
-            : 'Despesa'
-
-      const payload: any = {
-        tipo,
-        descricao: descricao.trim(),
-        categoria: categoria.trim() || fallbackCat,
-        valor: Number(valor),
-        data,
-        forma_pagamento: formaPagamento,
-      }
-
-      if (vinculoTipo === 'moto') {
-        payload.moto = motoId
-        payload.entidade = ''
-        payload.socio = ''
-        payload.conta_a_pagar = ''
-      } else {
-        payload.moto = ''
-        payload.entidade = entidade
-        payload.socio = entidade === 'socia' ? socioId : ''
-        payload.conta_a_pagar = entidade === 'terceiros' ? contaAPagarId : ''
-        if (entidade === 'socia' && socioObj?.nome) {
-          payload.observacoes = `Sócio vinculado: ${socioObj.nome}`
-        } else if (entidade === 'terceiros' && contaObj?.credor) {
-          payload.observacoes = `Conta a pagar: ${contaObj.credor} — ${contaObj.descricao}`
-        }
-      }
-
-      await caixaService.create(payload)
-
-      // Se for lançamento de receita (entrada) vinculado a moto, verificar se a moto possui contrato ativo com comissão
-      // COMISSÃO AUTOMÁTICA NUNCA SE APLICA A ENTIDADES (somente contratos de moto)
-      if (tipo === 'entrada' && vinculoTipo === 'moto' && motoId) {
-        try {
-          const activeContracts = await pb.collection('contratos').getList<Contrato>(1, 1, {
-            filter: `moto = "${motoId}" && status = "ativo"`,
-            sort: '-created',
-          })
-          if (activeContracts.totalItems > 0) {
-            const activeContrato = activeContracts.items[0]
-            const pct = Number(
-              activeContrato.comissao_percentual ?? activeContrato.percentual_comissao ?? 0,
-            )
-            if (pct > 0) {
-              const motoObj = motos.find((m) => m.id === motoId)
-              const motoNome = motoObj?.nome || motoObj?.modelo || motoObj?.placa || 'Moto'
-              await caixaService.registrarComissaoSeAplicavel({
-                contratoId: activeContrato.id,
-                motoId,
-                valorReceita: Number(valor),
-                dataReceita: data,
-                locatarioNome: activeContrato.locatario_nome || '',
-                motoIdentificacao: motoNome,
-                formaPagamento,
-              })
-            }
-          }
-        } catch (errComissao) {
-          console.warn('Aviso ao disparar comissão de receita manual no caixa:', errComissao)
-        }
-      }
-
-      toast.success('Lançamento registrado com sucesso no caixa!')
-      setNewModalOpen(false)
-      setDescricao('Aluguel')
-      setValor(0)
-      loadData()
-    } catch (err) {
-      console.error(err)
-      toast.error('Erro ao lançar no caixa')
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
   const handleOpenEdit = (item: CaixaLancamento) => {
     setEditingId(item.id)
@@ -503,10 +348,26 @@ export default function CashFlow() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={handleOpenNewModal} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Novo Lançamento
-          </Button>
+          <Link to="/lancamento-aluguel">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+            >
+              <ArrowUpRight className="w-4 h-4 text-emerald-600" />
+              Lançamento Entradas
+            </Button>
+          </Link>
+          <Link to="/lancamentos-rapidos">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+            >
+              <ArrowDownRight className="w-4 h-4 text-blue-600" />
+              Lançamento Saídas
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -1371,337 +1232,6 @@ export default function CashFlow() {
           )}
         </CardContent>
       </Card>
-
-      {/* New Entry Modal */}
-      <Dialog open={newModalOpen} onOpenChange={setNewModalOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Novo Lançamento no Caixa</DialogTitle>
-            <DialogDescription>
-              Adicione uma receita ou despesa vinculada a uma moto ou a outros participantes (
-              {nomeEmpresaDisplay}, Sócios e Terceiros).
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleCreateEntry} className="space-y-4">
-            {/* Tipo de Lançamento: Entrada vs Saída */}
-            <div className="space-y-2">
-              <Label>Tipo de Lançamento</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant={tipo === 'entrada' ? 'default' : 'outline'}
-                  onClick={() => handleSelectTipo('entrada')}
-                  className={tipo === 'entrada' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
-                >
-                  <ArrowUpRight className="w-4 h-4 mr-1.5" />
-                  Entrada (Receita)
-                </Button>
-                <Button
-                  type="button"
-                  variant={tipo === 'saida' ? 'destructive' : 'outline'}
-                  onClick={() => handleSelectTipo('saida')}
-                >
-                  <ArrowDownRight className="w-4 h-4 mr-1.5" />
-                  Saída (Custo)
-                </Button>
-              </div>
-            </div>
-
-            {/* Vínculo: MOTO vs OUTROS PARTICIPANTES */}
-            <div className="space-y-2">
-              <Label>Vincular a:</Label>
-              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={vinculoTipo === 'moto' ? 'default' : 'ghost'}
-                  onClick={() => handleVinculoTipoChange('moto')}
-                  className={`gap-1.5 text-xs font-semibold ${
-                    vinculoTipo === 'moto'
-                      ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-white'
-                      : 'text-slate-600 dark:text-slate-400'
-                  }`}
-                >
-                  <Bike className="w-3.5 h-3.5" />
-                  Moto da Frota
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={vinculoTipo === 'entidade' ? 'default' : 'ghost'}
-                  onClick={() => handleVinculoTipoChange('entidade')}
-                  className={`gap-1.5 text-xs font-semibold ${
-                    vinculoTipo === 'entidade'
-                      ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-900 dark:text-white'
-                      : 'text-slate-600 dark:text-slate-400'
-                  }`}
-                >
-                  <Building2 className="w-3.5 h-3.5" />
-                  Outros Participantes
-                </Button>
-              </div>
-            </div>
-
-            {/* Campo condicional: Grade de Motos OU Seletor de Outros Participantes */}
-            {vinculoTipo === 'moto' ? (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-semibold">Moto Relacionada *</Label>
-                  {motoId && (
-                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      {(() => {
-                        const m = motos.find((item) => item.id === motoId)
-                        return m ? m.nome?.trim() || m.modelo?.trim() || m.placa : ''
-                      })()}
-                    </span>
-                  )}
-                </div>
-                <div className="max-h-56 overflow-y-auto pr-1">
-                  <div className="grid grid-cols-2 gap-2">
-                    {motos.map((m) => (
-                      <MotoCardButton
-                        key={m.id}
-                        moto={m}
-                        isSelected={motoId === m.id}
-                        onClick={() => setMotoId(m.id)}
-                        compact
-                      />
-                    ))}
-                  </div>
-                </div>
-                {!motoId && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
-                    Toque na moto que receberá este lançamento.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="entidadeSelect"
-                    className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
-                  >
-                    Participante *
-                  </Label>
-                  <Select value={entidade} onValueChange={(val: EntidadeTipo) => setEntidade(val)}>
-                    <SelectTrigger id="entidadeSelect">
-                      <SelectValue placeholder="Selecione o participante" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="empresa">
-                        🏢 {nomeEmpresaDisplay.toUpperCase()} (Custos Gerais)
-                      </SelectItem>
-                      <SelectItem value="socia">👤 SÓCIOS (Retiradas / Pró-labore)</SelectItem>
-                      <SelectItem value="terceiros">
-                        🤝 TERCEIROS (Contas a Pagar / Dívidas)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Se escolheu SÓCIOS: campo de escolha mostrando os sócios cadastrados */}
-                {entidade === 'socia' && (
-                  <div className="space-y-1.5 pt-1 border-t border-purple-200 dark:border-purple-900/60">
-                    <Label
-                      htmlFor="socioSelect"
-                      className="text-xs font-semibold text-purple-900 dark:text-purple-200 flex items-center justify-between"
-                    >
-                      <span>Sócio Cadastrado (opcional ou escolher sócio)</span>
-                      <span className="text-[10px] text-muted-foreground font-normal">
-                        Cadastros → Sócios
-                      </span>
-                    </Label>
-                    <Select
-                      value={socioId || 'sem_especificar'}
-                      onValueChange={(val) => setSocioId(val === 'sem_especificar' ? '' : val)}
-                    >
-                      <SelectTrigger
-                        id="socioSelect"
-                        className="border-purple-300 dark:border-purple-800"
-                      >
-                        <SelectValue placeholder="Selecione o sócio cadastrado" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sem_especificar">
-                          👤 EU / SÓCIA (Geral / Sem especificar)
-                        </SelectItem>
-                        {socios.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            👤 {s.nome} {s.funcao ? `— ${s.funcao}` : ''}{' '}
-                            {s.participacao_percentual !== undefined &&
-                            s.participacao_percentual > 0
-                              ? `(${s.participacao_percentual}%)`
-                              : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Se escolheu TERCEIROS: campo de escolha mostrando as contas a pagar cadastradas */}
-                {entidade === 'terceiros' && (
-                  <div className="space-y-1.5 pt-1 border-t border-rose-200 dark:border-rose-900/60">
-                    <Label
-                      htmlFor="contaSelect"
-                      className="text-xs font-semibold text-rose-900 dark:text-rose-200 flex items-center justify-between"
-                    >
-                      <span>Conta a Pagar Cadastrada (opcional ou escolher dívida)</span>
-                      <span className="text-[10px] text-muted-foreground font-normal">
-                        Módulo Contas a Pagar
-                      </span>
-                    </Label>
-                    <Select
-                      value={contaAPagarId || 'sem_especificar'}
-                      onValueChange={(val) =>
-                        setContaAPagarId(val === 'sem_especificar' ? '' : val)
-                      }
-                    >
-                      <SelectTrigger
-                        id="contaSelect"
-                        className="border-rose-300 dark:border-rose-800"
-                      >
-                        <SelectValue placeholder="Selecione a conta/dívida cadastrada" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sem_especificar">
-                          🤝 TERCEIROS (Geral / Sem especificar)
-                        </SelectItem>
-                        {contasAPagar.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            🤝 {c.credor} — {c.descricao} (Total R$ {c.valor_total.toFixed(2)})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="desc">Descrição do Lançamento *</Label>
-              <Input
-                id="desc"
-                placeholder={
-                  tipo === 'entrada'
-                    ? vinculoTipo === 'moto'
-                      ? 'Ex: Aluguel semanal Carlos'
-                      : 'Ex: Aporte / Devolução'
-                    : vinculoTipo === 'moto'
-                      ? 'Ex: Troca de pastilhas de freio'
-                      : entidade === 'empresa'
-                        ? 'Ex: Aluguel do ponto comercial, Internet, Contador'
-                        : entidade === 'socia'
-                          ? 'Ex: Retirada de lucros sócia'
-                          : 'Ex: Parcela empréstimo fornecedor'
-                }
-                value={descricao}
-                onChange={(e) => setDescricao(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="val">Valor (R$) *</Label>
-                <Input
-                  id="val"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={valor || ''}
-                  onChange={(e) => setValor(Number(e.target.value))}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="entryDate">Data *</Label>
-                <Input
-                  id="entryDate"
-                  type="date"
-                  value={data}
-                  onChange={(e) => setData(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="forma">Forma de Pagamento</Label>
-                <Select
-                  value={formaPagamento}
-                  onValueChange={(val: FormaPagamento) => setFormaPagamento(val)}
-                >
-                  <SelectTrigger id="forma">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pix">PIX</SelectItem>
-                    <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                    <SelectItem value="cartao">Cartão</SelectItem>
-                    <SelectItem value="transferencia">Transferência</SelectItem>
-                    <SelectItem value="outro">Outro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="catSelect">Categoria</Label>
-                {tipo === 'entrada' ? (
-                  <Input
-                    id="catInput"
-                    placeholder="Ex: Aluguel, Caução..."
-                    value={categoria}
-                    onChange={(e) => setCategoria(e.target.value)}
-                  />
-                ) : (
-                  <Select value={categoria} onValueChange={setCategoria}>
-                    <SelectTrigger id="catSelect">
-                      <SelectValue placeholder="Selecione categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vinculoTipo === 'entidade' && (
-                        <SelectItem value={ENTIDADES_CONFIG[entidade].chipLabel}>
-                          {ENTIDADES_CONFIG[entidade].chipLabel}
-                        </SelectItem>
-                      )}
-                      {categorias.map((c) => (
-                        <SelectItem key={c.id} value={c.nome}>
-                          {c.nome}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="Custos Gerais">Custos Gerais</SelectItem>
-                      <SelectItem value="Pró-labore">Pró-labore</SelectItem>
-                      <SelectItem value="Dívidas">Dívidas</SelectItem>
-                      <SelectItem value="Outros">Outros</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            </div>
-
-            <DialogFooter className="pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setNewModalOpen(false)}
-                disabled={submitting}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? 'Salvando...' : 'Confirmar Lançamento'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* Edit Entry Modal */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>

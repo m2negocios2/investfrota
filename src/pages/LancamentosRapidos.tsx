@@ -33,9 +33,21 @@ import { toast } from 'sonner'
 import { caixaService } from '@/services/caixa'
 import { motosService } from '@/services/motos'
 import { categoriasService } from '@/services/categorias'
-import { getTodayLocalDate, formatDateDisplay } from '@/lib/dateUtils'
-import { Moto, CaixaLancamento, CategoriaGasto, FormaPagamento } from '@/types/database'
+import { empresaService, sociosService } from '@/services/cadastros'
+import { contasAPagarService } from '@/services/contasAPagar'
+import { getTodayLocalDate, formatDateDisplay, dateToApiMidday } from '@/lib/dateUtils'
+import {
+  Moto,
+  CaixaLancamento,
+  CategoriaGasto,
+  FormaPagamento,
+  Socio,
+  ContaAPagarComProgresso,
+  EmpresaConfig,
+} from '@/types/database'
 import { MotoCardButton } from '@/components/MotoSelectorGrid'
+import { ParticipantSelectorGrid, SelectedParticipant } from '@/components/ParticipantSelectorGrid'
+import { Users, Building2, User } from 'lucide-react'
 
 interface QuickButtonConfig {
   id: string
@@ -144,6 +156,14 @@ export default function LancamentosRapidos() {
   const [submittingButton, setSubmittingButton] = useState<string | null>(null)
   const [recentLancamentos, setRecentLancamentos] = useState<CaixaLancamento[]>([])
   const [categorias, setCategorias] = useState<CategoriaGasto[]>([])
+  const [empresaConfig, setEmpresaConfig] = useState<EmpresaConfig | null>(null)
+  const [socios, setSocios] = useState<Socio[]>([])
+  const [contasAPagar, setContasAPagar] = useState<ContaAPagarComProgresso[]>([])
+
+  // Alternador de Destino: 'moto' | 'participante'
+  const [destinoTipo, setDestinoTipo] = useState<'moto' | 'participante'>('moto')
+  const [selectedParticipant, setSelectedParticipant] = useState<SelectedParticipant | null>(null)
+  const [submittingParticipante, setSubmittingParticipante] = useState<boolean>(false)
 
   // Estado do Modal do Item 6 (OUTROS LANÇAMENTOS - apenas SAÍDAS)
   const [outrosModalOpen, setOutrosModalOpen] = useState<boolean>(false)
@@ -157,11 +177,17 @@ export default function LancamentosRapidos() {
 
   const loadData = async () => {
     try {
-      const [mList, cList, allCaixa] = await Promise.all([
+      const [mList, cList, allCaixa, emp, socList, contList] = await Promise.all([
         motosService.getAll(),
         categoriasService.getAll(),
         caixaService.getAll(),
+        empresaService.get(),
+        sociosService.getAll(),
+        contasAPagarService.getAllWithProgresso(),
       ])
+      setEmpresaConfig(emp)
+      setSocios(socList)
+      setContasAPagar(contList)
 
       // Excluir motos vendidas/cedidas dos lançamentos rápidos e ordenar por nome
       const sortedMotos = [...mList]
@@ -220,16 +246,65 @@ export default function LancamentosRapidos() {
 
   const selectedMoto = motos.find((m) => m.id === selectedMotoId)
   const valorNumerico = parsePreco(precoInput)
-  const isFormReady = Boolean(selectedMotoId && valorNumerico > 0)
+  const isFormReady =
+    destinoTipo === 'moto'
+      ? Boolean(selectedMotoId && valorNumerico > 0)
+      : Boolean(selectedParticipant && valorNumerico > 0)
+
+  // Nome da empresa cadastrada
+  const nomeEmpresaDisplay = empresaConfig?.nome_empresa?.trim() || 'Empresa'
+
+  // Identificação do participante selecionado
+  const selectedSocioObj =
+    selectedParticipant?.tipo === 'socia' && selectedParticipant.socioId
+      ? socios.find((s) => s.id === selectedParticipant.socioId)
+      : null
+  const selectedContaObj =
+    selectedParticipant?.tipo === 'terceiros' && selectedParticipant.contaAPagarId
+      ? contasAPagar.find((c) => c.id === selectedParticipant.contaAPagarId)
+      : null
+
+  const getParticipantDisplayName = () => {
+    if (!selectedParticipant) return ''
+    if (selectedParticipant.tipo === 'empresa') return nomeEmpresaDisplay
+    if (selectedParticipant.tipo === 'socia') {
+      return selectedSocioObj?.nome ? `Sócio: ${selectedSocioObj.nome}` : 'Sócios (Geral)'
+    }
+    if (selectedParticipant.tipo === 'terceiros') {
+      return selectedContaObj?.credor ? `Terceiro: ${selectedContaObj.credor}` : 'Terceiros (Geral)'
+    }
+    return ''
+  }
 
   const handleOpenOutrosLancamentos = () => {
-    if (!selectedMotoId) {
+    if (destinoTipo === 'moto' && !selectedMotoId) {
       toast.error('Selecione primeiro a Moto (no item 1) antes de abrir Outros Lançamentos!')
       return
     }
-    // Inicializar campos com valor/data atuais se já digitados ou defaults
-    setOutroDescricao('')
-    setOutroCategoria(categorias[0]?.nome || 'MANUTENÇÃO')
+    if (destinoTipo === 'participante' && !selectedParticipant) {
+      toast.error(
+        'Selecione primeiro o Participante (no item 1) antes de abrir Outros Lançamentos!',
+      )
+      return
+    }
+
+    if (destinoTipo === 'moto') {
+      setOutroDescricao('')
+      setOutroCategoria(categorias[0]?.nome || 'MANUTENÇÃO')
+    } else {
+      const pName = getParticipantDisplayName()
+      setOutroDescricao(
+        observacaoInput.trim() ? `${observacaoInput.trim()} — ${pName}` : `Despesa — ${pName}`,
+      )
+      setOutroCategoria(
+        selectedParticipant?.tipo === 'empresa'
+          ? 'Despesa Empresa'
+          : selectedParticipant?.tipo === 'socia'
+            ? 'Retirada Sócio'
+            : 'Pagamento Terceiro',
+      )
+    }
+
     setOutroValor(valorNumerico > 0 ? valorNumerico : '')
     setOutroData(dataInput || getTodayLocalDate())
     setOutroFormaPagamento('pix')
@@ -240,8 +315,12 @@ export default function LancamentosRapidos() {
   const handleSubmitOutroLancamento = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!selectedMotoId) {
+    if (destinoTipo === 'moto' && !selectedMotoId) {
       toast.error('Nenhuma moto selecionada!')
+      return
+    }
+    if (destinoTipo === 'participante' && !selectedParticipant) {
+      toast.error('Nenhum participante selecionado!')
       return
     }
 
@@ -256,28 +335,57 @@ export default function LancamentosRapidos() {
       return
     }
 
-    const motoNomeDisplay = selectedMoto?.nome?.trim() || selectedMoto?.modelo?.trim() || 'Moto'
     const catFinal = outroCategoria.trim() || 'Outros'
+    const safeData = outroData || getTodayLocalDate()
+    const safeDataMidday = dateToApiMidday(safeData)
 
     setSubmittingOutro(true)
     try {
-      const createdEntry = await caixaService.create({
-        moto: selectedMotoId,
+      const payload: any = {
         tipo: 'saida',
         descricao: outroDescricao.trim(),
         categoria: catFinal,
         valor: valorFinal,
-        data: outroData || getTodayLocalDate(),
+        data: safeDataMidday,
         forma_pagamento: outroFormaPagamento,
-        observacoes: outroObservacoes.trim() || undefined,
-      })
+      }
+
+      let targetLabel = ''
+      if (destinoTipo === 'moto') {
+        payload.moto = selectedMotoId
+        payload.entidade = ''
+        payload.socio = ''
+        payload.conta_a_pagar = ''
+        payload.observacoes = outroObservacoes.trim() || undefined
+        targetLabel = selectedMoto?.nome?.trim() || selectedMoto?.modelo?.trim() || 'Moto'
+      } else if (selectedParticipant) {
+        payload.moto = ''
+        payload.entidade = selectedParticipant.tipo
+        payload.socio =
+          selectedParticipant.tipo === 'socia' ? selectedParticipant.socioId || '' : ''
+        payload.conta_a_pagar =
+          selectedParticipant.tipo === 'terceiros' ? selectedParticipant.contaAPagarId || '' : ''
+
+        let obs = outroObservacoes.trim()
+          ? `Lançado via Outros Lançamentos: ${outroObservacoes.trim()}`
+          : 'Lançado via Outros Lançamentos'
+        if (selectedParticipant.tipo === 'socia' && selectedSocioObj?.nome) {
+          obs += ` (Sócio: ${selectedSocioObj.nome})`
+        } else if (selectedParticipant.tipo === 'terceiros' && selectedContaObj?.credor) {
+          obs += ` (Terceiro: ${selectedContaObj.credor})`
+        }
+        payload.observacoes = obs
+        targetLabel = getParticipantDisplayName()
+      }
+
+      const createdEntry = await caixaService.create(payload)
 
       const valorFormatado = valorFinal.toLocaleString('pt-BR', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })
 
-      toast.success(`Saída de R$ ${valorFormatado} registrada no caixa da ${motoNomeDisplay}!`, {
+      toast.success(`Saída de R$ ${valorFormatado} registrada no caixa de ${targetLabel}!`, {
         duration: 4000,
       })
 
@@ -296,7 +404,11 @@ export default function LancamentosRapidos() {
       setRecentLancamentos((prev) => [
         {
           ...createdEntry,
-          expand: { moto: selectedMoto },
+          expand: {
+            moto: destinoTipo === 'moto' ? selectedMoto : undefined,
+            socio: selectedSocioObj || undefined,
+            conta_a_pagar: selectedContaObj || undefined,
+          },
         },
         ...prev.slice(0, 9),
       ])
@@ -305,6 +417,91 @@ export default function LancamentosRapidos() {
       toast.error('Não foi possível gravar o lançamento. Tente novamente.')
     } finally {
       setSubmittingOutro(false)
+    }
+  }
+
+  // Lançamento livre direto para Participante
+  const handleLancarParticipante = async () => {
+    if (!selectedParticipant) {
+      toast.error('Selecione primeiro o participante (Empresa, Sócio ou Terceiro)!')
+      return
+    }
+
+    if (valorNumerico <= 0) {
+      toast.error('Informe o PREÇO/VALOR antes de lançar!')
+      return
+    }
+
+    const pName = getParticipantDisplayName()
+    const safeDataMidday = dateToApiMidday(dataInput || getTodayLocalDate())
+    const obsTrimmed = observacaoInput.trim()
+
+    setSubmittingParticipante(true)
+    try {
+      const descFinal = obsTrimmed
+        ? `${obsTrimmed} — ${pName}`
+        : selectedParticipant.tipo === 'empresa'
+          ? `Despesa Geral — ${pName}`
+          : selectedParticipant.tipo === 'socia'
+            ? `Retirada / Pró-labore — ${pName}`
+            : `Pagamento Dívida — ${pName}`
+
+      const catFinal =
+        selectedParticipant.tipo === 'empresa'
+          ? 'Despesa Empresa'
+          : selectedParticipant.tipo === 'socia'
+            ? 'Retirada Sócio'
+            : 'Pagamento Terceiro'
+
+      const payload: any = {
+        moto: '',
+        entidade: selectedParticipant.tipo,
+        socio: selectedParticipant.tipo === 'socia' ? selectedParticipant.socioId || '' : '',
+        conta_a_pagar:
+          selectedParticipant.tipo === 'terceiros' ? selectedParticipant.contaAPagarId || '' : '',
+        tipo: 'saida',
+        descricao: descFinal,
+        categoria: catFinal,
+        valor: valorNumerico,
+        data: safeDataMidday,
+        forma_pagamento: 'pix',
+        observacoes: obsTrimmed
+          ? `Lançado via Lançamento Saídas: ${obsTrimmed}`
+          : `Lançado via Lançamento Saídas (${pName})`,
+      }
+
+      const createdEntry = await caixaService.create(payload)
+
+      const valorFormatado = valorNumerico.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+
+      toast.success(`Saída de R$ ${valorFormatado} lançada no caixa de ${pName}!`, {
+        duration: 4000,
+      })
+
+      // Limpar campos
+      setPrecoInput('')
+      setDataInput(getTodayLocalDate())
+      setObservacaoInput('')
+
+      // Atualizar lista rápida de recentes
+      setRecentLancamentos((prev) => [
+        {
+          ...createdEntry,
+          expand: {
+            socio: selectedSocioObj || undefined,
+            conta_a_pagar: selectedContaObj || undefined,
+          },
+        },
+        ...prev.slice(0, 9),
+      ])
+    } catch (err) {
+      console.error('Erro ao lançar saída de participante:', err)
+      toast.error('Erro ao registrar saída de participante. Tente novamente.')
+    } finally {
+      setSubmittingParticipante(false)
     }
   }
 
@@ -400,59 +597,126 @@ export default function LancamentosRapidos() {
       {/* Cartão Principal de Operação */}
       <Card className="border-2 border-slate-200 dark:border-slate-800 shadow-md">
         <CardHeader className="pb-4">
-          <CardTitle className="text-base font-bold flex items-center gap-2">
-            <Bike className="w-5 h-5 text-blue-600" />
-            1. Escolha a Moto (pelo Nome)
-          </CardTitle>
-          <CardDescription>
-            A despesa será vinculada diretamente à moto escolhida no livro caixa.
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                {destinoTipo === 'moto' ? (
+                  <>
+                    <Bike className="w-5 h-5 text-blue-600" />
+                    1. Escolha a Moto (pelo Nome)
+                  </>
+                ) : (
+                  <>
+                    <Users className="w-5 h-5 text-indigo-600" />
+                    1. Escolha o Participante
+                  </>
+                )}
+              </CardTitle>
+              <CardDescription>
+                {destinoTipo === 'moto'
+                  ? 'A despesa será vinculada diretamente à moto escolhida no livro caixa.'
+                  : 'Despesas vinculadas a Empresa, Sócios (retiradas) ou Terceiros (contas a pagar).'}
+              </CardDescription>
+            </div>
+
+            {/* Alternador de Destino: Moto vs Outros Participantes */}
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl self-start sm:self-auto border border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setDestinoTipo('moto')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                  destinoTipo === 'moto'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Bike className="w-3.5 h-3.5" />
+                MOTOS
+              </button>
+              <button
+                type="button"
+                onClick={() => setDestinoTipo('participante')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                  destinoTipo === 'participante'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                OUTROS PARTICIPANTES
+              </button>
+            </div>
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Grade / Botões de Escolha da Moto */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Toque na moto desejada *
-              </Label>
-              {selectedMoto && (
-                <span className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Escolhida:{' '}
-                  {selectedMoto.nome?.trim() || selectedMoto.modelo?.trim() || selectedMoto.placa}
-                </span>
+          {/* SEÇÃO 1: Grade de Motos OU Seletor de Participantes */}
+          {destinoTipo === 'moto' ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Toque na moto desejada *
+                </Label>
+                {selectedMoto && (
+                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Escolhida:{' '}
+                    {selectedMoto.nome?.trim() || selectedMoto.modelo?.trim() || selectedMoto.placa}
+                  </span>
+                )}
+              </div>
+
+              {loading ? (
+                <div className="p-6 text-center text-sm text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  Carregando motos...
+                </div>
+              ) : motos.length === 0 ? (
+                <div className="p-6 text-center text-sm text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  Nenhuma moto cadastrada.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+                  {motos.map((m) => (
+                    <MotoCardButton
+                      key={m.id}
+                      moto={m}
+                      isSelected={selectedMotoId === m.id}
+                      onClick={() => setSelectedMotoId(m.id)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {!selectedMotoId && (
+                <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 mt-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>Toque em uma moto acima para liberar os botões de lançamento.</span>
+                </div>
               )}
             </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Escolha o participante vinculado à despesa *
+                </Label>
+                {selectedParticipant && (
+                  <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {getParticipantDisplayName()}
+                  </span>
+                )}
+              </div>
 
-            {loading ? (
-              <div className="p-6 text-center text-sm text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                Carregando motos...
-              </div>
-            ) : motos.length === 0 ? (
-              <div className="p-6 text-center text-sm text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                Nenhuma moto cadastrada.
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
-                {motos.map((m) => (
-                  <MotoCardButton
-                    key={m.id}
-                    moto={m}
-                    isSelected={selectedMotoId === m.id}
-                    onClick={() => setSelectedMotoId(m.id)}
-                  />
-                ))}
-              </div>
-            )}
-
-            {!selectedMotoId && (
-              <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 mt-1.5">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>Toque em uma moto acima para liberar os botões de lançamento.</span>
-              </div>
-            )}
-          </div>
+              <ParticipantSelectorGrid
+                nomeEmpresa={nomeEmpresaDisplay}
+                socios={socios}
+                contasAPagar={contasAPagar}
+                selectedParticipant={selectedParticipant}
+                onSelectParticipant={(p) => setSelectedParticipant(p)}
+              />
+            </div>
+          )}
 
           {/* 2. Bloco PREÇO + DATA (lado a lado na mesma linha) */}
           <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -555,149 +819,220 @@ export default function LancamentosRapidos() {
             </div>
           </div>
 
-          {/* 3. Os Botões Rápidos (Ação Final para Confirmar o Lançamento) */}
-          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                3. Toque no Botão para Lançar
-              </Label>
-              <span className="text-xs text-muted-foreground">Ação de lançamento</span>
-            </div>
+          {/* SEÇÃO DE BOTÕES RÁPIDOS (SOMENTE PARA MOTO) OU BOTÃO DE LANÇAMENTO (PARTICIPANTE) */}
+          {destinoTipo === 'moto' ? (
+            <>
+              {/* 3. Os Botões Rápidos (Ação Final para Confirmar o Lançamento) */}
+              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    3. Toque no Botão para Lançar
+                  </Label>
+                  <span className="text-xs text-muted-foreground">Ação de lançamento por moto</span>
+                </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-              {QUICK_BUTTONS_ITEM3.map((btn) => {
-                const isThisLoading = submittingButton === btn.id
-                return (
-                  <button
-                    key={btn.id}
-                    type="button"
-                    disabled={!isFormReady || submittingButton !== null}
-                    onClick={() => handleQuickLaunch(btn)}
-                    className={`h-24 sm:h-28 rounded-2xl flex flex-col items-center justify-center gap-1 p-3 border-2 transition-all select-none ${
-                      !isFormReady
-                        ? 'opacity-35 cursor-not-allowed bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-400'
-                        : `${btn.colorClasses} shadow-md hover:shadow-lg active:scale-95 cursor-pointer`
-                    }`}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                  {QUICK_BUTTONS_ITEM3.map((btn) => {
+                    const isThisLoading = submittingButton === btn.id
+                    return (
+                      <button
+                        key={btn.id}
+                        type="button"
+                        disabled={!isFormReady || submittingButton !== null}
+                        onClick={() => handleQuickLaunch(btn)}
+                        className={`h-24 sm:h-28 rounded-2xl flex flex-col items-center justify-center gap-1 p-3 border-2 transition-all select-none ${
+                          !isFormReady
+                            ? 'opacity-35 cursor-not-allowed bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-400'
+                            : `${btn.colorClasses} shadow-md hover:shadow-lg active:scale-95 cursor-pointer`
+                        }`}
+                      >
+                        {isThisLoading ? (
+                          <div className="flex items-center gap-2">
+                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                            <span className="text-sm font-bold text-white">Lançando...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <span
+                              className="text-2xl sm:text-3xl filter drop-shadow-sm leading-none"
+                              role="img"
+                              aria-label={btn.label}
+                            >
+                              {btn.emoji}
+                            </span>
+                            <span className="text-base sm:text-lg font-black uppercase tracking-wide leading-tight">
+                              {btn.label}
+                            </span>
+                            <span
+                              className={`text-[11px] font-medium leading-none ${
+                                !isFormReady ? 'text-slate-400' : 'text-white/85'
+                              }`}
+                            >
+                              {btn.categoriaNome}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* 4. Campo de OBSERVAÇÃO (item 4, após os botões, raramente usado) */}
+              <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="observacaoInput"
+                    className="text-xs font-semibold text-slate-700 dark:text-slate-300"
                   >
-                    {isThisLoading ? (
-                      <div className="flex items-center gap-2">
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
-                        <span className="text-sm font-bold text-white">Lançando...</span>
-                      </div>
-                    ) : (
-                      <>
-                        <span
-                          className="text-2xl sm:text-3xl filter drop-shadow-sm leading-none"
-                          role="img"
-                          aria-label={btn.label}
-                        >
-                          {btn.emoji}
-                        </span>
-                        <span className="text-base sm:text-lg font-black uppercase tracking-wide leading-tight">
-                          {btn.label}
-                        </span>
-                        <span
-                          className={`text-[11px] font-medium leading-none ${
-                            !isFormReady ? 'text-slate-400' : 'text-white/85'
-                          }`}
-                        >
-                          {btn.categoriaNome}
-                        </span>
-                      </>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+                    4. Observação{' '}
+                    <span className="font-normal text-muted-foreground">
+                      (opcional — também serve para os botões do item 5)
+                    </span>
+                  </Label>
+                  {observacaoInput.trim() && (
+                    <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">
+                      Acrescenta após o nome da moto
+                    </span>
+                  )}
+                </div>
 
-          {/* 4. Campo de OBSERVAÇÃO (item 4, após os botões, raramente usado) */}
-          <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <Label
-                htmlFor="observacaoInput"
-                className="text-xs font-semibold text-slate-700 dark:text-slate-300"
-              >
-                4. Observação{' '}
-                <span className="font-normal text-muted-foreground">
-                  (opcional — também serve para os botões do item 5)
-                </span>
-              </Label>
-              {observacaoInput.trim() && (
-                <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">
-                  Acrescenta após o nome da moto
-                </span>
+                <Input
+                  id="observacaoInput"
+                  type="text"
+                  placeholder="Ex: troca com filtro, dianteiro, traseiro..."
+                  value={observacaoInput}
+                  onChange={(e) => setObservacaoInput(e.target.value)}
+                  maxLength={100}
+                  className="h-10 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+                />
+              </div>
+
+              {/* 5. Novos Botões: LICENCIAMENTO, IPVA e BOMBEIROS */}
+              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    5. Licenciamento, IPVA e Bombeiros
+                  </Label>
+                  <span className="text-xs text-muted-foreground">
+                    Usa o Preço (item 2), Data (item 2) e Observação (item 4)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                  {QUICK_BUTTONS_ITEM5.map((btn) => {
+                    const isThisLoading = submittingButton === btn.id
+                    return (
+                      <button
+                        key={btn.id}
+                        type="button"
+                        disabled={!isFormReady || submittingButton !== null}
+                        onClick={() => handleQuickLaunch(btn)}
+                        className={`h-24 sm:h-28 rounded-2xl flex flex-col items-center justify-center gap-1 p-3 border-2 transition-all select-none ${
+                          !isFormReady
+                            ? 'opacity-35 cursor-not-allowed bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-400'
+                            : `${btn.colorClasses} shadow-md hover:shadow-lg active:scale-95 cursor-pointer`
+                        }`}
+                      >
+                        {isThisLoading ? (
+                          <div className="flex items-center gap-2">
+                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                            <span className="text-sm font-bold text-white">Lançando...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <span
+                              className="text-2xl sm:text-3xl filter drop-shadow-sm leading-none"
+                              role="img"
+                              aria-label={btn.label}
+                            >
+                              {btn.emoji}
+                            </span>
+                            <span className="text-base sm:text-lg font-black uppercase tracking-wide leading-tight">
+                              {btn.label}
+                            </span>
+                            <span
+                              className={`text-[11px] font-medium leading-none ${
+                                !isFormReady ? 'text-slate-400' : 'text-white/85'
+                              }`}
+                            >
+                              {btn.categoriaNome}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </>
+          ) : (
+            /* BLOC O PARA OUTROS PARTICIPANTES: Botão de Lançar Saída Direta */
+            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+              {/* Campo de Descrição / Observação para a saída do participante */}
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="observacaoInputParticipante"
+                  className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+                >
+                  Descrição / Motivo da Saída{' '}
+                  <span className="font-normal text-muted-foreground">
+                    (ex: Retirada de sócio, Conta de luz, Dívida fornecedor)
+                  </span>
+                </Label>
+                <Input
+                  id="observacaoInputParticipante"
+                  type="text"
+                  placeholder="Ex: Retirada de lucros, Parcela Honda, Material escritório..."
+                  value={observacaoInput}
+                  onChange={(e) => setObservacaoInput(e.target.value)}
+                  maxLength={100}
+                  className="h-11 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20"
+                />
+              </div>
+
+              {isFormReady && (
+                <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800 text-xs space-y-1">
+                  <span className="font-bold text-indigo-900 dark:text-indigo-100 block">
+                    Ao confirmar será gerada no Fluxo de Caixa:
+                  </span>
+                  <div className="flex items-center justify-between text-red-600 font-bold text-sm">
+                    <span>Saída ({getParticipantDisplayName()}):</span>
+                    <span>
+                      - R$ {valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground pt-0.5">
+                    Os botões rápidos de manutenção de moto (óleo, freio etc.) ficam ocultos para
+                    participantes.
+                  </p>
+                </div>
               )}
-            </div>
 
-            <Input
-              id="observacaoInput"
-              type="text"
-              placeholder="Ex: troca com filtro, dianteiro, traseiro..."
-              value={observacaoInput}
-              onChange={(e) => setObservacaoInput(e.target.value)}
-              maxLength={100}
-              className="h-10 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
-            />
-          </div>
-
-          {/* 5. Novos Botões: LICENCIAMENTO, IPVA e BOMBEIROS */}
-          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                5. Licenciamento, IPVA e Bombeiros
-              </Label>
-              <span className="text-xs text-muted-foreground">
-                Usa o Preço (item 2), Data (item 2) e Observação (item 4)
-              </span>
+              <Button
+                type="button"
+                disabled={!isFormReady || submittingParticipante}
+                onClick={handleLancarParticipante}
+                className={`w-full h-14 text-lg font-black uppercase tracking-wider shadow-lg transition-all ${
+                  !isFormReady || submittingParticipante
+                    ? 'opacity-40 cursor-not-allowed bg-slate-300 dark:bg-slate-800 text-slate-500'
+                    : 'bg-red-600 hover:bg-red-700 active:scale-[0.99] text-white shadow-red-500/20'
+                }`}
+              >
+                {submittingParticipante ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                    <span>LANÇANDO SAÍDA...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2">
+                    <ArrowDownRight className="w-5 h-5" />
+                    <span>LANÇAR SAÍDA NO CAIXA</span>
+                  </div>
+                )}
+              </Button>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-              {QUICK_BUTTONS_ITEM5.map((btn) => {
-                const isThisLoading = submittingButton === btn.id
-                return (
-                  <button
-                    key={btn.id}
-                    type="button"
-                    disabled={!isFormReady || submittingButton !== null}
-                    onClick={() => handleQuickLaunch(btn)}
-                    className={`h-24 sm:h-28 rounded-2xl flex flex-col items-center justify-center gap-1 p-3 border-2 transition-all select-none ${
-                      !isFormReady
-                        ? 'opacity-35 cursor-not-allowed bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-400'
-                        : `${btn.colorClasses} shadow-md hover:shadow-lg active:scale-95 cursor-pointer`
-                    }`}
-                  >
-                    {isThisLoading ? (
-                      <div className="flex items-center gap-2">
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
-                        <span className="text-sm font-bold text-white">Lançando...</span>
-                      </div>
-                    ) : (
-                      <>
-                        <span
-                          className="text-2xl sm:text-3xl filter drop-shadow-sm leading-none"
-                          role="img"
-                          aria-label={btn.label}
-                        >
-                          {btn.emoji}
-                        </span>
-                        <span className="text-base sm:text-lg font-black uppercase tracking-wide leading-tight">
-                          {btn.label}
-                        </span>
-                        <span
-                          className={`text-[11px] font-medium leading-none ${
-                            !isFormReady ? 'text-slate-400' : 'text-white/85'
-                          }`}
-                        >
-                          {btn.categoriaNome}
-                        </span>
-                      </>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          )}
 
           {/* 6. OUTROS LANÇAMENTOS (abre modal tradicional sendo apenas SAÍDAS) */}
           <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -719,14 +1054,15 @@ export default function LancamentosRapidos() {
             </Button>
             <p className="text-xs text-muted-foreground text-center">
               Abre as caixas de lançamento tradicionais (descrição, categoria, valor, data etc.)
-              sendo apenas <strong>SAÍDAS</strong> vinculadas à moto.
+              sendo apenas <strong>SAÍDAS</strong> vinculadas a{' '}
+              {destinoTipo === 'moto' ? 'uma moto' : 'um participante'}.
             </p>
           </div>
 
           {/* Status / Orientações */}
           <div className="p-3 bg-slate-100 dark:bg-slate-800/60 rounded-xl text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between">
             <span>
-              <strong>Data do lançamento rápido:</strong>{' '}
+              <strong>Data do lançamento:</strong>{' '}
               {formatDateDisplay(dataInput || getTodayLocalDate())}
               {dataInput === getTodayLocalDate() ? ' (Hoje)' : ''}
             </span>
@@ -758,7 +1094,27 @@ export default function LancamentosRapidos() {
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {recentLancamentos.slice(0, 5).map((item) => {
                 const motoItem = item.expand?.moto || motos.find((m) => m.id === item.moto)
-                const motoName = motoItem?.nome || motoItem?.modelo || 'Moto'
+                const socioItem =
+                  item.expand?.socio ||
+                  (item.socio ? socios.find((s) => s.id === item.socio) : undefined)
+                const contaItem =
+                  item.expand?.conta_a_pagar ||
+                  (item.conta_a_pagar
+                    ? contasAPagar.find((c) => c.id === item.conta_a_pagar)
+                    : undefined)
+
+                let destinoLabel = 'Geral'
+                if (motoItem) {
+                  destinoLabel = motoItem.nome || motoItem.modelo || 'Moto'
+                  if (motoItem.placa) destinoLabel += ` (${motoItem.placa})`
+                } else if (item.entidade === 'empresa') {
+                  destinoLabel = nomeEmpresaDisplay
+                } else if (item.entidade === 'socia') {
+                  destinoLabel = socioItem?.nome ? `Sócio: ${socioItem.nome}` : 'Sócio'
+                } else if (item.entidade === 'terceiros') {
+                  destinoLabel = contaItem?.credor ? `Terceiro: ${contaItem.credor}` : 'Terceiro'
+                }
+
                 return (
                   <div
                     key={item.id}
@@ -771,8 +1127,7 @@ export default function LancamentosRapidos() {
                           {item.descricao}
                         </p>
                         <p className="text-[11px] text-muted-foreground">
-                          {formatDateDisplay(item.data)} • {motoName}
-                          {motoItem?.placa ? ` (${motoItem.placa})` : ''}
+                          {formatDateDisplay(item.data)} • {destinoLabel}
                         </p>
                       </div>
                     </div>
@@ -806,13 +1161,14 @@ export default function LancamentosRapidos() {
                   OUTROS LANÇAMENTOS — Nova Saída
                 </DialogTitle>
                 <DialogDescription className="text-xs">
-                  Registro de despesa tradicional no Fluxo de Caixa vinculada à moto selecionada.
+                  Registro de despesa tradicional no Fluxo de Caixa vinculada ao destino
+                  selecionado.
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          {selectedMoto && (
+          {destinoTipo === 'moto' && selectedMoto && (
             <div className="p-3 bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-900 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bike className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -821,6 +1177,26 @@ export default function LancamentosRapidos() {
                 </span>
                 <span className="text-xs font-black text-blue-700 dark:text-blue-300">
                   {selectedMoto.nome?.trim() || selectedMoto.modelo?.trim() || selectedMoto.placa}
+                </span>
+              </div>
+              <Badge
+                variant="outline"
+                className="text-[10px] font-bold text-red-600 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800"
+              >
+                Apenas Saída (Custo)
+              </Badge>
+            </div>
+          )}
+
+          {destinoTipo === 'participante' && selectedParticipant && (
+            <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/30 rounded-xl border border-indigo-200 dark:border-indigo-900 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Participante vinculado:
+                </span>
+                <span className="text-xs font-black text-indigo-700 dark:text-indigo-300">
+                  {getParticipantDisplayName()}
                 </span>
               </div>
               <Badge
