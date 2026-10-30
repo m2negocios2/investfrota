@@ -95,7 +95,7 @@ const QUICK_BUTTONS_ITEM3: QuickButtonConfig[] = [
     label: 'SEGURO',
     emoji: '🛡️',
     categoriaNome: 'SEGURANÇA',
-    descricaoPrefix: 'Segurança',
+    descricaoPrefix: 'Seguro',
     // Tom Verde Esmeralda distinto
     colorClasses:
       'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border-emerald-700 shadow-emerald-600/30',
