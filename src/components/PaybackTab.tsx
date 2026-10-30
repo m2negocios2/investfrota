@@ -863,13 +863,13 @@ const MotoPaybackCard: React.FC<MotoPaybackCardProps> = ({ item }) => {
                         {isAtingido ? '✓' : pb.multiplicador}
                       </div>
 
-                      {/* Tag do Payback abaixo da barra */}
-                      <div className="absolute top-5 left-1/2 -translate-x-1/2 flex flex-col items-center whitespace-nowrap pointer-events-none">
+                      {/* Tag do Payback abaixo da barra (com z-index e fundo opaco para não conflitar com a linha) */}
+                      <div className="absolute top-5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center whitespace-nowrap pointer-events-none">
                         <span
-                          className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded shadow-xs ${
+                          className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-sm ${
                             isAtingido
-                              ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/70 border border-emerald-300/60 dark:border-emerald-800'
-                              : 'text-slate-800 dark:text-slate-200 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700'
+                              ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-700'
+                              : 'text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700'
                           }`}
                         >
                           {isAtingido && '✓ '}
@@ -877,16 +877,16 @@ const MotoPaybackCard: React.FC<MotoPaybackCardProps> = ({ item }) => {
                         </span>
                         {pb.dataExibicao && (
                           <span
-                            className={`text-[8.5px] font-bold ${
+                            className={`text-[8.5px] font-bold px-1 rounded ${
                               isAtingido
-                                ? 'text-emerald-600 dark:text-emerald-400'
-                                : 'text-primary dark:text-blue-400'
+                                ? 'text-emerald-600 dark:text-emerald-400 bg-white/90 dark:bg-slate-950/90'
+                                : 'text-primary dark:text-blue-400 bg-white/90 dark:bg-slate-950/90'
                             }`}
                           >
                             {pb.dataExibicao}
                           </span>
                         )}
-                        <span className="text-[7.5px] text-muted-foreground">
+                        <span className="text-[7.5px] text-muted-foreground bg-white/80 dark:bg-slate-950/80 px-1 rounded">
                           {formatMesesAnos(pb.meses)}
                         </span>
                       </div>
@@ -920,44 +920,57 @@ const MotoPaybackCard: React.FC<MotoPaybackCardProps> = ({ item }) => {
               </div>
 
               {/* Escala em Meses e Anos no Rodapé da Barra */}
-              <div className="relative w-full h-8 mt-10 border-t border-slate-200 dark:border-slate-800">
+              <div className="relative w-full min-h-[52px] mt-14 pt-1 border-t border-slate-200 dark:border-slate-800">
                 {markersEscala.map((mk) => {
                   const pct = toPercent(mk.meses)
                   // No início (0%), não deslocar -50% para não cortar à esquerda; no fim (100%), alinhar à direita
                   const alignClass =
                     pct === 0
-                      ? 'left-0 translate-x-0 items-start'
-                      : pct >= 98
-                        ? 'right-0 -translate-x-0 items-end'
-                        : '-translate-x-1/2 items-center'
+                      ? 'left-0 translate-x-0 items-start text-left'
+                      : pct >= 95
+                        ? 'right-0 -translate-x-0 items-end text-right'
+                        : '-translate-x-1/2 items-center text-center'
 
                   return (
                     <div
                       key={mk.meses}
-                      className={`absolute top-0 flex flex-col ${alignClass}`}
-                      style={pct > 0 && pct < 98 ? { left: `${pct}%` } : undefined}
+                      className={`absolute top-0 flex flex-col pointer-events-none ${alignClass}`}
+                      style={pct > 0 && pct < 95 ? { left: `${pct}%` } : undefined}
                     >
                       <div
-                        className={`w-0.5 h-1.5 bg-slate-300 dark:bg-slate-700 ${
-                          pct === 0 ? 'ml-0.5' : pct >= 98 ? 'mr-0.5' : ''
+                        className={`w-0.5 h-2 bg-slate-300 dark:bg-slate-700 ${
+                          pct === 0 ? 'ml-0.5' : pct >= 95 ? 'mr-0.5' : ''
                         }`}
                       />
-                      <span className="text-[9px] font-medium text-slate-600 dark:text-slate-400 mt-0.5 whitespace-nowrap">
-                        {mk.meses === 0 ? (
-                          <span className="font-semibold text-slate-700 dark:text-slate-300">
-                            {mk.rotuloSub ? `Início · ${mk.rotuloSub}` : 'Início'}
+
+                      {mk.meses === 0 ? (
+                        /* Marco de Início */
+                        <div className="flex flex-col mt-0.5 leading-tight">
+                          <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                            Início
                           </span>
-                        ) : mk.rotuloSub ? (
-                          <span>
-                            {mk.rotuloPrincipal}{' '}
-                            <strong className="text-slate-700 dark:text-slate-300 font-bold">
-                              — {mk.rotuloSub}
-                            </strong>
+                          {mk.rotuloSub && (
+                            <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+                              {mk.rotuloSub}
+                            </span>
+                          )}
+                        </div>
+                      ) : mk.rotuloSub ? (
+                        /* Marcação de anos: ex. Ano '2026' em cima e '1 ano' ABAIXO */
+                        <div className="flex flex-col mt-0.5 leading-tight">
+                          <span className="text-[10px] font-extrabold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                            {mk.rotuloSub}
                           </span>
-                        ) : (
-                          <span>{mk.rotuloPrincipal}</span>
-                        )}
-                      </span>
+                          <span className="text-[9px] font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                            {mk.rotuloPrincipal}
+                          </span>
+                        </div>
+                      ) : (
+                        /* Marcação intermediária (ex: 6m, 18m...) - oculta em telas muito pequenas para evitar poluição visual */
+                        <span className="hidden sm:inline-block text-[9px] font-medium text-slate-400 dark:text-slate-500 mt-0.5 whitespace-nowrap">
+                          {mk.rotuloPrincipal}
+                        </span>
+                      )}
                     </div>
                   )
                 })}
