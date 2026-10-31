@@ -23,6 +23,7 @@ import {
   Clock,
   Sparkles,
   Trophy,
+  LineChart as LineChartIcon,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -473,6 +474,7 @@ export default function Reports() {
             activeReportTab !== 'projecao-fluxo' &&
             activeReportTab !== 'graficos-receita' &&
             activeReportTab !== 'graficos-custos' &&
+            activeReportTab !== 'graficos-crescimento' &&
             activeReportTab !== 'kpi-media-lucro' && (
               <>
                 <Select
@@ -524,7 +526,7 @@ export default function Reports() {
             Lista de Relatórios Disponíveis (Clique para Visualizar)
           </h2>
           <span className="text-xs text-muted-foreground hidden sm:inline">
-            10 relatórios e visões disponíveis
+            11 relatórios e visões disponíveis
           </span>
         </div>
 
@@ -904,7 +906,7 @@ export default function Reports() {
                     variant="outline"
                     className="text-[10px] font-semibold bg-white dark:bg-slate-900"
                   >
-                    2 gráficos
+                    3 gráficos
                   </Badge>
                 </div>
               </CardHeader>
@@ -965,6 +967,34 @@ export default function Reports() {
                       </Badge>
                     )}
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveReportTab('graficos-crescimento')}
+                    className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
+                      activeReportTab === 'graficos-crescimento'
+                        ? 'border-indigo-600 bg-indigo-50/90 dark:bg-indigo-950/60 shadow-sm ring-2 ring-indigo-500 text-indigo-900 dark:text-indigo-100'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 ${
+                          activeReportTab === 'graficos-crescimento'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <LineChartIcon className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-bold truncate">Gráfico — Crescimento</span>
+                    </div>
+                    {activeReportTab === 'graficos-crescimento' && (
+                      <Badge className="bg-indigo-600 hover:bg-indigo-600 text-white text-[10px] font-bold shrink-0">
+                        Visualizando
+                      </Badge>
+                    )}
+                  </button>
                 </div>
               </CardContent>
             </div>
@@ -1001,9 +1031,11 @@ export default function Reports() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB: GRÁFICOS (RECEITA & CUSTOS) */}
+        {/* TAB: GRÁFICOS (RECEITA, CUSTOS & CRESCIMENTO) */}
         {/* ========================================================================= */}
-        {(activeReportTab === 'graficos-receita' || activeReportTab === 'graficos-custos') && (
+        {(activeReportTab === 'graficos-receita' ||
+          activeReportTab === 'graficos-custos' ||
+          activeReportTab === 'graficos-crescimento') && (
           <GraficosReport
             caixa={caixa}
             contasAPagar={contasAPagar}
@@ -1011,7 +1043,13 @@ export default function Reports() {
             selectedMonth={selectedMonth}
             onYearChange={(year) => setSelectedYear(year)}
             onMonthChange={(month) => setSelectedMonth(month)}
-            initialGraphType={activeReportTab === 'graficos-custos' ? 'custos' : 'receita'}
+            initialGraphType={
+              activeReportTab === 'graficos-custos'
+                ? 'custos'
+                : activeReportTab === 'graficos-crescimento'
+                  ? 'crescimento'
+                  : 'receita'
+            }
           />
         )}
 
