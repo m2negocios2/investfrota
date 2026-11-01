@@ -300,13 +300,8 @@ export default function LancamentoAluguel() {
     } else {
       const pName = getParticipantDisplayName()
       setOutroDescricao(`Receita — ${pName}`)
-      setOutroCategoria(
-        selectedParticipant?.tipo === 'empresa'
-          ? 'Receita Empresa'
-          : selectedParticipant?.tipo === 'socia'
-            ? 'Aporte Sócio'
-            : 'Receita Terceiro',
-      )
+      // Para outras entidades, seleciona a primeira categoria cadastrada caso exista, ou permite escolher
+      setOutroCategoria(categorias[0]?.nome || '')
     }
 
     setOutroValor(valorNumerico > 0 ? valorNumerico : '')
@@ -341,7 +336,7 @@ export default function LancamentoAluguel() {
       return
     }
 
-    const catFinal = outroCategoria.trim() || 'Receitas'
+    const catFinal = outroCategoria.trim() === 'Sem categoria' ? '' : outroCategoria.trim()
     const safeData = outroData || getTodayLocalDate()
     const safeDataMidday = dateToApiMidday(safeData)
 
@@ -1261,24 +1256,37 @@ export default function LancamentoAluguel() {
 
             {/* Categoria */}
             <div className="space-y-2">
-              <Label htmlFor="outroCategoriaSelectEntrada">Categoria *</Label>
-              <Select value={outroCategoria} onValueChange={setOutroCategoria}>
-                <SelectTrigger id="outroCategoriaSelectEntrada">
-                  <SelectValue placeholder="Selecione a categoria de receita" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Aluguel">Aluguel</SelectItem>
-                  {categorias
-                    .filter((c) => c.nome !== 'Aluguel')
-                    .map((c) => (
+              <Label htmlFor="outroCategoriaSelectEntrada">
+                Categoria {categorias.length > 0 ? '*' : '(opcional)'}
+              </Label>
+              {categorias.length === 0 ? (
+                <div className="space-y-1.5">
+                  <Input
+                    id="outroCategoriaSelectEntrada"
+                    placeholder="Sem categorias cadastradas (opcional)"
+                    value={outroCategoria}
+                    onChange={(e) => setOutroCategoria(e.target.value)}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Nenhuma categoria cadastrada em Cadastros. Você pode digitar ou seguir sem
+                    categorizar.
+                  </p>
+                </div>
+              ) : (
+                <Select value={outroCategoria} onValueChange={setOutroCategoria}>
+                  <SelectTrigger id="outroCategoriaSelectEntrada">
+                    <SelectValue placeholder="Selecione a categoria de receita" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categorias.map((c) => (
                       <SelectItem key={c.id} value={c.nome}>
                         {c.nome}
                       </SelectItem>
                     ))}
-                  <SelectItem value="Receitas Gerais">Receitas Gerais</SelectItem>
-                  <SelectItem value="Outras Receitas">Outras Receitas</SelectItem>
-                </SelectContent>
-              </Select>
+                    <SelectItem value="Sem categoria">(Sem categoria)</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             {/* Valor e Data lado a lado */}

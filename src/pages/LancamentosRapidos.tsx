@@ -290,19 +290,14 @@ export default function LancamentosRapidos() {
 
     if (destinoTipo === 'moto') {
       setOutroDescricao('')
-      setOutroCategoria(categorias[0]?.nome || 'MANUTENÇÃO')
+      setOutroCategoria(categorias[0]?.nome || '')
     } else {
       const pName = getParticipantDisplayName()
       setOutroDescricao(
         observacaoInput.trim() ? `${observacaoInput.trim()} — ${pName}` : `Despesa — ${pName}`,
       )
-      setOutroCategoria(
-        selectedParticipant?.tipo === 'empresa'
-          ? 'Despesa Empresa'
-          : selectedParticipant?.tipo === 'socia'
-            ? 'Retirada Sócio'
-            : 'Pagamento Terceiro',
-      )
+      // Para outras entidades, seleciona a primeira categoria cadastrada caso exista, ou permite escolher
+      setOutroCategoria(categorias[0]?.nome || '')
     }
 
     setOutroValor(valorNumerico > 0 ? valorNumerico : '')
@@ -335,7 +330,7 @@ export default function LancamentosRapidos() {
       return
     }
 
-    const catFinal = outroCategoria.trim() || 'Outros'
+    const catFinal = outroCategoria.trim() === 'Sem categoria' ? '' : outroCategoria.trim()
     const safeData = outroData || getTodayLocalDate()
     const safeDataMidday = dateToApiMidday(safeData)
 
@@ -1224,21 +1219,37 @@ export default function LancamentosRapidos() {
 
             {/* Categoria */}
             <div className="space-y-2">
-              <Label htmlFor="outroCategoriaSelect">Categoria *</Label>
-              <Select value={outroCategoria} onValueChange={setOutroCategoria}>
-                <SelectTrigger id="outroCategoriaSelect">
-                  <SelectValue placeholder="Selecione a categoria de saída" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categorias.map((c) => (
-                    <SelectItem key={c.id} value={c.nome}>
-                      {c.nome}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="Custos Gerais">Custos Gerais</SelectItem>
-                  <SelectItem value="Outros">Outros</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="outroCategoriaSelect">
+                Categoria {categorias.length > 0 ? '*' : '(opcional)'}
+              </Label>
+              {categorias.length === 0 ? (
+                <div className="space-y-1.5">
+                  <Input
+                    id="outroCategoriaSelect"
+                    placeholder="Sem categorias cadastradas (opcional)"
+                    value={outroCategoria}
+                    onChange={(e) => setOutroCategoria(e.target.value)}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Nenhuma categoria cadastrada em Cadastros. Você pode digitar ou seguir sem
+                    categorizar.
+                  </p>
+                </div>
+              ) : (
+                <Select value={outroCategoria} onValueChange={setOutroCategoria}>
+                  <SelectTrigger id="outroCategoriaSelect">
+                    <SelectValue placeholder="Selecione a categoria de saída" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categorias.map((c) => (
+                      <SelectItem key={c.id} value={c.nome}>
+                        {c.nome}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="Sem categoria">(Sem categoria)</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             {/* Valor e Data lado a lado */}
