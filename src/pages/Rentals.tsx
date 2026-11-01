@@ -51,6 +51,16 @@ export default function Rentals() {
   const [motos, setMotos] = useState<Moto[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Controle de expansão de contratos anteriores por moto (motoId -> boolean)
+  const [expandedMotos, setExpandedMotos] = useState<Record<string, boolean>>({})
+
+  const toggleMotoExpanded = (motoId: string) => {
+    setExpandedMotos((prev) => ({
+      ...prev,
+      [motoId]: !prev[motoId],
+    }))
+  }
+
   // New / Edit Contract Dialog
   const [contractModalOpen, setContractModalOpen] = useState(Boolean(defaultMotoId))
   const [editingContract, setEditingContract] = useState<Contrato | null>(null)
@@ -453,7 +463,9 @@ export default function Rentals() {
       ) : (
         <div className="space-y-4">
           {motos.map((moto) => {
-            // Contratos da moto ordenados: ativo primeiro, e por data_inicio decrescente
+            // Contratos da moto ordenados:
+            // O mais recente primeiro (por data_inicio decrescente).
+            // Se houver contrato ativo, ele é o atual/mais recente da moto.
             const motoContratos = contratos
               .filter((c) => c.moto === moto.id)
               .sort((a, b) => {
@@ -468,6 +480,10 @@ export default function Rentals() {
               })
 
             const hasActiveContract = motoContratos.some((c) => c.status === 'ativo')
+            const isExpanded = Boolean(expandedMotos[moto.id])
+            const totalContratos = motoContratos.length
+            const hasMoreContracts = totalContratos > 1
+            const displayedContratos = isExpanded ? motoContratos : motoContratos.slice(0, 1)
 
             return (
               <div
@@ -528,7 +544,7 @@ export default function Rentals() {
                 </div>
 
                 {/* Coluna DIREITA: Quadradinhos de contratos da moto */}
-                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <div className="flex-1 min-w-0 flex flex-col justify-center gap-2.5">
                   {motoContratos.length === 0 ? (
                     <div className="py-6 px-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-center bg-slate-50/50 dark:bg-slate-950/40 flex flex-col items-center justify-center gap-2">
                       <KeyRound className="w-6 h-6 text-slate-400 dark:text-slate-500" />
@@ -546,161 +562,200 @@ export default function Rentals() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
-                      {motoContratos.map((contrato) => {
-                        const isAtivo = contrato.status === 'ativo'
-                        const semanal =
-                          contrato.valor_semanal !== undefined && contrato.valor_semanal !== null
-                            ? contrato.valor_semanal
-                            : contrato.valor_diario * 7
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
+                        {displayedContratos.map((contrato, idx) => {
+                          const isUltimo = idx === 0
+                          const isAtivo = contrato.status === 'ativo'
+                          const semanal =
+                            contrato.valor_semanal !== undefined && contrato.valor_semanal !== null
+                              ? contrato.valor_semanal
+                              : contrato.valor_diario * 7
 
-                        return (
-                          <div
-                            key={contrato.id}
-                            className={`relative rounded-xl p-3 flex flex-col justify-between transition-all border text-left ${
-                              isAtivo
-                                ? 'bg-gradient-to-br from-white to-emerald-50/30 dark:from-slate-900 dark:to-emerald-950/20 border-emerald-500 dark:border-emerald-600 shadow-sm ring-1 ring-emerald-500/30'
-                                : 'bg-slate-50/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-90 hover:opacity-100 hover:border-slate-300 dark:hover:border-slate-700'
-                            }`}
-                          >
-                            {/* Topo do quadradinho: Locatário e Badges */}
-                            <div className="space-y-1.5">
-                              <div className="flex items-start justify-between gap-1.5">
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-1">
-                                    <User className="w-3.5 h-3.5 shrink-0 text-slate-500 dark:text-slate-400" />
-                                    <p
-                                      className={`font-bold text-xs truncate ${
-                                        contrato.locatario_nome?.trim()
-                                          ? 'text-slate-900 dark:text-white'
-                                          : 'text-muted-foreground italic font-normal'
-                                      }`}
-                                      title={contrato.locatario_nome || 'Sem locatário'}
-                                    >
-                                      {contrato.locatario_nome?.trim() || 'Sem locatário'}
-                                    </p>
+                          return (
+                            <div
+                              key={contrato.id}
+                              className={`relative rounded-xl p-3 flex flex-col justify-between transition-all border text-left ${
+                                isAtivo
+                                  ? 'bg-gradient-to-br from-white to-emerald-50/30 dark:from-slate-900 dark:to-emerald-950/20 border-emerald-500 dark:border-emerald-600 shadow-sm ring-1 ring-emerald-500/30'
+                                  : 'bg-slate-50/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-90 hover:opacity-100 hover:border-slate-300 dark:hover:border-slate-700'
+                              }`}
+                            >
+                              {/* Topo do quadradinho: Locatário e Badges */}
+                              <div className="space-y-1.5">
+                                <div className="flex items-start justify-between gap-1.5">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1">
+                                      <User className="w-3.5 h-3.5 shrink-0 text-slate-500 dark:text-slate-400" />
+                                      <p
+                                        className={`font-bold text-xs truncate ${
+                                          contrato.locatario_nome?.trim()
+                                            ? 'text-slate-900 dark:text-white'
+                                            : 'text-muted-foreground italic font-normal'
+                                        }`}
+                                        title={contrato.locatario_nome || 'Sem locatário'}
+                                      >
+                                        {contrato.locatario_nome?.trim() || 'Sem locatário'}
+                                      </p>
+                                    </div>
+                                    {contrato.locatario_telefone && (
+                                      <p className="text-[10px] text-muted-foreground truncate pl-4">
+                                        {contrato.locatario_telefone}
+                                      </p>
+                                    )}
                                   </div>
-                                  {contrato.locatario_telefone && (
-                                    <p className="text-[10px] text-muted-foreground truncate pl-4">
-                                      {contrato.locatario_telefone}
-                                    </p>
-                                  )}
+
+                                  {/* Status Badge */}
+                                  <div className="flex flex-col items-end gap-1 shrink-0">
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-[9px] px-1.5 py-0 leading-tight uppercase font-bold ${
+                                        isAtivo
+                                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-700'
+                                          : 'bg-slate-200/70 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                                      }`}
+                                    >
+                                      {isAtivo ? 'ATIVO' : 'ENCERRADO'}
+                                    </Badge>
+                                    {isUltimo && (
+                                      <span className="text-[9px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 px-1 py-0.2 rounded">
+                                        ÚLTIMO
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
 
-                                {/* Status Badge */}
-                                <Badge
-                                  variant="outline"
-                                  className={`text-[9px] px-1.5 py-0 leading-tight uppercase shrink-0 font-bold ${
-                                    isAtivo
-                                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-700'
-                                      : 'bg-slate-200/70 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
-                                  }`}
-                                >
-                                  {isAtivo ? 'ATIVO' : 'ENCERRADO'}
-                                </Badge>
-                              </div>
-
-                              {/* Tipo de Contrato & Valor Semanal */}
-                              <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100 dark:border-slate-800/80">
-                                <Badge
-                                  variant="secondary"
-                                  className={`text-[9px] px-1.5 py-0 ${
-                                    contrato.tipo === 'plano_conquista'
-                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300'
-                                      : 'bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300'
-                                  }`}
-                                >
-                                  {contrato.tipo === 'plano_conquista' ? 'Conquista' : 'Normal'}
-                                </Badge>
-                                <span className="font-extrabold text-xs text-slate-900 dark:text-white">
-                                  R$ {semanal.toFixed(2)}
-                                  <span className="text-[9px] font-normal text-muted-foreground">
-                                    /sem
-                                  </span>
-                                </span>
-                              </div>
-
-                              {/* Período: Início e Fim */}
-                              <div className="space-y-0.5 text-[10px] bg-white/70 dark:bg-slate-950/40 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
-                                <div className="flex items-center justify-between text-muted-foreground">
-                                  <span className="flex items-center gap-1">
-                                    <Calendar className="w-3 h-3 text-slate-400" />
-                                    Início:
-                                  </span>
-                                  <span className="font-medium text-slate-800 dark:text-slate-200">
-                                    {formatDateDisplay(contrato.data_inicio)}
+                                {/* Tipo de Contrato & Valor Semanal */}
+                                <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                                  <Badge
+                                    variant="secondary"
+                                    className={`text-[9px] px-1.5 py-0 ${
+                                      contrato.tipo === 'plano_conquista'
+                                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300'
+                                        : 'bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300'
+                                    }`}
+                                  >
+                                    {contrato.tipo === 'plano_conquista' ? 'Conquista' : 'Normal'}
+                                  </Badge>
+                                  <span className="font-extrabold text-xs text-slate-900 dark:text-white">
+                                    R$ {semanal.toFixed(2)}
+                                    <span className="text-[9px] font-normal text-muted-foreground">
+                                      /sem
+                                    </span>
                                   </span>
                                 </div>
-                                <div className="flex items-center justify-between text-muted-foreground">
-                                  <span className="flex items-center gap-1">
-                                    <Clock className="w-3 h-3 text-slate-400" />
-                                    Fim:
-                                  </span>
-                                  <span className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[100px] text-right">
-                                    {contrato.data_entrega
-                                      ? formatDateDisplay(contrato.data_entrega)
-                                      : contrato.prazo_meses
-                                        ? `${contrato.prazo_meses} meses`
-                                        : 'Sem término'}
-                                  </span>
-                                </div>
-                                {(contrato.comissao_percentual ?? contrato.percentual_comissao) ? (
-                                  <div className="flex items-center justify-between text-[9px] text-purple-700 dark:text-purple-300 pt-0.5 border-t border-slate-100 dark:border-slate-800">
-                                    <span>Comissão:</span>
-                                    <span className="font-semibold">
-                                      {contrato.comissao_percentual ?? contrato.percentual_comissao}
-                                      %
+
+                                {/* Período: Início e Fim */}
+                                <div className="space-y-0.5 text-[10px] bg-white/70 dark:bg-slate-950/40 p-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                                  <div className="flex items-center justify-between text-muted-foreground">
+                                    <span className="flex items-center gap-1">
+                                      <Calendar className="w-3 h-3 text-slate-400" />
+                                      Início:
+                                    </span>
+                                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                                      {formatDateDisplay(contrato.data_inicio)}
                                     </span>
                                   </div>
-                                ) : null}
+                                  <div className="flex items-center justify-between text-muted-foreground">
+                                    <span className="flex items-center gap-1">
+                                      <Clock className="w-3 h-3 text-slate-400" />
+                                      Fim:
+                                    </span>
+                                    <span className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[100px] text-right">
+                                      {contrato.data_entrega
+                                        ? formatDateDisplay(contrato.data_entrega)
+                                        : contrato.prazo_meses
+                                          ? `${contrato.prazo_meses} meses`
+                                          : 'Sem término'}
+                                    </span>
+                                  </div>
+                                  {(contrato.comissao_percentual ??
+                                  contrato.percentual_comissao) ? (
+                                    <div className="flex items-center justify-between text-[9px] text-purple-700 dark:text-purple-300 pt-0.5 border-t border-slate-100 dark:border-slate-800">
+                                      <span>Comissão:</span>
+                                      <span className="font-semibold">
+                                        {contrato.comissao_percentual ??
+                                          contrato.percentual_comissao}
+                                        %
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+
+                              {/* Barra de Ações Compactas no rodapé do Quadradinho */}
+                              <div className="mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1">
+                                {isAtivo ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleOpenFinalizeModal(contrato)}
+                                    className="h-7 px-2 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 font-medium"
+                                    title="Finalizar contrato com data de encerramento"
+                                  >
+                                    Finalizar
+                                  </Button>
+                                ) : (
+                                  <span className="text-[10px] text-muted-foreground italic px-1">
+                                    Finalizado
+                                  </span>
+                                )}
+
+                                <div className="flex items-center gap-0.5">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleOpenEditContract(contrato)}
+                                    title="Editar contrato"
+                                    aria-label="Editar contrato"
+                                    className="h-7 w-7 text-slate-600 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-300 dark:hover:bg-blue-950/40"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleOpenDeleteModal(contrato)}
+                                    title="Apagar contrato feito por engano"
+                                    aria-label="Apagar contrato feito por engano"
+                                    className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
                               </div>
                             </div>
+                          )
+                        })}
+                      </div>
 
-                            {/* Barra de Ações Compactas no rodapé do Quadradinho */}
-                            <div className="mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1">
-                              {isAtivo ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleOpenFinalizeModal(contrato)}
-                                  className="h-7 px-2 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 font-medium"
-                                  title="Finalizar contrato com data de encerramento"
-                                >
-                                  Finalizar
-                                </Button>
-                              ) : (
-                                <span className="text-[10px] text-muted-foreground italic px-1">
-                                  Finalizado
-                                </span>
-                              )}
-
-                              <div className="flex items-center gap-0.5">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleOpenEditContract(contrato)}
-                                  title="Editar contrato"
-                                  aria-label="Editar contrato"
-                                  className="h-7 w-7 text-slate-600 hover:text-blue-600 hover:bg-blue-50 dark:text-slate-300 dark:hover:bg-blue-950/40"
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleOpenDeleteModal(contrato)}
-                                  title="Apagar contrato feito por engano"
-                                  aria-label="Apagar contrato feito por engano"
-                                  className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
+                      {/* Botão VER MAIS / VER MENOS quando houver histórico de contratos */}
+                      {hasMoreContracts && (
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                          <span className="text-[11px] text-muted-foreground">
+                            {isExpanded
+                              ? `Mostrando todos os ${totalContratos} contratos`
+                              : `Mostrando o último contrato (${totalContratos - 1} anterior${totalContratos - 1 > 1 ? 'es' : ''} oculto${totalContratos - 1 > 1 ? 's' : ''})`}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleMotoExpanded(moto.id)}
+                            className="h-7 px-2.5 text-xs font-semibold gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50 border-blue-200 dark:border-blue-900"
+                          >
+                            <span>
+                              {isExpanded ? 'VER MENOS' : `VER MAIS (${totalContratos - 1})`}
+                            </span>
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                                isExpanded ? 'rotate-180' : ''
+                              }`}
+                            />
+                          </Button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
