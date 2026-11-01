@@ -1181,18 +1181,22 @@ export function GraficosReport({
                 </div>
 
                 {/* GRÁFICO DE LINHA: 2 LINHAS (Receita Bruta em azul, Lucro Líquido em verde) */}
-                <div className="h-[320px] w-full">
+                <div className="h-[340px] sm:h-[320px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart
                       data={dadosCrescimento.meses}
-                      margin={{ top: 20, right: 20, left: 10, bottom: 25 }}
+                      margin={{ top: 20, right: 15, left: 0, bottom: 25 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
                       <XAxis dataKey="mes" tick={{ fontSize: 11 }} stroke="#888888" dy={8} />
                       <YAxis
+                        width={52}
                         tick={{ fontSize: 10 }}
+                        tickCount={5}
+                        interval={0}
+                        domain={['auto', 'auto']}
                         tickFormatter={(v) =>
-                          `R$${Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`
+                          `R$ ${Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`
                         }
                         stroke="#888888"
                       />
