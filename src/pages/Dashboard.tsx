@@ -4,9 +4,6 @@ import {
   Bike,
   KeyRound,
   TrendingUp,
-  Wallet,
-  AlertTriangle,
-  CheckCircle2,
   Clock,
   ArrowRight,
   Plus,
@@ -20,42 +17,27 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { useAuth } from '@/contexts/AuthContext'
 import { motosService } from '@/services/motos'
 import { contratosService } from '@/services/contratos'
-import { recebimentosService } from '@/services/recebimentos'
 import { caixaService } from '@/services/caixa'
-import { Moto, Contrato, Recebimento, CaixaLancamento } from '@/types/database'
-import { formatDateDisplay } from '@/lib/dateUtils'
-import { getFaltasUltimas3Semanas } from '@/lib/semanaPendenciasUtils'
+import { Moto, Contrato, CaixaLancamento } from '@/types/database'
 
 export default function Dashboard() {
-  const { isProprietario } = useAuth()
   const [motos, setMotos] = useState<Moto[]>([])
   const [contratos, setContratos] = useState<Contrato[]>([])
-  const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
   const [caixa, setCaixa] = useState<CaixaLancamento[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadData = async () => {
     try {
-      const [m, c, r, cx] = await Promise.all([
+      const [m, c, cx] = await Promise.all([
         motosService.getAll(),
         contratosService.getAll(),
-        recebimentosService.getAll(),
         caixaService.getAll(),
       ])
 
-      // Filtrar recebimentos órfãos para alinhamento total com a página Semana
-      const validContractIds = new Set(c.map((item) => item.id))
-      const filteredR = r.filter((rec) => {
-        if (!rec.contrato) return true
-        return validContractIds.has(rec.contrato)
-      })
-
       setMotos(m)
       setContratos(c)
-      setRecebimentos(filteredR)
       setCaixa(cx)
     } catch (err) {
       console.error('Erro ao carregar dados do painel:', err)
@@ -89,11 +71,6 @@ export default function Dashboard() {
     const weekly = c.valor_semanal || (c.valor_diario ? c.valor_diario * 7 : 0)
     return acc + (weekly / 7) * 30
   }, 0)
-
-  // Pendências de atraso baseadas na planilha Semana (faltas de pagamento nas 3 últimas semanas)
-  const { faltas: pendenciasSemana, totalValorFaltas } = React.useMemo(() => {
-    return getFaltasUltimas3Semanas(motos, contratos, recebimentos)
-  }, [motos, contratos, recebimentos])
 
   // Caixa Month Balance
   const totalEntradas = caixa
@@ -138,8 +115,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* KPI Cards Grid: 3 cards responsivos mantendo Frota, Previsão Semanal e Atrasos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* KPI Cards Grid: Frota & Ocupação e Previsão Semanal */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Motos Status */}
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -186,47 +163,6 @@ export default function Dashboard() {
             <p className="mt-2 text-xs text-muted-foreground">
               Projeção mensal: R${' '}
               {previsaoMensal.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Recebimentos em Atraso */}
-        <Card className="shadow-sm border-amber-200 dark:border-amber-900/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Pendências de Atraso
-            </CardTitle>
-            <div className="p-2 bg-amber-50 dark:bg-amber-950 text-amber-600 rounded-lg">
-              <AlertTriangle className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-2">
-              <span
-                className={`text-2xl font-bold ${pendenciasSemana.length > 0 ? 'text-amber-600' : 'text-slate-900 dark:text-white'}`}
-              >
-                {pendenciasSemana.length}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                (
-                {pendenciasSemana.length === 1
-                  ? '1 atraso explícito'
-                  : `${pendenciasSemana.length} em atraso`}{' '}
-                nas 3 últimas semanas)
-              </span>
-            </div>
-            <p className="mt-2 text-xs text-amber-700 dark:text-amber-400 font-medium flex items-center justify-between">
-              <span>
-                {pendenciasSemana.length > 0
-                  ? `R$ ${totalValorFaltas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a receber`
-                  : 'Nenhum atraso no momento'}
-              </span>
-              <Link
-                to="/semana"
-                className="text-blue-600 hover:underline flex items-center gap-0.5 text-[11px]"
-              >
-                Ver Semana &rarr;
-              </Link>
             </p>
           </CardContent>
         </Card>
@@ -375,94 +311,6 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
-
-          {/* Pendências de Atraso das 3 Últimas Semanas (linkando com /semana) */}
-          {pendenciasSemana.length > 0 && (
-            <Card className="shadow-sm border-amber-200 dark:border-amber-900/50 bg-amber-50/20 dark:bg-amber-950/10">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-base font-bold text-amber-900 dark:text-amber-200 flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-amber-600" />
-                    Pendências de Atraso (Planilha Semana)
-                  </CardTitle>
-                  <CardDescription className="text-amber-800/80 dark:text-amber-300/80">
-                    Motos marcadas em atraso (vermelho) nas 3 últimas semanas — clique para abrir e
-                    dar baixa na semana correspondente
-                  </CardDescription>
-                </div>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-xs bg-white dark:bg-slate-900 border-amber-300"
-                >
-                  <Link to="/semana">
-                    Abrir Semana
-                    <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                  </Link>
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2.5">
-                  {pendenciasSemana.map((falta) => (
-                    <Link
-                      key={`${falta.motoId}-${falta.dataVencimento}-${falta.weekCode}`}
-                      to={`/semana?semana=${falta.weekCode}&mes=${falta.monthIndex}&ano=${falta.monthYear}`}
-                      className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-amber-200 dark:border-amber-900/60 flex items-center justify-between gap-3 hover:border-amber-400 hover:shadow-xs transition-all group block"
-                      title="Clique para ir à planilha da semana correspondente"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">
-                            {falta.motoNome}
-                          </p>
-                          <span className="font-mono text-[10px] px-1 py-0.2 bg-slate-100 dark:bg-slate-800 rounded border text-muted-foreground shrink-0">
-                            {falta.motoPlaca}
-                          </span>
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40"
-                          >
-                            {falta.monthName.slice(0, 3)}: S{falta.weekNumber}
-                          </Badge>
-                          {falta.isCurrentWeek && (
-                            <Badge className="text-[9px] px-1 py-0 bg-emerald-600 text-white">
-                              Semana Atual
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                          Locatário:{' '}
-                          <span className="font-medium text-slate-700 dark:text-slate-300">
-                            {falta.locatarioNome}
-                          </span>{' '}
-                          • Vencimento: {formatDateDisplay(falta.dataVencimento)} ({falta.diaSemana}
-                          )
-                        </p>
-                      </div>
-
-                      <div className="text-right shrink-0 flex items-center gap-2">
-                        <div>
-                          <span className="text-sm font-black text-amber-600 block">
-                            R${' '}
-                            {falta.valorSemanal.toLocaleString('pt-BR', {
-                              minimumFractionDigits: 2,
-                            })}
-                          </span>
-                          <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-tight">
-                            Em atraso
-                          </span>
-                        </div>
-                        <div className="w-7 h-7 rounded-full bg-amber-50 dark:bg-amber-950 flex items-center justify-center text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-colors">
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
 
         {/* Right Column (1/3): Resumo Financeiro & Saldo de Caixa */}
