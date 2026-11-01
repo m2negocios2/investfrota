@@ -16,6 +16,9 @@ import {
   Activity,
   Layers,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
   Gauge,
   Wallet,
   AlertTriangle,
@@ -69,6 +72,23 @@ export default function Reports() {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1)
   const [activeReportTab, setActiveReportTab] = useState('dre-mensal')
+
+  const currentYear = new Date().getFullYear()
+  const currentMonth = new Date().getMonth() + 1
+
+  const availableYears = React.useMemo(() => {
+    const base = [2022, 2023, 2024, 2025, 2026, 2027, currentYear]
+    caixa.forEach((c) => {
+      if (c.data) {
+        const y = new Date(c.data).getFullYear()
+        if (!isNaN(y) && y >= 2015 && y <= 2035) {
+          base.push(y)
+        }
+      }
+    })
+    base.push(selectedYear)
+    return Array.from(new Set(base)).sort((a, b) => a - b)
+  }, [caixa, currentYear, selectedYear])
 
   const reportPrintRef = useRef<HTMLDivElement>(null)
 
@@ -501,7 +521,7 @@ export default function Reports() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {[2024, 2025, 2026, 2027].map((y) => (
+                    {availableYears.map((y) => (
                       <SelectItem key={y} value={String(y)}>
                         {y}
                       </SelectItem>
@@ -1058,24 +1078,112 @@ export default function Reports() {
         {/* ========================================================================= */}
         {activeReportTab === 'dre-mensal' && (
           <Card className="shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-3 border-b">
+            <CardHeader className="flex flex-col lg:flex-row lg:items-center lg:justify-between pb-3 border-b gap-3">
               <div>
-                <CardTitle className="text-lg font-bold flex items-center gap-2">
-                  <FileSpreadsheet className="w-5 h-5 text-primary" />
-                  Demonstração do Resultado do Exercício (DRE) — {monthNames[selectedMonth - 1]}/
-                  {selectedYear}
-                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <FileSpreadsheet className="w-5 h-5 text-primary" />
+                    Demonstração do Resultado do Exercício (DRE) — {monthNames[selectedMonth - 1]}/
+                    {selectedYear}
+                  </CardTitle>
+                  <Badge
+                    variant="outline"
+                    className="font-semibold text-xs bg-slate-50 dark:bg-slate-800 hidden sm:inline-flex"
+                  >
+                    Competência / Caixa
+                  </Badge>
+                </div>
                 <CardDescription>
                   Apuração de receitas de locação, custos diretos de manutenção e despesas
                   operacionais no mês
                 </CardDescription>
               </div>
-              <Badge
-                variant="outline"
-                className="font-semibold text-xs bg-slate-50 dark:bg-slate-800"
-              >
-                Competência / Caixa
-              </Badge>
+
+              {/* Controles de Navegação por Ano e Mês no DRE Mensal */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Seletor de Mês */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:inline">
+                    Mês:
+                  </span>
+                  <Select
+                    value={String(selectedMonth)}
+                    onValueChange={(val) => setSelectedMonth(Number(val))}
+                  >
+                    <SelectTrigger className="w-[125px] h-9 bg-white dark:bg-slate-900 font-semibold text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {monthNames.map((name, idx) => (
+                        <SelectItem key={idx + 1} value={String(idx + 1)}>
+                          {name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Navegação por Ano com setas ‹ › e Select */}
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900"
+                    onClick={() => setSelectedYear((prev) => prev - 1)}
+                    title="Ano anterior"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+
+                  <Select
+                    value={String(selectedYear)}
+                    onValueChange={(val) => setSelectedYear(Number(val))}
+                  >
+                    <SelectTrigger className="w-[85px] h-7 bg-white dark:bg-slate-900 font-bold text-xs border-0 shadow-none">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableYears.map((y) => (
+                        <SelectItem key={y} value={String(y)}>
+                          {y}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900"
+                    onClick={() => setSelectedYear((prev) => prev + 1)}
+                    title="Próximo ano"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {/* Retorno Rápido ao Ano Atual */}
+                <Button
+                  type="button"
+                  variant={selectedYear === currentYear ? 'outline' : 'default'}
+                  size="sm"
+                  className={`h-9 px-2.5 text-xs gap-1 font-semibold ${
+                    selectedYear === currentYear
+                      ? 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                  }`}
+                  onClick={() => {
+                    setSelectedYear(currentYear)
+                    setSelectedMonth(currentMonth)
+                  }}
+                  title="Retornar para o ano atual e mês atual"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Ano Atual ({currentYear})</span>
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="pt-6">
               <div className="space-y-4 max-w-3xl">
@@ -1227,7 +1335,7 @@ export default function Reports() {
         {/* ========================================================================= */}
         {activeReportTab === 'dre-anual' && (
           <Card className="shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-3 border-b">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b gap-3">
               <div>
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-primary" />
@@ -1236,6 +1344,65 @@ export default function Reports() {
                 <CardDescription>
                   Demonstração contábil acumulada de todo o ano de {selectedYear}
                 </CardDescription>
+              </div>
+
+              {/* Controles de Navegação por Ano no DRE Anual */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900"
+                    onClick={() => setSelectedYear((prev) => prev - 1)}
+                    title="Ano anterior"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+
+                  <Select
+                    value={String(selectedYear)}
+                    onValueChange={(val) => setSelectedYear(Number(val))}
+                  >
+                    <SelectTrigger className="w-[85px] h-7 bg-white dark:bg-slate-900 font-bold text-xs border-0 shadow-none">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableYears.map((y) => (
+                        <SelectItem key={y} value={String(y)}>
+                          {y}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900"
+                    onClick={() => setSelectedYear((prev) => prev + 1)}
+                    title="Próximo ano"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                <Button
+                  type="button"
+                  variant={selectedYear === currentYear ? 'outline' : 'default'}
+                  size="sm"
+                  className={`h-9 px-2.5 text-xs gap-1 font-semibold ${
+                    selectedYear === currentYear
+                      ? 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                  }`}
+                  onClick={() => setSelectedYear(currentYear)}
+                  title="Retornar para o ano atual"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Ano Atual ({currentYear})</span>
+                </Button>
               </div>
             </CardHeader>
             <CardContent className="pt-6">
