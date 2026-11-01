@@ -16,6 +16,7 @@ import {
   Bike,
   CreditCard,
   Edit3,
+  Loader2,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -681,6 +682,25 @@ export default function Semana() {
       const contratoId = cellTarget.recebimento?.contrato || cellTarget.contrato.id
       const locatarioNome =
         cellTarget.recebimento?.locatario_nome || cellTarget.contrato.locatario_nome || ''
+
+      // Blindagem anti-duplicação: checar se já existe recebimento pago para a mesma moto + data/semana no estado local ou servidor
+      const cellDatePrefix = cellTarget.dateStr.split('T')[0].split(' ')[0]
+      const existingPaid = recebimentos.find((r) => {
+        const rDatePrefix = r.data_vencimento ? r.data_vencimento.split('T')[0].split(' ')[0] : ''
+        return (
+          r.moto === cellTarget.moto.id &&
+          r.status === 'pago' &&
+          (rDatePrefix === cellDatePrefix || (r.semana_ano && r.semana_ano === weekCode))
+        )
+      })
+
+      if (existingPaid && existingPaid.id !== recebimentoId) {
+        toast.info('Esta semana já possui pagamento registrado para esta moto!')
+        setPaymentModalOpen(false)
+        setCellTarget(null)
+        await loadData()
+        return
+      }
 
       if (!recebimentoId) {
         // Criar novo registro de recebimento com semana_ano e vincular ao contrato vigente
@@ -1568,9 +1588,16 @@ export default function Semana() {
                         size="sm"
                         onClick={handleColorirELancarPagamento}
                         disabled={submittingAction}
-                        className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+                        className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 flex items-center gap-1.5"
                       >
-                        Lançar no Caixa
+                        {submittingAction ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Gravando...</span>
+                          </>
+                        ) : (
+                          <span>Lançar no Caixa</span>
+                        )}
                       </Button>
                     </div>
 
