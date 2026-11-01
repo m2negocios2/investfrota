@@ -1217,7 +1217,7 @@ export default function LancamentosRapidos() {
               />
             </div>
 
-            {/* Categoria */}
+            {/* Categoria (posicionado após a Descrição) */}
             <div className="space-y-2">
               <Label htmlFor="outroCategoriaSelect">
                 Categoria {categorias.length > 0 ? '*' : '(opcional)'}
