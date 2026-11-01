@@ -4,10 +4,12 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Wallet,
-  Percent,
   TrendingUp,
   RefreshCw,
   Search,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -56,6 +58,11 @@ export default function Mes() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
+  // Controle de Mês/Ano selecionado para navegação
+  const today = new Date()
+  const [selectedYear, setSelectedYear] = useState<number>(today.getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState<number>(today.getMonth() + 1) // 1 a 12
+
   const loadData = async () => {
     setLoading(true)
     try {
@@ -86,18 +93,22 @@ export default function Mes() {
     loadData()
   }, [])
 
-  // Agrupar lançamentos por Mês (respeitando datas exatas YYYY-MM)
-  const monthGroups = React.useMemo(() => {
-    const groupsMap = new Map<
-      string,
-      { recebimentos: CaixaLancamento[]; despesas: CaixaLancamento[] }
-    >()
+  // Chave do mês selecionado "YYYY-MM"
+  const selectedKey = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`
+
+  // Calcular diretamente os dados do mês selecionado
+  const currentMonthGroup = React.useMemo(() => {
+    const monthName = MONTH_NAMES[selectedMonth - 1] || `MÊS ${selectedMonth}`
+    const label = `${monthName} ${selectedYear}`
+
+    const rawRecebimentos: CaixaLancamento[] = []
+    const rawDespesas: CaixaLancamento[] = []
 
     lancamentos.forEach((item) => {
       // Data formato YYYY-MM-DD
       const datePart = (item.data || '').split('T')[0].split(' ')[0]
       const yearMonth = datePart ? datePart.slice(0, 7) : ''
-      if (!yearMonth || yearMonth.length < 7) return
+      if (yearMonth !== selectedKey) return
 
       // Filtro de busca opcional (descrição, categoria ou nome da moto)
       if (search.trim()) {
@@ -117,74 +128,76 @@ export default function Mes() {
         }
       }
 
-      if (!groupsMap.has(yearMonth)) {
-        groupsMap.set(yearMonth, { recebimentos: [], despesas: [] })
-      }
-      const group = groupsMap.get(yearMonth)!
       if (item.tipo === 'entrada') {
-        group.recebimentos.push(item)
+        rawRecebimentos.push(item)
       } else {
-        group.despesas.push(item)
+        rawDespesas.push(item)
       }
     })
 
-    // Garantir que o mês atual sempre apareça, mesmo sem lançamentos ainda
-    const now = new Date()
-    const currentYear = now.getFullYear()
-    const currentMonthNum = now.getMonth() + 1
-    const currentKey = `${currentYear}-${String(currentMonthNum).padStart(2, '0')}`
-    if (!groupsMap.has(currentKey) && !search.trim()) {
-      groupsMap.set(currentKey, { recebimentos: [], despesas: [] })
+    // Ordenar recebimentos e despesas por data decrescente
+    const recebimentos = rawRecebimentos.sort((a, b) => {
+      const dA = a.data ? a.data.slice(0, 10) : ''
+      const dB = b.data ? b.data.slice(0, 10) : ''
+      return dB.localeCompare(dA)
+    })
+
+    const despesas = rawDespesas.sort((a, b) => {
+      const dA = a.data ? a.data.slice(0, 10) : ''
+      const dB = b.data ? b.data.slice(0, 10) : ''
+      return dB.localeCompare(dA)
+    })
+
+    const totalRecebimentos = recebimentos.reduce((sum, r) => sum + r.valor, 0)
+    const totalDespesas = despesas.reduce((sum, d) => sum + d.valor, 0)
+    const saldoLiquido = totalRecebimentos - totalDespesas
+
+    let percentualMargem = 0
+    if (totalRecebimentos > 0) {
+      percentualMargem = Math.round((saldoLiquido / totalRecebimentos) * 100)
     }
 
-    // Ordenar as chaves de mês do mais recente para o mais antigo (DESCENDING)
-    const sortedKeys = Array.from(groupsMap.keys()).sort((a, b) => b.localeCompare(a))
+    return {
+      key: selectedKey,
+      label,
+      year: selectedYear,
+      month: selectedMonth,
+      recebimentos,
+      despesas,
+      totalRecebimentos,
+      totalDespesas,
+      saldoLiquido,
+      percentualMargem,
+    } as MonthGroup
+  }, [lancamentos, motosMap, search, selectedKey, selectedMonth, selectedYear])
 
-    return sortedKeys.map((key) => {
-      const [yStr, mStr] = key.split('-')
-      const year = parseInt(yStr, 10)
-      const month = parseInt(mStr, 10)
-      const monthName = MONTH_NAMES[month - 1] || `MÊS ${month}`
-      const label = `${monthName} ${year}`
+  // Navegação de meses
+  const handlePrevMonth = () => {
+    if (selectedMonth === 1) {
+      setSelectedMonth(12)
+      setSelectedYear((prev) => prev - 1)
+    } else {
+      setSelectedMonth((prev) => prev - 1)
+    }
+  }
 
-      const groupData = groupsMap.get(key)!
-      // Ordenar recebimentos por data decrescente (ou crescente se preferir; mantemos padrão consistente)
-      const recebimentos = [...groupData.recebimentos].sort((a, b) => {
-        const dA = a.data ? a.data.slice(0, 10) : ''
-        const dB = b.data ? b.data.slice(0, 10) : ''
-        return dB.localeCompare(dA)
-      })
+  const handleNextMonth = () => {
+    if (selectedMonth === 12) {
+      setSelectedMonth(1)
+      setSelectedYear((prev) => prev + 1)
+    } else {
+      setSelectedMonth((prev) => prev + 1)
+    }
+  }
 
-      const despesas = [...groupData.despesas].sort((a, b) => {
-        const dA = a.data ? a.data.slice(0, 10) : ''
-        const dB = b.data ? b.data.slice(0, 10) : ''
-        return dB.localeCompare(dA)
-      })
+  const handleGoToCurrentMonth = () => {
+    const now = new Date()
+    setSelectedYear(now.getFullYear())
+    setSelectedMonth(now.getMonth() + 1)
+  }
 
-      const totalRecebimentos = recebimentos.reduce((sum, r) => sum + r.valor, 0)
-      const totalDespesas = despesas.reduce((sum, d) => sum + d.valor, 0)
-      const saldoLiquido = totalRecebimentos - totalDespesas
-
-      // Percentual que o saldo líquido representa da receita bruta
-      let percentualMargem = 0
-      if (totalRecebimentos > 0) {
-        percentualMargem = Math.round((saldoLiquido / totalRecebimentos) * 100)
-      }
-
-      return {
-        key,
-        label,
-        year,
-        month,
-        recebimentos,
-        despesas,
-        totalRecebimentos,
-        totalDespesas,
-        saldoLiquido,
-        percentualMargem,
-      } as MonthGroup
-    })
-  }, [lancamentos, motosMap, search])
+  const isCurrentMonthSelected =
+    selectedYear === today.getFullYear() && selectedMonth === today.getMonth() + 1
 
   // Helper para obter o identificador do vínculo (moto ou participante)
   const nomeEmpresaDisplay = empresaConfig?.nome_empresa?.trim() || 'Empresa'
@@ -225,11 +238,6 @@ export default function Mes() {
     return null
   }
 
-  // Totalizadores gerais (todos os meses visíveis)
-  const totalGeralReceitas = monthGroups.reduce((acc, m) => acc + m.totalRecebimentos, 0)
-  const totalGeralDespesas = monthGroups.reduce((acc, m) => acc + m.totalDespesas, 0)
-  const totalGeralSaldo = totalGeralReceitas - totalGeralDespesas
-
   return (
     <div className="space-y-3.5">
       {/* Cabeçalho da Página */}
@@ -263,73 +271,48 @@ export default function Mes() {
         </div>
       </div>
 
-      {/* Cards de Resumo Geral Acumulado */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-        <Card className="shadow-xs border-emerald-100 dark:border-emerald-950">
-          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1">
-            <span className="text-[11px] font-semibold uppercase text-muted-foreground">
-              Total Recebimentos Acumulados
-            </span>
-            <div className="p-1 bg-emerald-100/70 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 rounded-md">
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </div>
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="text-lg font-black text-emerald-600 dark:text-emerald-400">
-              R$ {totalGeralReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Soma de todas as entradas registradas
-            </p>
-          </CardContent>
-        </Card>
+      {/* Barra de Navegação entre Meses e Controles */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-xs">
+        {/* Navegador de Mês */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGoToCurrentMonth}
+            disabled={isCurrentMonthSelected}
+            className="text-xs font-semibold gap-1 h-8"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Mês Atual ({MONTH_NAMES[today.getMonth()].slice(0, 3)}/{today.getFullYear()})
+          </Button>
 
-        <Card className="shadow-xs border-red-100 dark:border-red-950">
-          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1">
-            <span className="text-[11px] font-semibold uppercase text-muted-foreground">
-              Total Despesas Acumuladas
-            </span>
-            <div className="p-1 bg-red-100/70 text-red-700 dark:bg-red-950 dark:text-red-400 rounded-md">
-              <ArrowDownRight className="w-3.5 h-3.5" />
-            </div>
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="text-lg font-black text-red-600 dark:text-red-400">
-              R$ {totalGeralDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Soma de todos os custos e manutenções
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-xs border-blue-100 dark:border-blue-950">
-          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1">
-            <span className="text-[11px] font-semibold uppercase text-muted-foreground">
-              Saldo Líquido Total
-            </span>
-            <div className="p-1 bg-blue-100/70 text-blue-700 dark:bg-blue-950 dark:text-blue-400 rounded-md">
-              <Wallet className="w-3.5 h-3.5" />
-            </div>
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div
-              className={`text-lg font-black ${
-                totalGeralSaldo >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600'
-              }`}
+          <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-white dark:bg-slate-900 shadow-xs">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePrevMonth}
+              className="h-8 w-8 rounded-none border-r border-slate-200 dark:border-slate-700"
+              title="Mês anterior"
             >
-              R$ {totalGeralSaldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Resultado financeiro geral consolidado
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="px-3 text-xs font-bold font-mono uppercase text-slate-800 dark:text-slate-200">
+              {MONTH_NAMES[selectedMonth - 1]} / {selectedYear}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleNextMonth}
+              className="h-8 w-8 rounded-none border-l border-slate-200 dark:border-slate-700"
+              title="Próximo mês"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
 
-      {/* Barra de Filtro de Busca */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
+        {/* Filtro de Busca */}
+        <div className="relative w-full sm:w-72">
           <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             placeholder="Filtrar por descrição, moto ou categoria..."
@@ -340,22 +323,90 @@ export default function Mes() {
         </div>
       </div>
 
-      {/* Lista de Blocos Mensais */}
+      {/* Cards de Resumo do Mês Selecionado */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <Card className="shadow-xs border-emerald-100 dark:border-emerald-950">
+          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1">
+            <span className="text-[11px] font-semibold uppercase text-muted-foreground">
+              Recebimentos ({MONTH_NAMES[selectedMonth - 1].slice(0, 3)}/{selectedYear})
+            </span>
+            <div className="p-1 bg-emerald-100/70 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 rounded-md">
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 pt-0">
+            <div className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+              R${' '}
+              {currentMonthGroup.totalRecebimentos.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {currentMonthGroup.recebimentos.length} entrada(s) no mês
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-xs border-red-100 dark:border-red-950">
+          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1">
+            <span className="text-[11px] font-semibold uppercase text-muted-foreground">
+              Despesas ({MONTH_NAMES[selectedMonth - 1].slice(0, 3)}/{selectedYear})
+            </span>
+            <div className="p-1 bg-red-100/70 text-red-700 dark:bg-red-950 dark:text-red-400 rounded-md">
+              <ArrowDownRight className="w-3.5 h-3.5" />
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 pt-0">
+            <div className="text-lg font-black text-red-600 dark:text-red-400">
+              R${' '}
+              {currentMonthGroup.totalDespesas.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {currentMonthGroup.despesas.length} saída(s) no mês
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-xs border-blue-100 dark:border-blue-950">
+          <CardHeader className="flex flex-row items-center justify-between p-3 pb-1">
+            <span className="text-[11px] font-semibold uppercase text-muted-foreground">
+              Saldo Líquido ({MONTH_NAMES[selectedMonth - 1].slice(0, 3)}/{selectedYear})
+            </span>
+            <div className="p-1 bg-blue-100/70 text-blue-700 dark:bg-blue-950 dark:text-blue-400 rounded-md">
+              <Wallet className="w-3.5 h-3.5" />
+            </div>
+          </CardHeader>
+          <CardContent className="p-3 pt-0">
+            <div
+              className={`text-lg font-black ${
+                currentMonthGroup.saldoLiquido >= 0
+                  ? 'text-blue-600 dark:text-blue-400'
+                  : 'text-red-600'
+              }`}
+            >
+              R${' '}
+              {currentMonthGroup.saldoLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {currentMonthGroup.totalRecebimentos > 0
+                ? `${currentMonthGroup.percentualMargem}% da receita do mês`
+                : 'Resultado do mês'}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Bloco Único Exibido: Apenas o Mês Selecionado */}
       {loading ? (
         <div className="flex h-32 items-center justify-center">
           <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-primary"></div>
         </div>
-      ) : monthGroups.length === 0 ? (
-        <Card className="p-6 text-center text-muted-foreground">
-          <Calendar className="w-8 h-8 mx-auto text-slate-400 mb-2" />
-          <p className="font-semibold text-xs sm:text-sm text-slate-800 dark:text-slate-200">
-            Nenhum mês encontrado com lançamentos
-          </p>
-          <p className="text-[11px]">Registre entradas ou saídas no Fluxo de Caixa.</p>
-        </Card>
       ) : (
         <div className="space-y-4">
-          {monthGroups.map((month) => {
+          {(() => {
+            const month = currentMonthGroup
             const isPositivo = month.saldoLiquido >= 0
 
             return (
@@ -373,7 +424,7 @@ export default function Mes() {
                       </div>
                       <div>
                         <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">
-                          MÊS
+                          MÊS SELECIONADO
                         </span>
                         <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
                           {month.label}
@@ -683,7 +734,7 @@ export default function Mes() {
                 </div>
               </Card>
             )
-          })}
+          })()}
         </div>
       )}
     </div>
