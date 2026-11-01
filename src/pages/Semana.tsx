@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -111,6 +112,25 @@ export default function Semana() {
   // Configurable percent (default 70% matching owner's spreadsheet)
   const [percentualLiquido, setPercentualLiquido] = useState<number>(70)
   const [showConfigPercentual, setShowConfigPercentual] = useState(false)
+
+  // Opção: "Não mostrar o nome do cliente"
+  // Ao marcar, o nome do locatário sai do quadro da planilha semanal.
+  const [ocultarNomeCliente, setOcultarNomeCliente] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('semana_ocultar_nome_cliente') === 'true'
+    } catch {
+      return false
+    }
+  })
+
+  const handleToggleOcultarNomeCliente = (checked: boolean) => {
+    setOcultarNomeCliente(checked)
+    try {
+      localStorage.setItem('semana_ocultar_nome_cliente', String(checked))
+    } catch {
+      // ignore
+    }
+  }
 
   // Payment Confirmation Dialog (when clicking neutral or overdue cell)
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
@@ -897,7 +917,7 @@ export default function Semana() {
         </Card>
       )}
 
-      {/* Legend & Instructions */}
+      {/* Legend & Instructions & Checkbox */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-xs shadow-sm">
         <div className="flex items-center gap-3 flex-wrap">
           <span className="font-bold text-slate-700 dark:text-slate-300 text-[11px]">Cores:</span>
@@ -921,11 +941,30 @@ export default function Semana() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-muted-foreground text-[11px]">
-          <span>💡 Toque no valor para dar baixa/estornar; toque no nome para ajustar o dia.</span>
-          <span className="font-semibold text-blue-600 dark:text-blue-400">
-            {monthWeeks.length} semanas em {NOMES_MESES[selectedMonth]}
-          </span>
+        <div className="flex items-center gap-4 flex-wrap">
+          {/* Checkbox: Não mostrar o nome do cliente */}
+          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700">
+            <Checkbox
+              id="chk-ocultar-nome-cliente"
+              checked={ocultarNomeCliente}
+              onCheckedChange={(checked) => handleToggleOcultarNomeCliente(Boolean(checked))}
+            />
+            <Label
+              htmlFor="chk-ocultar-nome-cliente"
+              className="text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer select-none"
+            >
+              Não mostrar o nome do cliente
+            </Label>
+          </div>
+
+          <div className="flex items-center gap-2 text-muted-foreground text-[11px]">
+            <span>
+              💡 Toque no valor para dar baixa/estornar; toque no nome para ajustar o dia.
+            </span>
+            <span className="font-semibold text-blue-600 dark:text-blue-400">
+              {monthWeeks.length} semanas em {NOMES_MESES[selectedMonth]}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -1198,16 +1237,20 @@ export default function Semana() {
                                   {diaPgto}
                                 </span>
                               </div>
-                              <div className="text-[9px] text-muted-foreground truncate font-normal leading-tight flex items-center gap-1">
-                                <span className="truncate">
-                                  {contrato.locatario_nome?.trim() || '—'}
-                                </span>
-                                {contrato.status === 'finalizado' && (
-                                  <span className="text-[8px] px-1 py-0 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded font-semibold uppercase shrink-0">
-                                    Encerrado
-                                  </span>
-                                )}
-                              </div>
+                              {(!ocultarNomeCliente || contrato.status === 'finalizado') && (
+                                <div className="text-[9px] text-muted-foreground truncate font-normal leading-tight flex items-center gap-1">
+                                  {!ocultarNomeCliente && (
+                                    <span className="truncate">
+                                      {contrato.locatario_nome?.trim() || '—'}
+                                    </span>
+                                  )}
+                                  {contrato.status === 'finalizado' && (
+                                    <span className="text-[8px] px-1 py-0 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded font-semibold uppercase shrink-0">
+                                      Encerrado
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </td>
 
                             {/* 7 Days Columns (DOM..SAB) */}
