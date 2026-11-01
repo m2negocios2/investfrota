@@ -342,24 +342,49 @@ export default function Semana() {
   }
 
   // Helper to calculate cell status for a contract in a given week
-  // Regra 4: PRESERVAR as marcações históricas: se a moto tem células pagas/coloridas
-  // registradas em outras marcações/contratos da mesma moto dentro daquela semana,
-  // as células continuam mostrando o estado gravado (pago/colorido) mesmo que o contrato da linha única seja outro.
+  // Regra de integridade e preservação de marcações históricas:
+  // - Cada célula representa um dia de vencimento específico (cellDateStr) dentro de uma semana (weekCode).
+  // - Um recebimento pertence a esta célula se tiver a MESMA data de vencimento (cellDateStr)
+  //   OU se tiver o mesmo weekCode e a data de vencimento for compatível com a semana (ou ausente).
+  //   IMPORTANTE: um recebimento com data_vencimento de outra semana/mês JAMAIS pode marcar
+  //   como paga uma célula de uma semana diferente só por ter o mesmo weekCode (ou vice-versa).
   const getCellStatus = (
     contrato: Contrato,
     weekCode: string,
     cellDateStr: string,
+    weekStartStr?: string,
+    weekEndStr?: string,
   ): {
     status: 'pago' | 'pendente' | 'atraso'
     recebimento?: Recebimento
   } => {
+    // Validador de pertinência do recebimento à semana/célula
+    const isRecordForThisCell = (r: Recebimento): boolean => {
+      const recVenc = parseDateStr(r.data_vencimento)
+
+      // Se a data de vencimento bate exatamente com o dia da célula, pertence com certeza
+      if (recVenc && recVenc === cellDateStr) {
+        return true
+      }
+
+      // Se o registro tem semana_ano gravado igual a esta semana:
+      // Validamos se o vencimento não aponta explicitamente para fora dos limites desta semana
+      if (r.semana_ano && r.semana_ano === weekCode) {
+        if (!recVenc) return true
+        if (weekStartStr && weekEndStr) {
+          return recVenc >= weekStartStr && recVenc <= weekEndStr
+        }
+        return true
+      }
+
+      return false
+    }
+
     // 1º: Procura recebimento especificamente vinculado a este contrato vigente
     let found = recebimentos.find((r) => {
       if (r.moto !== contrato.moto) return false
       if (r.contrato && r.contrato !== contrato.id) return false
-      if (r.semana_ano && r.semana_ano === weekCode) return true
-      if (r.data_vencimento && r.data_vencimento.startsWith(cellDateStr)) return true
-      return false
+      return isRecordForThisCell(r)
     })
 
     // 2º: Se não encontrou recebimento direto para este contrato, busca qualquer recebimento PAGO da mesma moto
@@ -368,9 +393,7 @@ export default function Semana() {
       const anyPaidRecord = recebimentos.find((r) => {
         if (r.moto !== contrato.moto) return false
         if (r.status !== 'pago') return false
-        if (r.semana_ano && r.semana_ano === weekCode) return true
-        if (r.data_vencimento && r.data_vencimento.startsWith(cellDateStr)) return true
-        return false
+        return isRecordForThisCell(r)
       })
       if (anyPaidRecord) {
         found = anyPaidRecord
@@ -408,8 +431,10 @@ export default function Semana() {
     weekCode: string,
     cellDateStr: string,
     valor: number,
+    weekStartStr?: string,
+    weekEndStr?: string,
   ) => {
-    const cellState = getCellStatus(contrato, weekCode, cellDateStr)
+    const cellState = getCellStatus(contrato, weekCode, cellDateStr, weekStartStr, weekEndStr)
 
     if (cellState.status === 'pago' && cellState.recebimento) {
       const rec = cellState.recebimento
@@ -787,7 +812,13 @@ export default function Semana() {
               cellDateStr,
               isCurrentOrFutureWeek,
             )
-            const cellState = getCellStatus(contrato, weekInfo.code, cellDateStr)
+            const cellState = getCellStatus(
+              contrato,
+              weekInfo.code,
+              cellDateStr,
+              weekStartStr,
+              weekEndStr,
+            )
             const hasPagoRecord = cellState.status === 'pago'
 
             // Apenas contratos visíveis que estejam vigentes no respectivo dia ou tenham recebimento pago confirmado
@@ -1013,7 +1044,13 @@ export default function Semana() {
                               }
 
                               const cellDateStr = weekDates[d.key].dateStr
-                              const cellState = getCellStatus(contrato, weekInfo.code, cellDateStr)
+                              const cellState = getCellStatus(
+                                contrato,
+                                weekInfo.code,
+                                cellDateStr,
+                                weekStartStr,
+                                weekEndStr,
+                              )
                               const isVigenteNoDia = isContractActiveOnDate(
                                 contrato,
                                 cellDateStr,
@@ -1080,6 +1117,8 @@ export default function Semana() {
                                         weekInfo.code,
                                         cellDateStr,
                                         valorSemanal,
+                                        weekStartStr,
+                                        weekEndStr,
                                       )
                                     }
                                     title={titleText}

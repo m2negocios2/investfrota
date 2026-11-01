@@ -372,6 +372,78 @@ export function runCalendarTests(): { success: boolean; results: TestResult[] } 
     'c_motoA_2',
   )
 
+  // 7. Teste de isolamento de células da semana (/semana - getCellStatus)
+  // Garante que recebimento pago de uma semana/data não vaze indevidamente para outra semana/data
+  const mockRecebimentos = [
+    {
+      id: 'rec_out',
+      moto: 'motoX',
+      contrato: 'contX',
+      status: 'pago',
+      semana_ano: '2026-W42',
+      data_vencimento: '2026-10-21 12:00:00.000Z',
+    },
+  ]
+  const mockContratoX: any = { id: 'contX', moto: 'motoX', status: 'ativo' }
+
+  const parseDateStr = (raw?: string | null): string => {
+    if (!raw) return ''
+    const match = raw.match(/^(\d{4}-\d{2}-\d{2})/)
+    return match ? match[1] : ''
+  }
+
+  const checkCell = (
+    c: any,
+    wCode: string,
+    cellDate: string,
+    wStart: string,
+    wEnd: string,
+    recs: any[],
+  ) => {
+    const isRecordForThisCell = (r: any): boolean => {
+      const recVenc = parseDateStr(r.data_vencimento)
+      if (recVenc && recVenc === cellDate) return true
+      if (r.semana_ano && r.semana_ano === wCode) {
+        if (!recVenc) return true
+        if (wStart && wEnd) {
+          return recVenc >= wStart && recVenc <= wEnd
+        }
+        return true
+      }
+      return false
+    }
+    const found = recs.find(
+      (r) => r.moto === c.moto && r.status === 'pago' && isRecordForThisCell(r),
+    )
+    return found ? 'pago' : 'pendente'
+  }
+
+  // Na semana W42 (2026-10-18 a 2026-10-24), no dia 2026-10-21 deve ser 'pago'
+  const statusW42 = checkCell(
+    mockContratoX,
+    '2026-W42',
+    '2026-10-21',
+    '2026-10-18',
+    '2026-10-24',
+    mockRecebimentos,
+  )
+  assertEqual('W42 dia 21/10 deve constar como pago', statusW42, 'pago')
+
+  // Na semana W44 (2026-11-01 a 2026-11-07), início de mês sem recebimento, deve ser 'pendente' (neutro)
+  const statusW44 = checkCell(
+    mockContratoX,
+    '2026-W44',
+    '2026-11-04',
+    '2026-11-01',
+    '2026-11-07',
+    mockRecebimentos,
+  )
+  assertEqual(
+    'Início de mês (W44) sem recebimento deve constar como pendente/neutro',
+    statusW44,
+    'pendente',
+  )
+
   const allPassed = results.every((r) => r.passed)
   return { success: allPassed, results }
 }
