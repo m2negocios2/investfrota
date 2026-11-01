@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Calendar,
   ChevronLeft,
@@ -64,6 +65,7 @@ import {
 const NEUTRAL_WEEKS_CUTOFF_DATE_STR = '2026-10-18'
 
 export default function Semana() {
+  const [searchParams] = useSearchParams()
   const [motos, setMotos] = useState<Moto[]>([])
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
@@ -75,9 +77,35 @@ export default function Semana() {
   const currentMonth = today.getMonth() // 0-11
   const currentYear = today.getFullYear()
 
-  // Ao entrar na tela aparece sempre o mês atual
-  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth)
-  const [selectedYear, setSelectedYear] = useState<number>(currentYear)
+  // Parâmetros de navegação recebidos via URL (ex: ao clicar numa pendência do Painel Geral)
+  const targetWeekParam = searchParams.get('semana') // ex: "2026-W18" ou "18"
+  const targetYearParam = searchParams.get('ano') ? Number(searchParams.get('ano')) : null
+  const targetMonthParam = searchParams.get('mes') !== null ? Number(searchParams.get('mes')) : null
+
+  // Ao entrar na tela aparece o mês especificado na URL (se houver) ou o mês atual
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => {
+    if (
+      targetMonthParam !== null &&
+      !isNaN(targetMonthParam) &&
+      targetMonthParam >= 0 &&
+      targetMonthParam <= 11
+    ) {
+      return targetMonthParam
+    }
+    return currentMonth
+  })
+  const [selectedYear, setSelectedYear] = useState<number>(() => {
+    if (targetYearParam !== null && !isNaN(targetYearParam)) {
+      return targetYearParam
+    }
+    return currentYear
+  })
+
+  // Destacar e rolar até a semana especificada
+  const [highlightedWeekCode, setHighlightedWeekCode] = useState<string | null>(
+    targetWeekParam || null,
+  )
+  const hasScrolledRef = useRef(false)
 
   // Configurable percent (default 70% matching owner's spreadsheet)
   const [percentualLiquido, setPercentualLiquido] = useState<number>(70)
@@ -165,6 +193,39 @@ export default function Semana() {
 
     return [...weeks].sort((a, b) => b.weekOfMonth - a.weekOfMonth)
   }, [selectedYear, selectedMonth, todayWeek.code])
+
+  // Sincronizar parâmetros de busca caso mudem na URL
+  useEffect(() => {
+    if (
+      targetMonthParam !== null &&
+      !isNaN(targetMonthParam) &&
+      targetMonthParam >= 0 &&
+      targetMonthParam <= 11
+    ) {
+      setSelectedMonth(targetMonthParam)
+    }
+    if (targetYearParam !== null && !isNaN(targetYearParam)) {
+      setSelectedYear(targetYearParam)
+    }
+    if (targetWeekParam) {
+      setHighlightedWeekCode(targetWeekParam)
+      hasScrolledRef.current = false
+    }
+  }, [targetWeekParam, targetMonthParam, targetYearParam])
+
+  // Rolar até o bloco da semana em destaque quando os dados terminarem de carregar
+  useEffect(() => {
+    if (!loading && highlightedWeekCode && !hasScrolledRef.current) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`semana-card-${highlightedWeekCode}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          hasScrolledRef.current = true
+        }
+      }, 150)
+      return () => clearTimeout(timer)
+    }
+  }, [loading, highlightedWeekCode, monthWeeks])
 
   // Helper para extrair YYYY-MM-DD com segurança sem problema de fuso
   const parseDateStr = (raw?: string | null): string => {
@@ -915,15 +976,20 @@ export default function Semana() {
           const totalBrutoSemana = Object.values(dailyTotals).reduce((a, b) => a + b, 0)
           const totalLiquidoSemana = totalBrutoSemana * (percentualLiquido / 100)
 
+          const isTargetHighlighted = highlightedWeekCode === weekInfo.code
+
           return (
             <Card
               key={weekInfo.code}
+              id={`semana-card-${weekInfo.code}`}
               className={`shadow-sm overflow-hidden border transition-all ${
-                isNeutralWeek
-                  ? 'border-slate-200 dark:border-slate-800/80 bg-slate-50/40 dark:bg-slate-950/40'
-                  : isCurrentBlock
-                    ? 'border-blue-500 shadow-md ring-1 ring-blue-500/20'
-                    : 'border-slate-200 dark:border-slate-800'
+                isTargetHighlighted
+                  ? 'ring-2 ring-amber-500 border-amber-500 shadow-lg scale-[1.005]'
+                  : isNeutralWeek
+                    ? 'border-slate-200 dark:border-slate-800/80 bg-slate-50/40 dark:bg-slate-950/40'
+                    : isCurrentBlock
+                      ? 'border-blue-500 shadow-md ring-1 ring-blue-500/20'
+                      : 'border-slate-200 dark:border-slate-800'
               }`}
             >
               {/* Week Block Header:
@@ -945,15 +1011,27 @@ export default function Semana() {
                   {/* MES: SEMANA 1 A 5 */}
                   <span
                     className={`font-black text-xs tracking-wide px-2 py-0.5 rounded shadow-sm ${
-                      isNeutralWeek
-                        ? 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300/80 dark:border-slate-700'
-                        : isCurrentBlock
-                          ? 'bg-blue-900/60 text-white border border-blue-400/30'
-                          : 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600'
+                      isTargetHighlighted
+                        ? 'bg-amber-500 text-white border border-amber-600'
+                        : isNeutralWeek
+                          ? 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300/80 dark:border-slate-700'
+                          : isCurrentBlock
+                            ? 'bg-blue-900/60 text-white border border-blue-400/30'
+                            : 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600'
                     }`}
                   >
                     {weekInfo.monthName}: SEMANA {weekInfo.weekOfMonth}
                   </span>
+
+                  {/* Badge de Destaque se foi clicado a partir do Painel Geral */}
+                  {isTargetHighlighted && (
+                    <Badge
+                      variant="secondary"
+                      className="bg-amber-500 text-white hover:bg-amber-600 font-bold text-[10px] px-1.5 py-0 uppercase tracking-wider animate-pulse"
+                    >
+                      Semana Selecionada
+                    </Badge>
+                  )}
 
                   {/* Badge da semana atual */}
                   {isCurrentBlock && (

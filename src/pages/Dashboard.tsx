@@ -25,9 +25,9 @@ import { motosService } from '@/services/motos'
 import { contratosService } from '@/services/contratos'
 import { recebimentosService } from '@/services/recebimentos'
 import { caixaService } from '@/services/caixa'
-import { contasAReceberService } from '@/services/contasAReceber'
-import { Moto, Contrato, Recebimento, CaixaLancamento, ContaAReceber } from '@/types/database'
+import { Moto, Contrato, Recebimento, CaixaLancamento } from '@/types/database'
 import { formatDateDisplay } from '@/lib/dateUtils'
+import { getFaltasUltimas3Semanas } from '@/lib/semanaPendenciasUtils'
 
 export default function Dashboard() {
   const { isProprietario } = useAuth()
@@ -35,23 +35,28 @@ export default function Dashboard() {
   const [contratos, setContratos] = useState<Contrato[]>([])
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
   const [caixa, setCaixa] = useState<CaixaLancamento[]>([])
-  const [contasReceber, setContasReceber] = useState<ContaAReceber[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadData = async () => {
     try {
-      const [m, c, r, cx, cr] = await Promise.all([
+      const [m, c, r, cx] = await Promise.all([
         motosService.getAll(),
         contratosService.getAll(),
         recebimentosService.getAll(),
         caixaService.getAll(),
-        contasAReceberService.getAll(),
       ])
+
+      // Filtrar recebimentos órfãos para alinhamento total com a página Semana
+      const validContractIds = new Set(c.map((item) => item.id))
+      const filteredR = r.filter((rec) => {
+        if (!rec.contrato) return true
+        return validContractIds.has(rec.contrato)
+      })
+
       setMotos(m)
       setContratos(c)
-      setRecebimentos(r)
+      setRecebimentos(filteredR)
       setCaixa(cx)
-      setContasReceber(cr)
     } catch (err) {
       console.error('Erro ao carregar dados do painel:', err)
     } finally {
@@ -85,10 +90,10 @@ export default function Dashboard() {
     return acc + (weekly / 7) * 30
   }, 0)
 
-  // Status of Recebimentos
-  const emDia = recebimentos.filter((r) => r.status === 'em_dia').length
-  const emAtraso = recebimentos.filter((r) => r.status === 'em_atraso')
-  const totalAtrasoValor = emAtraso.reduce((acc, r) => acc + r.valor, 0)
+  // Pendências de atraso baseadas na planilha Semana (faltas de pagamento nas 3 últimas semanas)
+  const { faltas: pendenciasSemana, totalValorFaltas } = React.useMemo(() => {
+    return getFaltasUltimas3Semanas(motos, contratos, recebimentos)
+  }, [motos, contratos, recebimentos])
 
   // Caixa Month Balance
   const totalEntradas = caixa
@@ -96,10 +101,6 @@ export default function Dashboard() {
     .reduce((acc, c) => acc + c.valor, 0)
   const totalSaidas = caixa.filter((c) => c.tipo === 'saida').reduce((acc, c) => acc + c.valor, 0)
   const saldoCaixa = totalEntradas - totalSaidas
-
-  // Contas a Receber (Vendas de motos a prazo / pendentes)
-  const contasReceberAbertas = contasReceber.filter((c) => c.status === 'em_aberto')
-  const totalVendasAReceber = contasReceberAbertas.reduce((acc, c) => acc + Number(c.valor || 0), 0)
 
   if (loading) {
     return (
@@ -136,47 +137,6 @@ export default function Dashboard() {
           </Button>
         </div>
       </div>
-
-      {/* Card/Alerta de Vendas a Receber (quando houver valores pendentes) */}
-      {contasReceberAbertas.length > 0 && (
-        <Card className="border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-xs">
-          <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-emerald-600 text-white rounded-lg shrink-0 shadow-xs">
-                <TrendingUp className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
-                    A Receber de Vendas
-                  </span>
-                  <Badge className="bg-emerald-600 text-white text-[10px] px-1.5 py-0 font-bold">
-                    {contasReceberAbertas.length}{' '}
-                    {contasReceberAbertas.length === 1 ? 'pendência' : 'pendências'}
-                  </Badge>
-                </div>
-                <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-0.5">
-                  R$ {totalVendasAReceber.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Valores de vendas de motos aguardando quitação/recebimento
-                </p>
-              </div>
-            </div>
-
-            <Button
-              asChild
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 shrink-0 self-start sm:self-center"
-            >
-              <Link to="/contas-pagar">
-                Ver Contas a Receber
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
 
       {/* KPI Cards Grid: 3 cards responsivos mantendo Frota, Previsão Semanal e Atrasos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -234,7 +194,7 @@ export default function Dashboard() {
         <Card className="shadow-sm border-amber-200 dark:border-amber-900/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Locatários em Atraso
+              Pendências de Atraso
             </CardTitle>
             <div className="p-2 bg-amber-50 dark:bg-amber-950 text-amber-600 rounded-lg">
               <AlertTriangle className="w-4 h-4" />
@@ -243,16 +203,30 @@ export default function Dashboard() {
           <CardContent>
             <div className="flex items-baseline gap-2">
               <span
-                className={`text-2xl font-bold ${emAtraso.length > 0 ? 'text-amber-600' : 'text-slate-900 dark:text-white'}`}
+                className={`text-2xl font-bold ${pendenciasSemana.length > 0 ? 'text-amber-600' : 'text-slate-900 dark:text-white'}`}
               >
-                {emAtraso.length}
+                {pendenciasSemana.length}
               </span>
-              <span className="text-xs text-muted-foreground">({emDia} em dia)</span>
+              <span className="text-xs text-muted-foreground">
+                (
+                {pendenciasSemana.length === 1
+                  ? '1 falta de pgto'
+                  : `${pendenciasSemana.length} faltas`}{' '}
+                nas 3 últimas semanas)
+              </span>
             </div>
-            <p className="mt-2 text-xs text-amber-700 dark:text-amber-400 font-medium">
-              {emAtraso.length > 0
-                ? `R$ ${totalAtrasoValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a receber`
-                : 'Nenhum atraso no momento'}
+            <p className="mt-2 text-xs text-amber-700 dark:text-amber-400 font-medium flex items-center justify-between">
+              <span>
+                {pendenciasSemana.length > 0
+                  ? `R$ ${totalValorFaltas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} a receber`
+                  : 'Nenhum atraso no momento'}
+              </span>
+              <Link
+                to="/semana"
+                className="text-blue-600 hover:underline flex items-center gap-0.5 text-[11px]"
+              >
+                Ver Semana &rarr;
+              </Link>
             </p>
           </CardContent>
         </Card>
@@ -402,50 +376,88 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Alertas de Atrasos */}
-          {emAtraso.length > 0 && (
+          {/* Pendências de Atraso das 3 Últimas Semanas (linkando com /semana) */}
+          {pendenciasSemana.length > 0 && (
             <Card className="shadow-sm border-amber-200 dark:border-amber-900/50 bg-amber-50/20 dark:bg-amber-950/10">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-base font-bold text-amber-900 dark:text-amber-200 flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 text-amber-600" />
-                    Recebimentos em Atraso
+                    Pendências de Atraso (Planilha Semana)
                   </CardTitle>
                   <CardDescription className="text-amber-800/80 dark:text-amber-300/80">
-                    Locatários com pagamentos pendentes que precisam de atenção
+                    Faltas de pagamento nas 3 últimas semanas — clique para abrir e dar baixa na
+                    semana correspondente
                   </CardDescription>
                 </div>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs bg-white dark:bg-slate-900 border-amber-300"
+                >
+                  <Link to="/semana">
+                    Abrir Semana
+                    <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                  </Link>
+                </Button>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {emAtraso.map((rec) => (
-                    <div
-                      key={rec.id}
-                      className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-amber-200 dark:border-amber-900/60 flex items-center justify-between"
+                <div className="space-y-2.5">
+                  {pendenciasSemana.map((falta) => (
+                    <Link
+                      key={`${falta.motoId}-${falta.dataVencimento}-${falta.weekCode}`}
+                      to={`/semana?semana=${falta.weekCode}&mes=${falta.monthIndex}&ano=${falta.monthYear}`}
+                      className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-amber-200 dark:border-amber-900/60 flex items-center justify-between gap-3 hover:border-amber-400 hover:shadow-xs transition-all group block"
+                      title="Clique para ir à planilha da semana correspondente"
                     >
-                      <div>
-                        <p className="font-semibold text-sm text-slate-900 dark:text-white">
-                          {rec.locatario_nome?.trim() || 'Sem locatário'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Vencimento: {formatDateDisplay(rec.data_vencimento)}
-                          {rec.observacoes ? ` • ${rec.observacoes}` : ''}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-sm text-slate-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">
+                            {falta.motoNome}
+                          </p>
+                          <span className="font-mono text-[10px] px-1 py-0.2 bg-slate-100 dark:bg-slate-800 rounded border text-muted-foreground shrink-0">
+                            {falta.motoPlaca}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40"
+                          >
+                            {falta.monthName.slice(0, 3)}: S{falta.weekNumber}
+                          </Badge>
+                          {falta.isCurrentWeek && (
+                            <Badge className="text-[9px] px-1 py-0 bg-emerald-600 text-white">
+                              Semana Atual
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                          Locatário:{' '}
+                          <span className="font-medium text-slate-700 dark:text-slate-300">
+                            {falta.locatarioNome}
+                          </span>{' '}
+                          • Vencimento: {formatDateDisplay(falta.dataVencimento)} ({falta.diaSemana}
+                          )
                         </p>
                       </div>
-                      <div className="text-right">
-                        <span className="text-sm font-bold text-amber-600">
-                          R$ {rec.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
+
+                      <div className="text-right shrink-0 flex items-center gap-2">
                         <div>
-                          <Badge
-                            variant="secondary"
-                            className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
-                          >
-                            Em Atraso
-                          </Badge>
+                          <span className="text-sm font-black text-amber-600 block">
+                            R${' '}
+                            {falta.valorSemanal.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                            })}
+                          </span>
+                          <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-tight">
+                            Sem pagamento
+                          </span>
+                        </div>
+                        <div className="w-7 h-7 rounded-full bg-amber-50 dark:bg-amber-950 flex items-center justify-center text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                          <ArrowRight className="w-3.5 h-3.5" />
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </CardContent>
