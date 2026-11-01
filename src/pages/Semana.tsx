@@ -357,6 +357,7 @@ export default function Semana() {
   ): {
     status: 'pago' | 'pendente' | 'atraso'
     recebimento?: Recebimento
+    corCustomizada?: 'verde' | 'vermelho' | 'neutro'
   } => {
     // Validador de pertinência do recebimento à semana/célula
     const isRecordForThisCell = (r: Recebimento): boolean => {
@@ -401,18 +402,36 @@ export default function Semana() {
     }
 
     if (found) {
+      const obs = found.observacoes || ''
+      let corCustomizada: 'verde' | 'vermelho' | 'neutro' | undefined
+
+      if (obs.includes('cor_vermelho')) {
+        corCustomizada = 'vermelho'
+      } else if (obs.includes('cor_neutro')) {
+        corCustomizada = 'neutro'
+      } else if (obs.includes('cor_verde') || obs.includes('apenas_colorido')) {
+        corCustomizada = 'verde'
+      }
+
       if (found.status === 'pago') {
-        return { status: 'pago', recebimento: found }
+        return { status: 'pago', recebimento: found, corCustomizada }
       }
       if (found.status === 'em_atraso') {
-        return { status: 'atraso', recebimento: found }
+        return { status: 'atraso', recebimento: found, corCustomizada }
       }
-      // em_dia: check if overdue compared to today
+      // em_dia
+      if (corCustomizada === 'vermelho') {
+        return { status: 'atraso', recebimento: found, corCustomizada }
+      }
+      if (corCustomizada === 'neutro') {
+        return { status: 'pendente', recebimento: found, corCustomizada }
+      }
+      // check if overdue compared to today
       const todayStr = getTodayLocalDate()
       if (cellDateStr < todayStr) {
-        return { status: 'atraso', recebimento: found }
+        return { status: 'atraso', recebimento: found, corCustomizada }
       }
-      return { status: 'pendente', recebimento: found }
+      return { status: 'pendente', recebimento: found, corCustomizada }
     }
 
     // No recebimento record: if cell date is in the past, consider overdue; otherwise neutral/pending
@@ -436,36 +455,40 @@ export default function Semana() {
   ) => {
     const cellState = getCellStatus(contrato, weekCode, cellDateStr, weekStartStr, weekEndStr)
 
+    // Se já é um pagamento efetivo lançado no caixa, permitir estorno ou abrir opções
     if (cellState.status === 'pago' && cellState.recebimento) {
       const rec = cellState.recebimento
       const isApenasColorido =
         rec.observacoes === 'apenas_colorido' ||
-        Boolean(rec.observacoes && rec.observacoes.includes('apenas_colorido'))
+        Boolean(
+          rec.observacoes &&
+          (rec.observacoes.includes('apenas_colorido') ||
+            rec.observacoes.includes('cor_verde') ||
+            rec.observacoes.includes('cor_vermelho') ||
+            rec.observacoes.includes('cor_neutro')),
+        )
 
-      // Estornar / Desmarcar pagamento
-      const msg = isApenasColorido
-        ? `A moto ${moto.nome || moto.modelo} está apenas marcada como COLORIDA nesta semana (sem lançamentos no caixa).\n\nDeseja desmarcar e voltar para pendente?`
-        : `A moto ${moto.nome || moto.modelo} já consta como PAGA nesta semana.\n\nDeseja estornar o pagamento? O lançamento de aluguel e a comissão correspondente serão retirados do Caixa.`
-
-      const confirmed = window.confirm(msg)
-      if (confirmed) {
-        try {
-          await recebimentosService.estornarPagamento(rec.id, 'em_dia')
-          toast.success(
-            isApenasColorido
-              ? 'Marcação removida com sucesso!'
-              : 'Pagamento estornado com sucesso! Lançamentos retirados do Caixa.',
-          )
-          await loadData()
-        } catch (err) {
-          console.error('Erro ao estornar pagamento no painel Semana:', err)
-          toast.error('Erro ao estornar pagamento')
+      // Se tem lançamento financeiro no Caixa, pergunta se deseja estornar ou abrir opções de cores
+      if (!isApenasColorido) {
+        const confirmed = window.confirm(
+          `A moto ${moto.nome || moto.modelo} já consta como PAGA nesta semana (com lançamentos no Caixa).\n\nDeseja estornar o pagamento? O lançamento de aluguel e a comissão correspondente serão retirados do Caixa.`,
+        )
+        if (confirmed) {
+          try {
+            await recebimentosService.estornarPagamento(rec.id, 'em_dia')
+            toast.success('Pagamento estornado com sucesso! Lançamentos retirados do Caixa.')
+            await loadData()
+          } catch (err) {
+            console.error('Erro ao estornar pagamento no painel Semana:', err)
+            toast.error('Erro ao estornar pagamento')
+          }
+          return
         }
+        // Se cancelou o estorno direto, abre o diálogo para ver/ajustar opções de colorir se desejar
       }
-      return
     }
 
-    // Open confirm payment modal
+    // Open confirm payment modal (com opções de colorir em neutro, vermelho e verde + lançar pagamento)
     setCellTarget({
       moto,
       contrato,
@@ -478,8 +501,8 @@ export default function Semana() {
     setPaymentModalOpen(true)
   }
 
-  // Opção 1: APENAS COLORIR (pinta de verde sem lançar nada no caixa)
-  const handleApenasColorir = async () => {
+  // Ação de Colorir Célula: Neutro, Vermelho ou Verde (sem lançamentos no Caixa)
+  const handleApenasColorir = async (cor: 'verde' | 'vermelho' | 'neutro' = 'verde') => {
     if (!cellTarget || submittingAction) return
     setSubmittingAction(true)
     try {
@@ -491,35 +514,95 @@ export default function Semana() {
       const locatarioNome =
         cellTarget.recebimento?.locatario_nome || cellTarget.contrato.locatario_nome || ''
 
-      if (!recebimentoId) {
-        await recebimentosService.create({
-          moto: cellTarget.moto.id,
-          contrato: contratoId,
-          locatario_nome: locatarioNome,
-          data_vencimento: cellTarget.dateStr,
-          data_pagamento: todayStr,
-          valor: cellTarget.valor,
-          status: 'pago',
-          forma_pagamento: formaPagamento,
-          semana_ano: weekCode,
-          observacoes: 'apenas_colorido',
-        })
-      } else {
-        await recebimentosService.update(recebimentoId, {
-          status: 'pago',
-          data_pagamento: todayStr,
-          forma_pagamento: formaPagamento,
-          observacoes: 'apenas_colorido',
-        })
+      // Se a célula já possuía pagamento com lançamento no caixa, alertamos / limpamos lançamentos do caixa caso volte a apenas colorir
+      if (cellTarget.recebimento?.status === 'pago') {
+        const isApenasColorido =
+          cellTarget.recebimento.observacoes === 'apenas_colorido' ||
+          Boolean(
+            cellTarget.recebimento.observacoes &&
+            (cellTarget.recebimento.observacoes.includes('apenas_colorido') ||
+              cellTarget.recebimento.observacoes.includes('cor_')),
+          )
+        if (!isApenasColorido) {
+          // Estornar os lançamentos do caixa antes de reclassificar como apenas colorida
+          await recebimentosService.estornarPagamento(cellTarget.recebimento.id, 'em_dia')
+        }
       }
 
-      toast.success('Célula colorida com sucesso (sem lançamentos no Caixa)!')
+      if (cor === 'verde') {
+        if (!recebimentoId) {
+          await recebimentosService.create({
+            moto: cellTarget.moto.id,
+            contrato: contratoId,
+            locatario_nome: locatarioNome,
+            data_vencimento: cellTarget.dateStr,
+            data_pagamento: todayStr,
+            valor: cellTarget.valor,
+            status: 'pago',
+            forma_pagamento: formaPagamento,
+            semana_ano: weekCode,
+            observacoes: 'apenas_colorido cor_verde',
+          })
+        } else {
+          await recebimentosService.update(recebimentoId, {
+            status: 'pago',
+            data_pagamento: todayStr,
+            forma_pagamento: formaPagamento,
+            observacoes: 'apenas_colorido cor_verde',
+          })
+        }
+        toast.success('Célula colorida em VERDE com sucesso (sem lançamentos no Caixa)!')
+      } else if (cor === 'vermelho') {
+        if (!recebimentoId) {
+          await recebimentosService.create({
+            moto: cellTarget.moto.id,
+            contrato: contratoId,
+            locatario_nome: locatarioNome,
+            data_vencimento: cellTarget.dateStr,
+            valor: cellTarget.valor,
+            status: 'em_atraso',
+            semana_ano: weekCode,
+            observacoes: 'cor_vermelho',
+          })
+        } else {
+          await recebimentosService.update(recebimentoId, {
+            status: 'em_atraso',
+            data_pagamento: '',
+            forma_pagamento: '' as any,
+            observacoes: 'cor_vermelho',
+          })
+        }
+        toast.success('Célula colorida em VERMELHO com sucesso (Em Atraso)!')
+      } else {
+        // NEUTRO: voltar para pendente/neutro padrão
+        if (recebimentoId) {
+          await recebimentosService.update(recebimentoId, {
+            status: 'em_dia',
+            data_pagamento: '',
+            forma_pagamento: '' as any,
+            observacoes: 'cor_neutro',
+          })
+        } else {
+          await recebimentosService.create({
+            moto: cellTarget.moto.id,
+            contrato: contratoId,
+            locatario_nome: locatarioNome,
+            data_vencimento: cellTarget.dateStr,
+            valor: cellTarget.valor,
+            status: 'em_dia',
+            semana_ano: weekCode,
+            observacoes: 'cor_neutro',
+          })
+        }
+        toast.success('Célula restaurada para NEUTRO com sucesso!')
+      }
+
       setPaymentModalOpen(false)
       setCellTarget(null)
       await loadData()
     } catch (err) {
-      console.error('Erro ao apenas colorir célula no painel Semana:', err)
-      toast.error('Erro ao marcar como colorida')
+      console.error('Erro ao colorir célula no painel Semana:', err)
+      toast.error('Erro ao alterar cor da célula')
     } finally {
       setSubmittingAction(false)
     }
@@ -1073,14 +1156,40 @@ export default function Semana() {
                               }
 
                               // Cores compactas e legíveis:
-                              // Para semanas neutras (anteriores a 04/10/2026), manter todas as marcações e estornos
+                              // Para semanas neutras (anteriores a 18/10/2026), manter todas as marcações e estornos
                               // funcionando, porém renderizadas em tons neutros (cinza/apagado), sem cores fortes de destaque.
+                              //
+                              // OPÇÕES DE COR DEFINIDAS PELA USUÁRIA:
+                              // - VERDE: pago ou apenas colorido em verde
+                              // - VERMELHO: em atraso ou colorido em vermelho
+                              // - NEUTRO: pendente ou colorido em neutro (fundo branco/padrão)
                               let cellClasses = isNeutralWeek
                                 ? 'bg-slate-100/70 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-650 hover:border-slate-400'
                                 : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-600 hover:border-blue-400'
-                              let titleText = 'Pendente (Clique para registrar pagamento)'
+                              let titleText =
+                                'Pendente (Clique para registrar pagamento ou colorir)'
+                              let badgeLabel = 'PEND'
 
-                              if (cellState.status === 'pago') {
+                              if (cellState.corCustomizada === 'neutro') {
+                                // Forçado como neutro
+                                cellClasses = isNeutralWeek
+                                  ? 'bg-slate-100/70 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-650 hover:border-slate-400'
+                                  : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-600 hover:border-blue-400'
+                                titleText =
+                                  'Neutro / Pendente (Clique para registrar pagamento ou colorir)'
+                                badgeLabel = 'PEND'
+                              } else if (cellState.corCustomizada === 'vermelho') {
+                                // Forçado como vermelho (em atraso / colorido vermelho)
+                                if (isNeutralWeek) {
+                                  cellClasses =
+                                    'bg-slate-200/90 hover:bg-slate-250 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 font-medium border border-slate-300 dark:border-slate-600'
+                                } else {
+                                  cellClasses =
+                                    'bg-rose-500 hover:bg-rose-600 text-white font-black border border-rose-600 shadow-sm animate-pulse'
+                                }
+                                titleText = 'Marcado em Vermelho (Em atraso) - Clique para alterar'
+                                badgeLabel = 'ATRASO'
+                              } else if (cellState.status === 'pago') {
                                 if (isNeutralWeek) {
                                   // Histórico pago em tom neutro e legível (cinza escuro suave)
                                   cellClasses =
@@ -1089,7 +1198,9 @@ export default function Semana() {
                                   cellClasses =
                                     'bg-emerald-500 hover:bg-emerald-600 text-white font-black border border-emerald-600 shadow-sm'
                                 }
-                                titleText = 'Pago! (Clique para estornar se necessário)'
+                                titleText =
+                                  'Pago / Colorido em Verde (Clique para alterar ou estornar)'
+                                badgeLabel = 'PAGO'
                               } else if (cellState.status === 'atraso') {
                                 if (isNeutralWeek) {
                                   // Histórico de pendência passada em tom neutro discreto (sem piscar vermelho)
@@ -1099,7 +1210,9 @@ export default function Semana() {
                                   cellClasses =
                                     'bg-rose-500 hover:bg-rose-600 text-white font-black border border-rose-600 shadow-sm animate-pulse'
                                 }
-                                titleText = 'Em atraso! (Clique para registrar recebimento)'
+                                titleText =
+                                  'Em atraso! (Clique para registrar pagamento ou colorir)'
+                                badgeLabel = 'ATRASO'
                               }
 
                               return (
@@ -1128,11 +1241,7 @@ export default function Semana() {
                                       {valorSemanal.toFixed(0)}
                                     </span>
                                     <span className="text-[8px] opacity-90 leading-tight tracking-tighter">
-                                      {cellState.status === 'pago'
-                                        ? 'PAGO'
-                                        : cellState.status === 'atraso'
-                                          ? 'ATRASO'
-                                          : 'PEND'}
+                                      {badgeLabel}
                                     </span>
                                   </button>
                                 </td>
@@ -1307,37 +1416,69 @@ export default function Semana() {
                 </DialogHeader>
 
                 <div className="space-y-3 pt-2 text-xs">
-                  {/* 2) LOGO ABAIXO, A PERGUNTA 1 COM SEU BOTÃO */}
-                  <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 space-y-2 shadow-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <span className="font-bold text-slate-800 dark:text-slate-100 text-xs block">
-                          1) APENAS COLORIR?
-                        </span>
-                        <span className="text-[11px] text-muted-foreground block mt-0.5 leading-snug">
-                          Pinta a célula de verde como paga, <strong>SEM</strong> lançar nada no
-                          Fluxo de Caixa (sem receita nem comissão).
-                        </span>
-                      </div>
+                  {/* 2) OPÇÕES DE COLORIR A CÉLULA (NEUTRO, VERMELHO E VERDE) */}
+                  <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 space-y-2.5 shadow-sm">
+                    <div>
+                      <span className="font-bold text-slate-800 dark:text-slate-100 text-xs block">
+                        1) OPÇÃO DE COLORIR A CÉLULA:
+                      </span>
+                      <span className="text-[11px] text-muted-foreground block mt-0.5 leading-snug">
+                        Altera apenas a cor visual na planilha da semana, <strong>SEM</strong>{' '}
+                        lançar valores no Fluxo de Caixa.
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 pt-1">
+                      {/* Botão NEUTRO */}
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={handleApenasColorir}
+                        onClick={() => handleApenasColorir('neutro')}
                         disabled={submittingAction}
-                        className="h-8 text-xs font-bold border-emerald-500 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 shrink-0"
+                        className="h-8 text-xs font-bold border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center gap-1.5"
+                        title="Remover cor e deixar neutro / pendente"
                       >
-                        Colorir
+                        <span className="w-2.5 h-2.5 rounded-full bg-white border border-slate-400 inline-block shrink-0" />
+                        Neutro
+                      </Button>
+
+                      {/* Botão VERMELHO */}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleApenasColorir('vermelho')}
+                        disabled={submittingAction}
+                        className="h-8 text-xs font-bold border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 flex items-center justify-center gap-1.5"
+                        title="Colorir de vermelho (em atraso)"
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block shrink-0" />
+                        Vermelho
+                      </Button>
+
+                      {/* Botão VERDE */}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleApenasColorir('verde')}
+                        disabled={submittingAction}
+                        className="h-8 text-xs font-bold border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 flex items-center justify-center gap-1.5"
+                        title="Colorir de verde (já pagou - sem caixa)"
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block shrink-0" />
+                        Verde
                       </Button>
                     </div>
                   </div>
 
-                  {/* 3) A PERGUNTA 2 COM SEU BOTÃO */}
+                  {/* 3) COLORIR E LANÇAR PAGAMENTO COMPLETO NO FLUXO DE CAIXA */}
                   <div className="p-3 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/30 space-y-2.5 shadow-sm">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <span className="font-bold text-emerald-900 dark:text-emerald-200 text-xs block">
-                          2) Colorir e Lançar pagamento?
+                          2) REGISTRAR PAGAMENTO NO CAIXA:
                         </span>
                         <span className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80 block mt-0.5 leading-snug">
                           Colore a célula de verde <strong>E LANÇA</strong> a receita no Fluxo de
@@ -1351,7 +1492,7 @@ export default function Semana() {
                         disabled={submittingAction}
                         className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
                       >
-                        Colorir e Lançar
+                        Lançar no Caixa
                       </Button>
                     </div>
 
