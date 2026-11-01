@@ -56,11 +56,14 @@ export const contasAReceberService = {
     const safeDate = dateToApiMidday(dataRec)
 
     // 1. Criar lançamento de ENTRADA no caixa (associado à moto, se houver)
+    // Se a conta tem origem venda_moto, usa 'Venda de Moto'; para contas manuais/avulsas, usa 'Outras Receitas' ou 'Venda de Moto'
+    const categoriaEntrada = conta.origem === 'venda_moto' ? 'Venda de Moto' : 'Outras Receitas'
+
     const lancamento = await pb.collection('caixa_lancamentos').create<CaixaLancamento>({
       moto: conta.moto || '',
       tipo: 'entrada',
       descricao: `Recebimento: ${conta.descricao}`,
-      categoria: 'Venda de Moto',
+      categoria: categoriaEntrada,
       valor: Number(conta.valor),
       data: safeDate,
       forma_pagamento: params.formaPagamento || 'pix',

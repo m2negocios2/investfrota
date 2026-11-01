@@ -53,12 +53,14 @@ import {
 import { toast } from 'sonner'
 import { contasAPagarService } from '@/services/contasAPagar'
 import { contasAReceberService } from '@/services/contasAReceber'
+import { motosService } from '@/services/motos'
 import {
   ContaAPagarComProgresso,
   ContaAPagarTipo,
   ContaAPagarPagamento,
   ItemParcela,
   ContaAReceber,
+  Moto,
 } from '@/types/database'
 import { getTodayLocalDate, normalizeDateInput, formatDateDisplay } from '@/lib/dateUtils'
 import { gerarParcelasIguais, resolverParcelasConta } from '@/lib/parcelasUtils'
@@ -87,10 +89,21 @@ export default function ContasAPagar() {
   const [abaAtiva, setAbaAtiva] = useState<'pagar' | 'receber'>('pagar')
   const [contas, setContas] = useState<ContaAPagarComProgresso[]>([])
   const [contasReceber, setContasReceber] = useState<ContaAReceber[]>([])
+  const [motos, setMotos] = useState<Moto[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<'todas' | 'abertas' | 'quitadas'>('todas')
   const [filtroTipo, setFiltroTipo] = useState<string>('todos')
+
+  // Modal Nova Conta a Receber
+  const [novaContaReceberModalOpen, setNovaContaReceberModalOpen] = useState(false)
+  const [formRecDevedor, setFormRecDevedor] = useState('')
+  const [formRecDescricao, setFormRecDescricao] = useState('')
+  const [formRecValor, setFormRecValor] = useState('')
+  const [formRecDataVencimento, setFormRecDataVencimento] = useState(getTodayLocalDate())
+  const [formRecMotoId, setFormRecMotoId] = useState<string>('nenhuma')
+  const [formRecObservacao, setFormRecObservacao] = useState('')
+  const [submittingNovaContaReceber, setSubmittingNovaContaReceber] = useState(false)
 
   // Modal Recebimento de Conta a Receber
   const [recebimentoModalOpen, setRecebimentoModalOpen] = useState(false)
@@ -144,12 +157,14 @@ export default function ContasAPagar() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [dataPagar, dataReceber] = await Promise.all([
+      const [dataPagar, dataReceber, dataMotos] = await Promise.all([
         contasAPagarService.getAllWithProgresso(),
         contasAReceberService.getAll(),
+        motosService.getAll(),
       ])
       setContas(dataPagar)
       setContasReceber(dataReceber)
+      setMotos(dataMotos)
     } catch (err) {
       console.error(err)
       toast.error('Erro ao carregar Contas a Pagar e a Receber')
@@ -476,6 +491,58 @@ export default function ContasAPagar() {
     return matchSearch && matchStatus && matchTipo
   })
 
+  const handleOpenNovaContaReceber = () => {
+    setFormRecDevedor('')
+    setFormRecDescricao('')
+    setFormRecValor('')
+    setFormRecDataVencimento(getTodayLocalDate())
+    setFormRecMotoId('nenhuma')
+    setFormRecObservacao('')
+    setNovaContaReceberModalOpen(true)
+  }
+
+  const handleSaveNovaContaReceber = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formRecDevedor.trim()) {
+      toast.error('Informe quem deve (pessoa/cliente/devedor)')
+      return
+    }
+    if (!formRecDescricao.trim()) {
+      toast.error('Informe a descrição da conta a receber')
+      return
+    }
+    const valNum = parseFloat(formRecValor.replace(',', '.'))
+    if (isNaN(valNum) || valNum <= 0) {
+      toast.error('Informe um valor válido em R$')
+      return
+    }
+    if (!formRecDataVencimento) {
+      toast.error('Informe a data de vencimento')
+      return
+    }
+
+    setSubmittingNovaContaReceber(true)
+    try {
+      await contasAReceberService.create({
+        devedor: formRecDevedor.trim(),
+        descricao: formRecDescricao.trim(),
+        valor: valNum,
+        data_vencimento: formRecDataVencimento,
+        moto: formRecMotoId !== 'nenhuma' ? formRecMotoId : undefined,
+        origem: 'manual',
+        observacao: formRecObservacao.trim() || undefined,
+      })
+      toast.success('Conta a receber criada com sucesso!')
+      setNovaContaReceberModalOpen(false)
+      loadData()
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao cadastrar conta a receber')
+    } finally {
+      setSubmittingNovaContaReceber(false)
+    }
+  }
+
   const handleOpenRecebimento = (conta: ContaAReceber) => {
     setContaReceberTarget(conta)
     setRecData(getTodayLocalDate())
@@ -553,13 +620,21 @@ export default function ContasAPagar() {
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             Atualizar
           </Button>
-          {abaAtiva === 'pagar' && (
+          {abaAtiva === 'pagar' ? (
             <Button
               onClick={handleOpenNovaConta}
               className="text-xs gap-1.5 bg-rose-600 hover:bg-rose-700"
             >
               <Plus className="w-4 h-4" />
               Nova Conta a Pagar
+            </Button>
+          ) : (
+            <Button
+              onClick={handleOpenNovaContaReceber}
+              className="text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <Plus className="w-4 h-4" />
+              NOVA CONTA A RECEBER
             </Button>
           )}
         </div>
@@ -660,6 +735,28 @@ export default function ContasAPagar() {
             </Card>
           </div>
 
+          {/* Barra de Ação Aba Contas a Receber */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 rounded-lg border border-emerald-200 dark:border-emerald-900/60">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                Contas a Receber (Vendas de motos e avulsas)
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Cadastre contas avulsas a receber ou acompanhe os recebimentos pendentes de vendas
+                de motos.
+              </p>
+            </div>
+            <Button
+              onClick={handleOpenNovaContaReceber}
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 self-start sm:self-auto shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              NOVA CONTA A RECEBER
+            </Button>
+          </div>
+
           {/* Lista de Contas a Receber */}
           {contasReceber.length === 0 ? (
             <Card className="p-8 text-center text-muted-foreground">
@@ -668,9 +765,17 @@ export default function ContasAPagar() {
                 Nenhuma conta a receber pendente
               </h3>
               <p className="text-xs mt-1">
-                Ao registrar uma venda de moto como "Aguardando recebimento", ela aparecerá aqui
-                para controle e liquidação.
+                Cadastre uma conta manual pelo botão "NOVA CONTA A RECEBER" ou registre uma venda de
+                moto como "Aguardando recebimento".
               </p>
+              <Button
+                onClick={handleOpenNovaContaReceber}
+                size="sm"
+                className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 mx-auto"
+              >
+                <Plus className="w-4 h-4" />
+                NOVA CONTA A RECEBER
+              </Button>
             </Card>
           ) : (
             <div className="space-y-3">
@@ -698,12 +803,19 @@ export default function ContasAPagar() {
                           >
                             {isRecebida ? 'RECEBIDA' : 'EM ABERTO'}
                           </Badge>
-                          {cr.expand?.moto && (
+                          {cr.expand?.moto ? (
                             <Badge variant="outline" className="text-[10px] text-muted-foreground">
                               Moto: {cr.expand.moto.nome || cr.expand.moto.modelo} (
                               {cr.expand.moto.placa})
                             </Badge>
-                          )}
+                          ) : cr.origem === 'manual' ? (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] text-slate-600 dark:text-slate-400 border-slate-300"
+                            >
+                              Avulsa / Manual
+                            </Badge>
+                          ) : null}
                           <span className="text-xs text-muted-foreground">
                             Vencimento / Previsão: {formatDateDisplay(cr.data_vencimento)}
                           </span>
@@ -1629,6 +1741,133 @@ export default function ContasAPagar() {
           </AlertDialog>
         </div>
       )}
+
+      {/* Modal Nova Conta a Receber */}
+      <Dialog open={novaContaReceberModalOpen} onOpenChange={setNovaContaReceberModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+              <Receipt className="w-5 h-5" />
+              Nova Conta a Receber
+            </DialogTitle>
+            <DialogDescription>
+              Cadastre uma conta avulsa a receber (dinheiro que alguém deve e que entrará no caixa
+              futuramente).
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveNovaContaReceber} className="space-y-3.5">
+            <div className="space-y-1.5">
+              <Label htmlFor="recFormDevedor">
+                Devedor / Quem Deve <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="recFormDevedor"
+                placeholder="Ex: João Silva, Parceiro Oficina, etc."
+                required
+                value={formRecDevedor}
+                onChange={(e) => setFormRecDevedor(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="recFormDescricao">
+                Descrição <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="recFormDescricao"
+                placeholder="Ex: Empréstimo, reembolso de peça, sinal..."
+                required
+                value={formRecDescricao}
+                onChange={(e) => setFormRecDescricao(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="recFormValor">
+                  Valor em R$ <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs text-muted-foreground font-bold">
+                    R$
+                  </span>
+                  <Input
+                    id="recFormValor"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="0,00"
+                    required
+                    value={formRecValor}
+                    onChange={(e) => setFormRecValor(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="recFormDataVencimento">
+                  Data de Vencimento <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="recFormDataVencimento"
+                  type="date"
+                  required
+                  value={formRecDataVencimento}
+                  onChange={(e) => setFormRecDataVencimento(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="recFormMoto">Vínculo com Moto (opcional)</Label>
+              <Select value={formRecMotoId} onValueChange={setFormRecMotoId}>
+                <SelectTrigger id="recFormMoto">
+                  <SelectValue placeholder="Selecione uma moto se houver" />
+                </SelectTrigger>
+                <SelectContent className="max-h-56">
+                  <SelectItem value="nenhuma">Nenhuma (conta geral / sem moto)</SelectItem>
+                  {motos.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.nome || m.modelo} — {m.placa}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="recFormObservacao">Observações (opcional)</Label>
+              <Textarea
+                id="recFormObservacao"
+                rows={2}
+                placeholder="Informações adicionais, condições combinadas..."
+                value={formRecObservacao}
+                onChange={(e) => setFormRecObservacao(e.target.value)}
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setNovaContaReceberModalOpen(false)}
+                disabled={submittingNovaContaReceber}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={submittingNovaContaReceber}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {submittingNovaContaReceber ? 'Salvando...' : 'Salvar Conta a Receber'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal Registrar Recebimento */}
       <Dialog open={recebimentoModalOpen} onOpenChange={setRecebimentoModalOpen}>
