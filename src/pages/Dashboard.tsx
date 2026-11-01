@@ -210,8 +210,8 @@ export default function Dashboard() {
               <span className="text-xs text-muted-foreground">
                 (
                 {pendenciasSemana.length === 1
-                  ? '1 falta de pgto'
-                  : `${pendenciasSemana.length} faltas`}{' '}
+                  ? '1 atraso explícito'
+                  : `${pendenciasSemana.length} em atraso`}{' '}
                 nas 3 últimas semanas)
               </span>
             </div>
@@ -386,8 +386,8 @@ export default function Dashboard() {
                     Pendências de Atraso (Planilha Semana)
                   </CardTitle>
                   <CardDescription className="text-amber-800/80 dark:text-amber-300/80">
-                    Faltas de pagamento nas 3 últimas semanas — clique para abrir e dar baixa na
-                    semana correspondente
+                    Motos marcadas em atraso (vermelho) nas 3 últimas semanas — clique para abrir e
+                    dar baixa na semana correspondente
                   </CardDescription>
                 </div>
                 <Button
@@ -450,7 +450,7 @@ export default function Dashboard() {
                             })}
                           </span>
                           <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-tight">
-                            Sem pagamento
+                            Em atraso
                           </span>
                         </div>
                         <div className="w-7 h-7 rounded-full bg-amber-50 dark:bg-amber-950 flex items-center justify-center text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-colors">

@@ -276,10 +276,12 @@ export function getLast3WeeksInfo(referenceDate: Date = new Date()): WeekRangeIn
 }
 
 /**
- * Apura todas as faltas de pagamento registradas nas 3 últimas semanas
- * de acordo com a mesma lógica/dados da planilha Semana.
- * Célula sem pagamento = status !== 'pago' e corCustomizada !== 'verde'.
- * Só são consideradas células de dias em que o contrato estava vigente ou que venceram/deveriam ter sido pagas.
+ * Apura as pendências de atraso das 3 últimas semanas da planilha Semana.
+ * Regra solicitada: NÃO CONSIDERAR NEUTRO, considerar apenas os que estiverem
+ * explicitamente coloridos em VERMELHO (em atraso explícito).
+ *
+ * Células neutras (sem cor escolhida, com ou sem pagamento registrado) NÃO são pendências.
+ * Células verdes (pago / apenas_colorido verde) também não são pendências.
  */
 export function getFaltasUltimas3Semanas(
   motos: Moto[],
@@ -327,22 +329,14 @@ export function getFaltasUltimas3Semanas(
         w.weekEndStr,
       )
 
-      // Célula PAGA (ou colorida de verde) não é falta
-      const isPaga = cellState.status === 'pago' || cellState.corCustomizada === 'verde'
-      if (isPaga) continue
+      // Regra de apuração: considerar APENAS células que estiverem explicitamente em VERMELHO.
+      // Células neutras (com ou sem pagamento) ou verdes NUNCA entram como pendência.
+      if (cellState.corCustomizada !== 'vermelho') {
+        continue
+      }
 
-      // Célula sem pagamento registrado!
-      // Se a data do vencimento já passou (cellDateStr <= todayStr) ou na semana atual se já passou o dia,
-      // ou mesmo se estiver pendente na semana, o pedido diz:
-      // "se falta pagamento nas 3 ÚLTIMAS SEMANAS (as células de aluguel semanais das motos: célula sem pagamento registrado).
-      // Mostrar essas faltas como pendências de atraso no painel."
-      // Para semanas passadas (i = 1 e 2), todos os dias já venceram.
-      // Para a semana atual (i = 0), a célula cujo dia de pagamento já venceu (cellDateStr <= todayStr)
-      // ou se o status for atraso/pendente com data já atingida ou qualquer falta da semana.
-      // Vamos verificar se cellDateStr <= todayStr para semana atual (não apontar dias que ainda vão vencer no futuro se hoje for terça e o pgto for sexta),
-      // ou se o usuário explicitamente marcou cor vermelha/atraso.
-      if (w.isCurrent && cellDateStr > todayStr && cellState.corCustomizada !== 'vermelho') {
-        // Dia da semana atual que ainda não venceu (futuro dentro da semana atual)
+      // Se por algum motivo o recebimento estiver com status 'pago', não é pendência
+      if (cellState.status === 'pago') {
         continue
       }
 
