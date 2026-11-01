@@ -75,7 +75,7 @@ export const recebimentosService = {
         await pb.collection('caixa_lancamentos').create({
           moto: motoId,
           tipo: 'entrada',
-          descricao: `Recebimento de aluguel - ${locatarioNome}`,
+          descricao: 'Aluguel',
           categoria: 'Aluguel',
           valor: valor,
           data: safeApiDate,
