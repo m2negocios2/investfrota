@@ -71,17 +71,17 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-100 via-slate-50 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
-          <div className="inline-flex p-2 bg-[#F2EFE9] rounded-2xl shadow-md border border-slate-200/80 dark:border-slate-700/60 mb-2">
+          <div className="inline-flex p-2.5 bg-[#F2EFE9] rounded-2xl shadow-md border border-slate-200/80 dark:border-slate-700/60 mb-2">
             <img
               src={logoInvestFrota}
               alt="INVEST FROTA"
-              className="w-24 h-24 object-contain rounded-xl"
+              className="w-28 h-28 object-contain rounded-xl"
             />
           </div>
           <h1 className="text-2xl font-extrabold tracking-wider text-slate-900 dark:text-white">
             INVEST FROTA
           </h1>
-          <p className="text-sm text-muted-foreground">Gestão de Locações & Controle de Frotas</p>
+          <p className="text-sm text-muted-foreground">Gestão de Locação de Motos</p>
         </div>
 
         <Card className="border-slate-200/80 dark:border-slate-800 shadow-xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm">

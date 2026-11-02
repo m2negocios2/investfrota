@@ -12,8 +12,6 @@ import {
   Bell,
   AlertTriangle,
   TrendingUp,
-  ShieldCheck,
-  ShieldAlert,
   Smartphone,
   CalendarDays,
   Shield,
@@ -25,12 +23,11 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { infracoesService } from '@/services/infracoes'
 import { Infracao } from '@/types/database'
 
 export default function Layout() {
-  const { user, role, isProprietario, logout, isAuthenticated } = useAuth()
+  const { user, logout, isAuthenticated } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -94,53 +91,31 @@ export default function Layout() {
       {/* Sidebar Desktop */}
       <aside className="hidden md:flex md:w-64 flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
         {/* Brand */}
-        <div className="h-20 flex items-center px-5 border-b border-slate-200 dark:border-slate-800 gap-3">
-          <div className="h-12 w-12 rounded-xl bg-[#F2EFE9] p-1 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
+        <div className="py-4 px-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3">
+          <div className="h-16 w-16 rounded-xl bg-[#F2EFE9] p-1.5 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
             <img
               src={logoInvestFrota}
               alt="INVEST FROTA"
               className="h-full w-full object-contain"
             />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <span className="font-extrabold text-base tracking-wider text-slate-900 dark:text-white block leading-tight truncate">
               INVEST FROTA
-            </span>
-            <span className="text-[11px] text-muted-foreground block font-medium">
-              Controle de Frotas
             </span>
           </div>
         </div>
 
         {/* User Card */}
-        <div className="p-4 mx-3 my-3 bg-slate-100/80 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/50">
+        <div className="p-3 mx-3 my-3 bg-slate-100/80 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary text-sm">
+            <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary text-xs shrink-0">
               {user?.name ? user.name.slice(0, 2).toUpperCase() : 'US'}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
                 {user?.name || user?.email || 'Visitante'}
               </p>
-              <div className="flex items-center gap-1 mt-0.5">
-                {isProprietario ? (
-                  <Badge
-                    variant="default"
-                    className="text-[10px] px-1.5 py-0 bg-blue-600 hover:bg-blue-600"
-                  >
-                    <ShieldCheck className="w-3 h-3 mr-1" />
-                    Proprietário
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant="secondary"
-                    className="text-[10px] px-1.5 py-0 bg-amber-500/20 text-amber-700 dark:text-amber-300"
-                  >
-                    <ShieldAlert className="w-3 h-3 mr-1" />
-                    Administrador
-                  </Badge>
-                )}
-              </div>
             </div>
           </div>
         </div>
@@ -208,7 +183,7 @@ export default function Layout() {
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header Mobile / Tablet */}
-        <header className="h-16 flex items-center justify-between px-4 md:px-8 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+        <header className="h-16 md:h-20 flex items-center justify-between px-4 md:px-8 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-3 md:hidden">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -217,8 +192,8 @@ export default function Layout() {
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
-            <div className="flex items-center gap-2">
-              <div className="h-10 w-10 rounded-lg bg-[#F2EFE9] p-1 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="flex items-center gap-2.5">
+              <div className="h-12 w-12 rounded-xl bg-[#F2EFE9] p-1 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
                 <img
                   src={logoInvestFrota}
                   alt="INVEST FROTA"
@@ -231,10 +206,19 @@ export default function Layout() {
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-2">
-            <h1 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-              Gestão de Locações & Caixa
-            </h1>
+          <div className="hidden md:flex items-center gap-3.5">
+            <div className="h-14 w-14 rounded-xl bg-[#F2EFE9] p-1.5 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
+              <img
+                src={logoInvestFrota}
+                alt="INVEST FROTA"
+                className="h-full w-full object-contain"
+              />
+            </div>
+            <div>
+              <span className="font-extrabold text-slate-900 dark:text-white text-lg tracking-wider block leading-tight">
+                INVEST FROTA
+              </span>
+            </div>
           </div>
 
           {/* Right Header Utilities */}
@@ -252,10 +236,9 @@ export default function Layout() {
 
             <div className="hidden sm:flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-3">
               <div className="text-right">
-                <p className="text-xs font-medium text-slate-900 dark:text-slate-100">
+                <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
                   {user?.name || user?.email}
                 </p>
-                <p className="text-[11px] text-muted-foreground capitalize">{role}</p>
               </div>
             </div>
           </div>
@@ -267,7 +250,6 @@ export default function Layout() {
             <div className="p-3 mb-2 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold">{user?.name || user?.email}</p>
-                <span className="text-[10px] text-muted-foreground uppercase">{role}</span>
               </div>
               <Button
                 size="sm"
