@@ -77,3 +77,91 @@ export function formatDateDisplay(dateVal?: string | Date | null): string {
   const year = d.getFullYear()
   return `${day}/${month}/${year}`
 }
+
+export interface YearMonthDay {
+  year: number
+  month: number // 1-12
+  day: number // 1-31
+}
+
+/**
+ * Extrai ano, mês e dia com segurança sem sofrer deslocamento de fuso horário UTC.
+ */
+export function parseYearMonthDay(val?: string | Date | null): YearMonthDay | null {
+  if (!val) return null
+  if (typeof val === 'string') {
+    const match = val.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (match) {
+      return {
+        year: parseInt(match[1], 10),
+        month: parseInt(match[2], 10),
+        day: parseInt(match[3], 10),
+      }
+    }
+    const d = new Date(val)
+    if (!isNaN(d.getTime())) {
+      return {
+        year: d.getFullYear(),
+        month: d.getMonth() + 1,
+        day: d.getDate(),
+      }
+    }
+    return null
+  }
+  if (!isNaN(val.getTime())) {
+    return {
+      year: val.getFullYear(),
+      month: val.getMonth() + 1,
+      day: val.getDate(),
+    }
+  }
+  return null
+}
+
+/**
+ * Calcula a quantidade de MESES COMPLETOS decorridos entre a data inicial e a data final.
+ * Regra:
+ * Cada mês só completa quando atinge ou supera a mesma data-do-mês (dia).
+ * Se a data de fim for anterior à data de início, retorna 0.
+ *
+ * Exemplos:
+ * - 29/12/2025 até 02/11/2026 -> 10 meses completos
+ * - 15/01/2026 até 14/02/2026 -> 0 meses completos
+ * - 15/01/2026 até 15/02/2026 -> 1 mês completo
+ * - 15/01/2026 até 14/03/2026 -> 1 mês completo
+ * - 15/01/2026 até 15/03/2026 -> 2 meses completos
+ * - 31/01/2026 até 28/02/2026 (fevereiro não tem dia 31, fim de mês atinge 28) -> 1 mês completo
+ */
+export function calcularMesesCompletos(
+  inicioVal?: string | Date | null,
+  fimVal?: string | Date | null,
+): number {
+  const inicio = parseYearMonthDay(inicioVal)
+  const fim = parseYearMonthDay(fimVal)
+
+  if (!inicio || !fim) return 0
+
+  // Se fim < inicio, retorna 0
+  if (
+    fim.year < inicio.year ||
+    (fim.year === inicio.year && fim.month < inicio.month) ||
+    (fim.year === inicio.year && fim.month === inicio.month && fim.day < inicio.day)
+  ) {
+    return 0
+  }
+
+  // Diferença bruta de meses do calendário
+  let meses = (fim.year - inicio.year) * 12 + (fim.month - inicio.month)
+
+  // Verifica se no mês final o dia já foi atingido
+  // Caso de fim de mês: se o dia inicial era 31 e o mês final só tem 28/29/30 dias,
+  // estar no último dia do mês final também completa o mês.
+  const ultimoDiaMesFim = new Date(fim.year, fim.month, 0).getDate()
+  const diaNecessario = Math.min(inicio.day, ultimoDiaMesFim)
+
+  if (fim.day < diaNecessario) {
+    meses -= 1
+  }
+
+  return Math.max(0, meses)
+}
