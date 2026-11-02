@@ -361,11 +361,11 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
             <div>
               <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-white">
                 <Trophy className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                Média Moto
+                LUCRO MÉDIO MOTO
               </CardTitle>
               <CardDescription className="text-[11px] mt-0.5">
-                Apuração do indicador Média Moto (Lucro ÷ Meses Ativos) desde a Data Base até o mês
-                corrente (ou até o fim da locação/operação para vendidas/cedidas).
+                Apuração do indicador Lucro Médio Moto (Lucro ÷ Meses) desde a data de compra até o
+                mês corrente (ou até o fim da locação/operação para vendidas/cedidas).
               </CardDescription>
             </div>
             <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[10px] shrink-0 self-start sm:self-auto py-0.5 px-2">
@@ -377,11 +377,11 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
 
       {/* KPI Cards de Resumo */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-        {/* Card 1: Média Geral por Moto */}
+        {/* Card 1: Lucro Médio Geral por Moto */}
         <Card className="shadow-xs border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-slate-900">
           <CardHeader className="py-2 px-3">
             <CardTitle className="text-[10px] font-semibold text-muted-foreground uppercase flex items-center justify-between tracking-wider">
-              <span>Média Moto (Frota)</span>
+              <span>Lucro Médio Moto (Frota)</span>
               <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
             </CardTitle>
           </CardHeader>
@@ -433,7 +433,7 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
         <Card className="shadow-xs border-amber-200 dark:border-amber-900/50 bg-white dark:bg-slate-900">
           <CardHeader className="py-2 px-3">
             <CardTitle className="text-[10px] font-semibold text-muted-foreground uppercase flex items-center justify-between tracking-wider">
-              <span>Melhor Média Moto</span>
+              <span>Melhor Lucro Médio Moto</span>
               <Trophy className="w-3.5 h-3.5 text-amber-600" />
             </CardTitle>
           </CardHeader>
@@ -481,26 +481,23 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                  Moto Destaque (Maior Média)
+                  Moto Destaque (Maior Lucro Médio)
                 </span>
                 <Badge className="bg-amber-600 text-white text-[9px] font-bold py-0 h-3.5 px-1">
                   Top 1
                 </Badge>
               </div>
               <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                {motoDestaque.moto.nome || motoDestaque.moto.modelo}{' '}
-                <span className="font-normal text-muted-foreground font-mono text-[11px]">
-                  ({motoDestaque.moto.placa})
-                </span>
+                {motoDestaque.moto.nome || motoDestaque.moto.modelo}
                 <span className="text-[10px] text-muted-foreground font-normal ml-2">
-                  Base: {motoDestaque.dataInicioFormatada} • {motoDestaque.mesesDecorridos}{' '}
+                  Compra: {motoDestaque.dataInicioFormatada} • {motoDestaque.mesesDecorridos}{' '}
                   {motoDestaque.mesesDecorridos === 1 ? 'mês' : 'meses'}
                 </span>
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto border-t sm:border-t-0 pt-1 sm:pt-0 border-amber-200 dark:border-amber-900/60">
-            <span className="text-[11px] text-muted-foreground">Média:</span>
+            <span className="text-[11px] text-muted-foreground">Lucro Médio:</span>
             <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
               R$ {formatBRL(motoDestaque.mediaMensal)}
               <span className="text-[10px] font-normal text-muted-foreground ml-0.5">/mês</span>
@@ -519,10 +516,10 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
             <Bike className="w-4 h-4 text-emerald-600" />
             <div>
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
-                Tabela Média Moto
+                Tabela Lucro Médio Moto
               </CardTitle>
               <CardDescription className="text-[10px]">
-                Média Moto = Lucro ÷ Meses Ativos (Data Base até o mês corrente, ou fim da
+                Lucro Médio = Lucro ÷ Meses (data de compra até o mês corrente, ou fim da
                 locação/operação para vendidas/cedidas)
               </CardDescription>
             </div>
@@ -584,10 +581,10 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="media_desc">Maior Média Moto</SelectItem>
-                  <SelectItem value="media_asc">Menor Média Moto</SelectItem>
+                  <SelectItem value="media_desc">Maior Lucro Médio</SelectItem>
+                  <SelectItem value="media_asc">Menor Lucro Médio</SelectItem>
                   <SelectItem value="lucro_desc">Maior Lucro</SelectItem>
-                  <SelectItem value="meses_desc">Mais Meses Ativos</SelectItem>
+                  <SelectItem value="meses_desc">Mais Meses</SelectItem>
                   <SelectItem value="nome_asc">Nome da Moto (A-Z)</SelectItem>
                 </SelectContent>
               </Select>
@@ -605,13 +602,13 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                       Moto
                     </th>
                     <th className="py-1.5 px-2 text-center font-bold uppercase tracking-wider text-[10px] w-[130px] sm:w-[145px]">
-                      Data Base
+                      DATA COMPRA
                     </th>
                     <th className="py-1.5 px-2 text-right font-bold uppercase tracking-wider text-[10px] w-[100px] sm:w-[115px]">
                       Lucro
                     </th>
                     <th className="py-1.5 px-2 text-right font-black uppercase tracking-wider bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 text-[10px] w-[105px] sm:w-[120px]">
-                      Média Moto
+                      Lucro Médio
                     </th>
                   </tr>
                 </thead>
@@ -634,13 +631,13 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                             isDestaque ? 'bg-amber-50/30 dark:bg-amber-950/10' : ''
                           }`}
                         >
-                          {/* Coluna 1: Moto */}
+                          {/* Coluna 1: Moto (Nome + Situação/Status, sem placa) */}
                           <td className="py-1.5 px-2">
                             <div className="flex items-center gap-1.5 min-w-0">
                               {isDestaque ? (
                                 <div
                                   className="p-1 rounded bg-amber-500 text-white shrink-0"
-                                  title="Melhor Média Moto"
+                                  title="Melhor Lucro Médio Moto"
                                 >
                                   <Trophy className="w-3 h-3" />
                                 </div>
@@ -649,7 +646,7 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                                   <Bike className="w-3 h-3" />
                                 </div>
                               )}
-                              <div className="min-w-0 flex items-center gap-1 flex-wrap">
+                              <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
                                 <span className="font-bold text-slate-900 dark:text-white truncate text-xs leading-tight">
                                   {item.moto.nome || item.moto.modelo}
                                 </span>
@@ -658,9 +655,6 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                                     Top 1
                                   </Badge>
                                 )}
-                                <span className="text-[10px] text-muted-foreground font-mono">
-                                  {item.moto.placa}
-                                </span>
                                 {status === 'vendida' && (
                                   <Badge
                                     variant="outline"
@@ -693,40 +687,37 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                                     Disponível
                                   </Badge>
                                 )}
+                                {status === 'manutencao' && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[8px] px-1 py-0 h-3 font-medium border-amber-300 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 leading-none"
+                                  >
+                                    Manutenção
+                                  </Badge>
+                                )}
+                                {status === 'em_loja_detran' && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[8px] px-1 py-0 h-3 font-medium border-purple-300 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 leading-none"
+                                  >
+                                    Em Loja/Detran
+                                  </Badge>
+                                )}
                               </div>
                             </div>
                           </td>
 
-                          {/* Coluna 2: Data Base (Data com 'compra' abaixo + Meses com 'meses ativos' abaixo) */}
+                          {/* Coluna 2: DATA COMPRA (Data em cima, 'x meses' embaixo sem rótulos extras) */}
                           <td className="py-1 px-2 text-center">
-                            <div className="inline-flex items-center justify-center gap-2 sm:gap-3">
-                              {/* Bloco 1: Data + rótulo compra */}
-                              <div className="flex flex-col items-center leading-tight">
-                                <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs tabular-nums">
-                                  {item.dataInicioFormatada}
-                                </span>
-                                <span className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium">
-                                  {item.origemInicio === 'compra'
-                                    ? 'compra'
-                                    : item.origemInicio === 'primeiro_lancamento'
-                                      ? '1º caixa'
-                                      : 's/ data'}
-                                </span>
-                              </div>
-
-                              <span className="text-slate-300 dark:text-slate-700 text-xs font-light">
-                                •
+                            <div className="flex flex-col items-center justify-center leading-tight">
+                              <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs tabular-nums">
+                                {item.dataInicioFormatada}
                               </span>
-
-                              {/* Bloco 2: Meses + rótulo meses ativos */}
-                              <div className="flex flex-col items-center leading-tight">
-                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs tabular-nums">
-                                  {item.mesesDecorridos > 0 ? item.mesesDecorridos : '—'}
-                                </span>
-                                <span className="text-[9px] text-muted-foreground tracking-wider font-medium">
-                                  {item.mesesDecorridos === 1 ? 'mês ativo' : 'meses ativos'}
-                                </span>
-                              </div>
+                              <span className="text-[10px] text-muted-foreground font-medium tabular-nums">
+                                {item.mesesDecorridos > 0
+                                  ? `${item.mesesDecorridos} ${item.mesesDecorridos === 1 ? 'mês' : 'meses'}`
+                                  : '—'}
+                              </span>
                             </div>
                           </td>
 
@@ -743,7 +734,7 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                             </span>
                           </td>
 
-                          {/* Coluna 4: Média Moto = Lucro ÷ Meses Ativos */}
+                          {/* Coluna 4: Lucro Médio = Lucro ÷ Meses */}
                           <td className="py-1.5 px-2 text-right tabular-nums bg-emerald-50/40 dark:bg-emerald-950/15 font-bold text-xs">
                             {item.mediaMensal !== null ? (
                               <span
@@ -810,15 +801,15 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1">
                 <Trophy className="w-3 h-3 text-amber-500" />
-                <span>Maior Média Moto</span>
+                <span>Maior Lucro Médio</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-emerald-600 inline-block" />
-                <span>Média Moto = Lucro ÷ Meses Ativos</span>
+                <span>Lucro Médio = Lucro ÷ Meses</span>
               </div>
             </div>
             <p className="text-[10px] text-muted-foreground">
-              Data Base ao mês corrente (ou fim da locação/operação para vendidas/cedidas).
+              Data de compra ao mês corrente (ou fim da locação/operação para vendidas/cedidas).
             </p>
           </div>
         </CardContent>

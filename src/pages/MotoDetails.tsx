@@ -1560,8 +1560,8 @@ export default function MotoDetails() {
             </div>
             <p className="text-[11px] text-muted-foreground -mt-2">
               Se a moto parou de ser alugada antes da venda, preencha a data de fim da locação para
-              que os relatórios (Média Moto, Lucro e Payback) usem o período correto de operação. Se
-              deixar em branco, usará a data da venda.
+              que os relatórios (Lucro Médio Moto, Lucro e Payback) usem o período correto de
+              operação. Se deixar em branco, usará a data da venda.
             </p>
 
             <div className="space-y-1.5">
