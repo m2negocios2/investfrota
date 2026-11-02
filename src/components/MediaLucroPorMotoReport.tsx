@@ -601,19 +601,16 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
-                    <th className="py-2 px-2.5 text-left font-bold uppercase tracking-wider text-[11px]">
+                    <th className="py-1.5 px-2 text-left font-bold uppercase tracking-wider text-[10px]">
                       Moto
                     </th>
-                    <th className="py-2 px-2 text-left font-bold uppercase tracking-wider text-[11px] w-[130px]">
+                    <th className="py-1.5 px-2 text-center font-bold uppercase tracking-wider text-[10px] w-[130px] sm:w-[145px]">
                       Data Base
                     </th>
-                    <th className="py-2 px-2 text-center font-bold uppercase tracking-wider text-[11px] w-[95px]">
-                      Meses Ativos
-                    </th>
-                    <th className="py-2 px-2.5 text-right font-bold uppercase tracking-wider text-[11px] w-[120px]">
+                    <th className="py-1.5 px-2 text-right font-bold uppercase tracking-wider text-[10px] w-[100px] sm:w-[115px]">
                       Lucro
                     </th>
-                    <th className="py-2 px-2.5 text-right font-black uppercase tracking-wider bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 text-[11px] w-[125px]">
+                    <th className="py-1.5 px-2 text-right font-black uppercase tracking-wider bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 text-[10px] w-[105px] sm:w-[120px]">
                       Média Moto
                     </th>
                   </tr>
@@ -621,7 +618,7 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                   {itensOrdenados.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-6 text-center text-xs text-muted-foreground">
+                      <td colSpan={4} className="py-6 text-center text-xs text-muted-foreground">
                         Nenhuma moto encontrada com os filtros selecionados.
                       </td>
                     </tr>
@@ -638,7 +635,7 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                           }`}
                         >
                           {/* Coluna 1: Moto */}
-                          <td className="py-1.5 px-2.5">
+                          <td className="py-1.5 px-2">
                             <div className="flex items-center gap-1.5 min-w-0">
                               {isDestaque ? (
                                 <div
@@ -652,12 +649,12 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                                   <Bike className="w-3 h-3" />
                                 </div>
                               )}
-                              <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-                                <span className="font-bold text-slate-900 dark:text-white truncate text-xs">
+                              <div className="min-w-0 flex items-center gap-1 flex-wrap">
+                                <span className="font-bold text-slate-900 dark:text-white truncate text-xs leading-tight">
                                   {item.moto.nome || item.moto.modelo}
                                 </span>
                                 {isDestaque && (
-                                  <Badge className="bg-amber-600 text-white text-[8px] font-bold px-1 py-0 h-3.5 leading-none">
+                                  <Badge className="bg-amber-600 text-white text-[8px] font-bold px-1 py-0 h-3 leading-none">
                                     Top 1
                                   </Badge>
                                 )}
@@ -700,37 +697,41 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                             </div>
                           </td>
 
-                          {/* Coluna 2: Data Base */}
-                          <td className="py-1.5 px-2">
-                            <div className="flex items-center gap-1 text-xs">
-                              <span className="font-semibold text-slate-800 dark:text-slate-200">
-                                {item.dataInicioFormatada}
+                          {/* Coluna 2: Data Base (Data com 'compra' abaixo + Meses com 'meses ativos' abaixo) */}
+                          <td className="py-1 px-2 text-center">
+                            <div className="inline-flex items-center justify-center gap-2 sm:gap-3">
+                              {/* Bloco 1: Data + rótulo compra */}
+                              <div className="flex flex-col items-center leading-tight">
+                                <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs tabular-nums">
+                                  {item.dataInicioFormatada}
+                                </span>
+                                <span className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium">
+                                  {item.origemInicio === 'compra'
+                                    ? 'compra'
+                                    : item.origemInicio === 'primeiro_lancamento'
+                                      ? '1º caixa'
+                                      : 's/ data'}
+                                </span>
+                              </div>
+
+                              <span className="text-slate-300 dark:text-slate-700 text-xs font-light">
+                                •
                               </span>
-                              <span className="text-[9px] text-muted-foreground">
-                                {item.origemInicio === 'compra' && '(compra)'}
-                                {item.origemInicio === 'primeiro_lancamento' && '(1º cx)'}
-                                {item.origemInicio === 'sem_historico' && '(s/ data)'}
-                              </span>
+
+                              {/* Bloco 2: Meses + rótulo meses ativos */}
+                              <div className="flex flex-col items-center leading-tight">
+                                <span className="font-bold text-slate-800 dark:text-slate-200 text-xs tabular-nums">
+                                  {item.mesesDecorridos > 0 ? item.mesesDecorridos : '—'}
+                                </span>
+                                <span className="text-[9px] text-muted-foreground tracking-wider font-medium">
+                                  {item.mesesDecorridos === 1 ? 'mês ativo' : 'meses ativos'}
+                                </span>
+                              </div>
                             </div>
                           </td>
 
-                          {/* Coluna 3: Meses Ativos */}
-                          <td className="py-1.5 px-2 text-center tabular-nums">
-                            {item.mesesDecorridos > 0 ? (
-                              <Badge
-                                variant="outline"
-                                className="font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-900 text-[11px] px-1.5 py-0 h-4"
-                              >
-                                {item.mesesDecorridos}{' '}
-                                {item.mesesDecorridos === 1 ? 'mês' : 'meses'}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">—</span>
-                            )}
-                          </td>
-
-                          {/* Coluna 4: Lucro */}
-                          <td className="py-1.5 px-2.5 text-right tabular-nums font-bold text-xs">
+                          {/* Coluna 3: Lucro */}
+                          <td className="py-1.5 px-2 text-right tabular-nums font-bold text-xs">
                             <span
                               className={
                                 item.lucroTotal >= 0
@@ -742,8 +743,8 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                             </span>
                           </td>
 
-                          {/* Coluna 5: Média Moto = Lucro ÷ Meses Ativos (mesma cor verde do lucro) */}
-                          <td className="py-1.5 px-2.5 text-right tabular-nums bg-emerald-50/40 dark:bg-emerald-950/15 font-bold text-xs">
+                          {/* Coluna 4: Média Moto = Lucro ÷ Meses Ativos */}
+                          <td className="py-1.5 px-2 text-right tabular-nums bg-emerald-50/40 dark:bg-emerald-950/15 font-bold text-xs">
                             {item.mediaMensal !== null ? (
                               <span
                                 className={
@@ -768,12 +769,12 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                 <tfoot>
                   <tr className="bg-slate-900 dark:bg-slate-950 text-white font-bold border-t-2 border-slate-700 text-xs">
                     <td
-                      colSpan={3}
-                      className="py-2 px-2.5 text-left uppercase tracking-wider text-[11px]"
+                      colSpan={2}
+                      className="py-1.5 px-2 text-left uppercase tracking-wider text-[10px]"
                     >
                       TOTAL CONSOLIDADO ({itensFiltrados.length} MOTOS)
                     </td>
-                    <td className="py-2 px-2.5 text-right tabular-nums text-white font-black text-xs">
+                    <td className="py-1.5 px-2 text-right tabular-nums text-white font-black text-xs">
                       {(() => {
                         const lucroSub = itensFiltrados.reduce((acc, it) => acc + it.lucroTotal, 0)
                         return (
@@ -783,7 +784,7 @@ export function MediaLucroPorMotoReport({ motos, caixa }: MediaLucroPorMotoRepor
                         )
                       })()}
                     </td>
-                    <td className="py-2 px-2.5 text-right tabular-nums bg-emerald-950/80 text-emerald-300 font-black text-xs border-l border-slate-700">
+                    <td className="py-1.5 px-2 text-right tabular-nums bg-emerald-950/80 text-emerald-300 font-black text-xs border-l border-slate-700">
                       {(() => {
                         const comMedia = itensFiltrados.filter((it) => it.mediaMensal !== null)
                         const mediaSub =
