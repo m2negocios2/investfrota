@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom'
+import logoInvestFrota from '@/assets/imagemgerada1793657108051-6f85f.png'
 import {
   Bike,
   LayoutDashboard,
@@ -93,15 +94,21 @@ export default function Layout() {
       {/* Sidebar Desktop */}
       <aside className="hidden md:flex md:w-64 flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
         {/* Brand */}
-        <div className="h-16 flex items-center px-6 border-b border-slate-200 dark:border-slate-800 gap-3">
-          <div className="p-2 bg-blue-600 text-white rounded-xl shadow-sm">
-            <Bike className="w-6 h-6" />
+        <div className="h-20 flex items-center px-5 border-b border-slate-200 dark:border-slate-800 gap-3">
+          <div className="h-12 w-12 rounded-xl bg-[#F2EFE9] p-1 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
+            <img
+              src={logoInvestFrota}
+              alt="INVEST FROTA"
+              className="h-full w-full object-contain"
+            />
           </div>
-          <div>
-            <span className="font-extrabold text-base tracking-tight text-slate-900 dark:text-white block leading-none">
-              M2 Gestão de Motos
+          <div className="min-w-0">
+            <span className="font-extrabold text-base tracking-wider text-slate-900 dark:text-white block leading-tight truncate">
+              INVEST FROTA
             </span>
-            <span className="text-xs text-muted-foreground">Controle de Frotas</span>
+            <span className="text-[11px] text-muted-foreground block font-medium">
+              Controle de Frotas
+            </span>
           </div>
         </div>
 
@@ -206,22 +213,27 @@ export default function Layout() {
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              aria-label="Abrir menu"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
             <div className="flex items-center gap-2">
-              <div className="p-1 bg-blue-600 text-white rounded-lg">
-                <Bike className="w-5 h-5" />
+              <div className="h-10 w-10 rounded-lg bg-[#F2EFE9] p-1 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
+                <img
+                  src={logoInvestFrota}
+                  alt="INVEST FROTA"
+                  className="h-full w-full object-contain"
+                />
               </div>
-              <span className="font-extrabold text-slate-900 dark:text-white text-base">
-                M2 Gestão de Motos
+              <span className="font-extrabold text-slate-900 dark:text-white text-base tracking-wide">
+                INVEST FROTA
               </span>
             </div>
           </div>
 
           <div className="hidden md:flex items-center gap-2">
             <h1 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-              Sistema de Gestão & Locações
+              Gestão de Locações & Caixa
             </h1>
           </div>
 

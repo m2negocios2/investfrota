@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Bike, Mail, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react'
+import logoInvestFrota from '@/assets/imagemgerada1793657108051-6f85f.png'
+import { Mail, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -45,14 +46,18 @@ export default function ForgotPassword() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-100 via-slate-50 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
-          <div className="inline-flex p-3 bg-primary/10 rounded-2xl text-primary mb-2 shadow-sm">
-            <Bike className="w-10 h-10" />
+          <div className="inline-flex p-2 bg-[#F2EFE9] rounded-2xl shadow-md border border-slate-200/80 dark:border-slate-700/60 mb-2">
+            <img
+              src={logoInvestFrota}
+              alt="INVEST FROTA"
+              className="w-20 h-20 object-contain rounded-xl"
+            />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             Recuperação de Senha
           </h1>
           <p className="text-sm text-muted-foreground">
-            Receba o link seguro para redefinir seu acesso
+            Receba o link seguro para redefinir seu acesso na INVEST FROTA
           </p>
         </div>
 
