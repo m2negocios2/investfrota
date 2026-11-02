@@ -35,16 +35,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { CaixaLancamento, ContaAPagarComProgresso } from '@/types/database'
+import { Moto, CaixaLancamento, ContaAPagarComProgresso } from '@/types/database'
+import { ComparativoGrafico } from '@/components/ComparativoGrafico'
 
 interface GraficosReportProps {
   caixa: CaixaLancamento[]
   contasAPagar: ContaAPagarComProgresso[]
+  motos?: Moto[]
   selectedYear: number
   selectedMonth: number
   onYearChange: (year: number) => void
   onMonthChange: (month: number) => void
-  initialGraphType?: 'receita' | 'custos' | 'crescimento'
+  initialGraphType?: 'receita' | 'custos' | 'crescimento' | 'comparativo'
 }
 
 // Custom label para desenhar percentual dentro das fatias da pizza
@@ -121,6 +123,7 @@ const MONTH_NAMES = [
 export function GraficosReport({
   caixa,
   contasAPagar,
+  motos = [],
   selectedYear,
   selectedMonth,
   onYearChange,
@@ -131,14 +134,18 @@ export function GraficosReport({
   const [periodoModo, setPeriodoModo] = useState<'ano' | 'mes'>('ano')
 
   // Gráfico em foco ou todos
-  const [activeGraph, setActiveGraph] = useState<'receita' | 'custos' | 'crescimento' | 'todos'>(
+  const [activeGraph, setActiveGraph] = useState<
+    'receita' | 'custos' | 'crescimento' | 'comparativo' | 'todos'
+  >(
     initialGraphType === 'custos'
       ? 'custos'
       : initialGraphType === 'crescimento'
         ? 'crescimento'
-        : initialGraphType === 'receita'
-          ? 'receita'
-          : 'todos',
+        : initialGraphType === 'comparativo'
+          ? 'comparativo'
+          : initialGraphType === 'receita'
+            ? 'receita'
+            : 'todos',
   )
 
   // Atualizar foco se a prop initialGraphType mudar (ex: ao clicar nos botões do card na tela principal)
@@ -537,6 +544,18 @@ export function GraficosReport({
           >
             <LineChartIcon className="w-3 h-3" />
             Crescimento
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveGraph('comparativo')}
+            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1 ${
+              activeGraph === 'comparativo'
+                ? 'bg-purple-600 text-white shadow-xs font-bold'
+                : 'text-muted-foreground hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <BarChart3 className="w-3 h-3" />
+            Comparativo
           </button>
         </div>
       </div>
@@ -1367,6 +1386,21 @@ export function GraficosReport({
               </CardContent>
             </div>
           </Card>
+        )}
+
+        {/* ========================================================================= */}
+        {/* GRÁFICO 4 — "COMPARATIVO": RENTABILIDADE MOTOS VS CDB, FII, PBR, BB, VALE */}
+        {/* ========================================================================= */}
+        {(activeGraph === 'todos' || activeGraph === 'comparativo') && (
+          <div className={activeGraph === 'todos' ? 'lg:col-span-2' : ''}>
+            <ComparativoGrafico
+              motos={motos}
+              caixa={caixa}
+              selectedYear={selectedYear}
+              selectedMonth={selectedMonth}
+              periodoModo={periodoModo}
+            />
+          </div>
         )}
       </div>
     </div>

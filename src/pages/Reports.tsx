@@ -495,6 +495,7 @@ export default function Reports() {
             activeReportTab !== 'graficos-receita' &&
             activeReportTab !== 'graficos-custos' &&
             activeReportTab !== 'graficos-crescimento' &&
+            activeReportTab !== 'graficos-comparativo' &&
             activeReportTab !== 'kpi-media-lucro' && (
               <>
                 <Select
@@ -546,7 +547,7 @@ export default function Reports() {
             Lista de Relatórios Disponíveis (Clique para Visualizar)
           </h2>
           <span className="text-xs text-muted-foreground hidden sm:inline">
-            11 relatórios e visões disponíveis
+            12 relatórios e visões disponíveis
           </span>
         </div>
 
@@ -926,7 +927,7 @@ export default function Reports() {
                     variant="outline"
                     className="text-[10px] font-semibold bg-white dark:bg-slate-900"
                   >
-                    3 gráficos
+                    4 gráficos
                   </Badge>
                 </div>
               </CardHeader>
@@ -1015,6 +1016,34 @@ export default function Reports() {
                       </Badge>
                     )}
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveReportTab('graficos-comparativo')}
+                    className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
+                      activeReportTab === 'graficos-comparativo'
+                        ? 'border-indigo-600 bg-indigo-50/90 dark:bg-indigo-950/60 shadow-sm ring-2 ring-indigo-500 text-indigo-900 dark:text-indigo-100'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 ${
+                          activeReportTab === 'graficos-comparativo'
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-bold truncate">Gráfico — Comparativo</span>
+                    </div>
+                    {activeReportTab === 'graficos-comparativo' && (
+                      <Badge className="bg-indigo-600 hover:bg-indigo-600 text-white text-[10px] font-bold shrink-0">
+                        Visualizando
+                      </Badge>
+                    )}
+                  </button>
                 </div>
               </CardContent>
             </div>
@@ -1051,14 +1080,16 @@ export default function Reports() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB: GRÁFICOS (RECEITA, CUSTOS & CRESCIMENTO) */}
+        {/* TAB: GRÁFICOS (RECEITA, CUSTOS, CRESCIMENTO & COMPARATIVO) */}
         {/* ========================================================================= */}
         {(activeReportTab === 'graficos-receita' ||
           activeReportTab === 'graficos-custos' ||
-          activeReportTab === 'graficos-crescimento') && (
+          activeReportTab === 'graficos-crescimento' ||
+          activeReportTab === 'graficos-comparativo') && (
           <GraficosReport
             caixa={caixa}
             contasAPagar={contasAPagar}
+            motos={motos}
             selectedYear={selectedYear}
             selectedMonth={selectedMonth}
             onYearChange={(year) => setSelectedYear(year)}
@@ -1068,7 +1099,9 @@ export default function Reports() {
                 ? 'custos'
                 : activeReportTab === 'graficos-crescimento'
                   ? 'crescimento'
-                  : 'receita'
+                  : activeReportTab === 'graficos-comparativo'
+                    ? 'comparativo'
+                    : 'receita'
             }
           />
         )}
