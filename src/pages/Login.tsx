@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import logoInvestFrota from '@/assets/imagemgerada1793657108051-6f85f.png'
+import logoInvestFrota from '@/assets/imagemgerada1793657108051-copia-2e567.png'
 import { Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -156,7 +156,7 @@ export default function Login() {
                   className="text-xs h-auto py-2 flex flex-col items-start text-left border-blue-200 dark:border-blue-900 hover:bg-blue-50/50 dark:hover:bg-blue-950/30"
                 >
                   <span className="font-semibold text-blue-600 dark:text-blue-400">
-                    Proprietário
+                    Acesso Principal
                   </span>
                   <span className="text-[10px] text-muted-foreground truncate w-full">
                     m2.negocios2@gmail.com

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import logoInvestFrota from '@/assets/imagemgerada1793657108051-6f85f.png'
+import logoInvestFrota from '@/assets/imagemgerada1793657108051-copia-2e567.png'
 import { Mail, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'

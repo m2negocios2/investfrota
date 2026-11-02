@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom'
-import logoInvestFrota from '@/assets/imagemgerada1793657108051-6f85f.png'
+import logoInvestFrota from '@/assets/imagemgerada1793657108051-copia-2e567.png'
 import {
   Bike,
   LayoutDashboard,
@@ -28,6 +28,14 @@ import { Infracao } from '@/types/database'
 
 export default function Layout() {
   const { user, logout, isAuthenticated } = useAuth()
+
+  // Higieniza nome de exibição no topo caso o usuário venha com "Proprietário M2" ou role residual
+  const rawDisplayName = user?.name || user?.email || 'INVEST FROTA'
+  const displayUserName =
+    rawDisplayName.toLowerCase().includes('proprietário') ||
+    rawDisplayName.toLowerCase().includes('proprietario')
+      ? 'INVEST FROTA'
+      : rawDisplayName
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -110,11 +118,11 @@ export default function Layout() {
         <div className="p-3 mx-3 my-3 bg-slate-100/80 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/50">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary text-xs shrink-0">
-              {user?.name ? user.name.slice(0, 2).toUpperCase() : 'US'}
+              {displayUserName ? displayUserName.slice(0, 2).toUpperCase() : 'IF'}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                {user?.name || user?.email || 'Visitante'}
+                {displayUserName}
               </p>
             </div>
           </div>
@@ -182,46 +190,36 @@ export default function Layout() {
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Header Mobile / Tablet */}
+        {/* Top Header Mobile / Tablet / Desktop */}
         <header className="h-16 md:h-20 flex items-center justify-between px-4 md:px-8 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-3 md:hidden">
+          {/* Lado Esquerdo: Mobile (menu hamburguer + logo nova à esquerda) | Desktop: logo nova à esquerda */}
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="md:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
               aria-label="Abrir menu"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
+
             <div className="flex items-center gap-2.5">
-              <div className="h-12 w-12 rounded-xl bg-[#F2EFE9] p-1 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
+              <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl bg-[#F2EFE9] p-1 md:p-1.5 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
                 <img
                   src={logoInvestFrota}
                   alt="INVEST FROTA"
                   className="h-full w-full object-contain"
                 />
               </div>
-              <span className="font-extrabold text-slate-900 dark:text-white text-base tracking-wide">
+              <span className="font-extrabold text-slate-900 dark:text-white text-base md:text-lg tracking-wider block leading-tight">
                 INVEST FROTA
               </span>
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-3.5">
-            <div className="h-14 w-14 rounded-xl bg-[#F2EFE9] p-1.5 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
-              <img
-                src={logoInvestFrota}
-                alt="INVEST FROTA"
-                className="h-full w-full object-contain"
-              />
-            </div>
-            <div>
-              <span className="font-extrabold text-slate-900 dark:text-white text-lg tracking-wider block leading-tight">
-                INVEST FROTA
-              </span>
-            </div>
-          </div>
+          {/* Centro: Vazio conforme pedido expresso ("no centro tirar") */}
+          <div className="flex-1" aria-hidden="true" />
 
-          {/* Right Header Utilities */}
+          {/* Canto Direito: Notificações + Nome do usuário + Logout (sem badge/papel PROPRIETÁRIO) */}
           <div className="flex items-center gap-3">
             <Link
               to="/infracoes"
@@ -237,7 +235,7 @@ export default function Layout() {
             <div className="hidden sm:flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-3">
               <div className="text-right">
                 <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                  {user?.name || user?.email}
+                  {displayUserName}
                 </p>
               </div>
             </div>
@@ -249,7 +247,7 @@ export default function Layout() {
           <div className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 space-y-1">
             <div className="p-3 mb-2 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold">{user?.name || user?.email}</p>
+                <p className="text-xs font-semibold">{displayUserName}</p>
               </div>
               <Button
                 size="sm"
