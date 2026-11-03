@@ -74,12 +74,15 @@ function carregarPercentuais(key: string, padrao: TaxasBenchmark): TaxasBenchmar
 }
 
 // Ativos financeiros exibidos no comparativo (ordem dos campos editáveis)
+// cor: cor própria da linha no gráfico; dash: estilo de traço próprio (undefined = sólida)
 const ATIVOS_CONFIG: {
   chave: ChaveAtivo
   label: string
   subtitulo: string
   categoria: string
   descricao: string
+  cor: string
+  dash?: string
 }[] = [
   {
     chave: 'cdb',
@@ -87,6 +90,7 @@ const ATIVOS_CONFIG: {
     subtitulo: 'Renda Fixa Pós-Fixada',
     categoria: 'Renda Fixa',
     descricao: 'Certificado de Depósito Bancário acompanhando a taxa Selic',
+    cor: '#2563eb',
   },
   {
     chave: 'fii',
@@ -94,6 +98,8 @@ const ATIVOS_CONFIG: {
     subtitulo: 'Rendimentos Mensais',
     categoria: 'Fundos Imobiliários',
     descricao: 'Média de distribuição anual de rendimentos isentos de IR',
+    cor: '#7c3aed',
+    dash: '6 4',
   },
   {
     chave: 'petrobras',
@@ -101,6 +107,8 @@ const ATIVOS_CONFIG: {
     subtitulo: 'Ações / Dividendos',
     categoria: 'Renda Variável',
     descricao: 'Estimativa de Dividend Yield e valorização média anual',
+    cor: '#ea580c',
+    dash: '2 4',
   },
   {
     chave: 'bb',
@@ -108,6 +116,8 @@ const ATIVOS_CONFIG: {
     subtitulo: 'Ações BBAS3',
     categoria: 'Renda Variável',
     descricao: 'Estimativa de proventos e retorno anual médio consolidado',
+    cor: '#dc2626',
+    dash: '8 4 2 4',
   },
   {
     chave: 'vale',
@@ -115,7 +125,30 @@ const ATIVOS_CONFIG: {
     subtitulo: 'Ações / Commodities',
     categoria: 'Renda Variável',
     descricao: 'Expectativa anualizada de dividendos do setor de mineração',
+    cor: '#db2777',
+    dash: '12 5 2 5',
   },
+]
+
+const COR_MOTOS = '#065f46'
+
+// Cor da bolinha/linha de cada ativo no quadro resumo
+const corDe = (id: string) =>
+  id === 'motos' ? COR_MOTOS : (ATIVOS_CONFIG.find((a) => a.chave === id)?.cor ?? '#64748b')
+
+const MESES_ABREV = [
+  'Jan',
+  'Fev',
+  'Mar',
+  'Abr',
+  'Mai',
+  'Jun',
+  'Jul',
+  'Ago',
+  'Set',
+  'Out',
+  'Nov',
+  'Dez',
 ]
 
 const ATIVO_NOME: Record<ChaveAtivo, string> = {
@@ -288,7 +321,7 @@ export function ComparativoGrafico({
         descricao: a.descricao,
         taxaBruta: Number(bruta.toFixed(1)),
         irPct: ir,
-        taxa: Number(liquida.toFixed(1)),
+        taxa: Number(liquida.toFixed(2)),
         motos: rentMotos,
         isDestaque: false,
       }
@@ -312,6 +345,19 @@ export function ComparativoGrafico({
   }, [dadosRentabilidadeMotos.rentabilidadeAnualizadaPct, taxas, irAtivos])
 
   const ativosGrafico = dadosGrafico.filter((d) => !d.isDestaque)
+
+  // Série do gráfico: um ponto por mês do ano, com a TAXA LÍQUIDA (taxa − IR) de cada ativo.
+  // As taxas dos ativos são constantes ao longo do ano (anualizadas); MOTOS acompanha o período.
+  const dadosGraficoLinha = useMemo(() => {
+    const rentMotos = Number(dadosRentabilidadeMotos.rentabilidadeAnualizadaPct.toFixed(2))
+    return MESES_ABREV.map((mes) => {
+      const row: Record<string, string | number> = { mes, motos: rentMotos }
+      ATIVOS_CONFIG.forEach((a) => {
+        row[a.chave] = Number((taxas[a.chave] * (1 - irAtivos[a.chave] / 100)).toFixed(2))
+      })
+      return row
+    })
+  }, [dadosRentabilidadeMotos.rentabilidadeAnualizadaPct, taxas, irAtivos])
 
   const formatBRL = (v: number) => {
     return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -382,8 +428,8 @@ export function ComparativoGrafico({
                   </span>
                   <span className="text-[11px] text-muted-foreground block">
                     Ajuste a taxa bruta anual (% a.a.) e o IR (%) de cada ativo para simular
-                    cenários. A rentabilidade mostrada é líquida: taxa × (1 − IR). Salvo
-                    automaticamente.
+                    cenários. O valor líquido mostrado em cada cartão é taxa × (1 − IR) — o mesmo
+                    valor plotado no gráfico. Salvo automaticamente.
                   </span>
                 </div>
               </div>
@@ -445,6 +491,19 @@ export function ComparativoGrafico({
                         %
                       </span>
                     </div>
+                  </div>
+                  {/* Valor líquido calculado na hora: taxa × (1 − IR) */}
+                  <div className="pt-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1">
+                    <span className="text-[10px] font-semibold text-muted-foreground shrink-0">
+                      Líquido
+                    </span>
+                    <span className="text-[11px] font-black tabular-nums" style={{ color: a.cor }}>
+                      {(taxas[a.chave] * (1 - irAtivos[a.chave] / 100)).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                      %
+                    </span>
                   </div>
                 </div>
               ))}
@@ -537,23 +596,23 @@ export function ComparativoGrafico({
                 Rentabilidade Anualizada (% ao ano) por Ativo
               </span>
               <span className="text-[11px] text-muted-foreground">
+                Cada ativo com cor e traço próprios |{' '}
                 <strong className="text-emerald-800 dark:text-emerald-400">
                   Verde escuro:
                 </strong>{' '}
-                Frota de Motos M2 | <strong className="text-slate-500">Cinza:</strong> Ativos
-                financeiros (líquido de IR)
+                Frota de Motos M2 (não sofre IR) | Valores líquidos de IR
               </span>
             </div>
 
-            <div className="h-[320px] sm:h-[300px] w-full pt-2">
+            <div className="h-[340px] sm:h-[320px] w-full pt-2">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={ativosGrafico}
-                  margin={{ top: 20, right: 20, left: -5, bottom: 25 }}
+                  data={dadosGraficoLinha}
+                  margin={{ top: 20, right: 20, left: -5, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
                   <XAxis
-                    dataKey="nome"
+                    dataKey="mes"
                     tick={{ fontSize: 11, fontWeight: 600 }}
                     stroke="#888888"
                     interval={0}
@@ -569,41 +628,56 @@ export function ComparativoGrafico({
                   <RechartsTooltip
                     content={({ active, payload }) => {
                       if (!active || !payload || !payload.length) return null
-                      const item = payload[0].payload as (typeof ativosGrafico)[0]
+                      const mes = String(payload[0].payload?.mes ?? '')
+                      const ordenado = [...payload].sort(
+                        (a, b) => Number(b.value) - Number(a.value),
+                      )
+                      const rentMotos = dadosRentabilidadeMotos.rentabilidadeDisponivel
+                        ? dadosRentabilidadeMotos.rentabilidadeAnualizadaPct
+                        : null
                       return (
                         <div className="bg-slate-900/95 text-white p-3 rounded-xl text-xs shadow-2xl border border-slate-700 space-y-1.5 min-w-[210px]">
                           <div className="flex items-center justify-between border-b border-slate-700/80 pb-1">
-                            <span className="font-extrabold text-sm text-slate-100">
-                              {item.nome}
-                            </span>
+                            <span className="font-extrabold text-sm text-slate-100">{mes}</span>
                             <Badge className="text-[9px] h-4 font-bold bg-slate-700 text-slate-200">
-                              {item.categoria}
+                              Líquido de IR
                             </Badge>
                           </div>
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-slate-300">Taxa bruta:</span>
-                            <span className="font-bold">{item.taxaBruta.toFixed(1)}% a.a.</span>
-                          </div>
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-slate-300">IR ({item.irPct}%):</span>
-                            <span className="font-bold">
-                              − {(item.taxaBruta - item.taxa).toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between gap-4 pt-1">
-                            <span className="text-slate-300 font-medium">Líquida de IR:</span>
-                            <span className="text-base font-black text-slate-200">
-                              {item.taxa.toFixed(1)}% a.a.
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-emerald-300 font-medium">Motos:</span>
-                            <span className="font-black text-emerald-400">
-                              {item.motos.toFixed(1)}% a.a.
-                            </span>
-                          </div>
+                          {rentMotos !== null && (
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="text-emerald-300 font-bold">MOTOS (App M2)</span>
+                              <span className="font-black text-emerald-400">
+                                {rentMotos.toFixed(2)}% a.a.
+                              </span>
+                            </div>
+                          )}
+                          {ordenado.map((p) => {
+                            const cfg = ATIVOS_CONFIG.find((a) => a.chave === p.dataKey)
+                            if (!cfg) return null
+                            const liquida = taxas[cfg.chave] * (1 - irAtivos[cfg.chave] / 100)
+                            return (
+                              <div
+                                key={cfg.chave}
+                                className="flex items-center justify-between gap-4"
+                              >
+                                <span
+                                  className="flex items-center gap-1.5 text-slate-300"
+                                  style={{ color: cfg.cor }}
+                                >
+                                  <span
+                                    className="inline-block w-2.5 h-2.5 rounded-full"
+                                    style={{ background: cfg.cor }}
+                                  />
+                                  {ATIVO_NOME[cfg.chave]}
+                                </span>
+                                <span className="font-black text-slate-200">
+                                  {liquida.toFixed(2)}% a.a.
+                                </span>
+                              </div>
+                            )
+                          })}
                           <p className="text-[10px] text-slate-400 italic pt-1 border-t border-slate-800">
-                            {item.descricao}
+                            Taxas anuais líquidas de IR dos ativos financeiros; MOTOS não sofre IR.
                           </p>
                         </div>
                       )
@@ -613,22 +687,26 @@ export function ComparativoGrafico({
                     type="monotone"
                     dataKey="motos"
                     name="MOTOS (App M2)"
-                    stroke="#065f46"
+                    stroke={COR_MOTOS}
                     strokeWidth={4}
-                    dot={{ r: 5, fill: '#065f46', stroke: '#065f46' }}
+                    dot={{ r: 5, fill: COR_MOTOS, stroke: COR_MOTOS }}
                     activeDot={{ r: 7 }}
                     isAnimationActive={false}
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="taxa"
-                    name="Ativos financeiros (líquido de IR)"
-                    stroke="#64748b"
-                    strokeWidth={2}
-                    dot={{ r: 4, fill: '#64748b', stroke: '#475569' }}
-                    activeDot={{ r: 6 }}
-                    isAnimationActive={false}
-                  />
+                  {ATIVOS_CONFIG.map((a) => (
+                    <Line
+                      key={a.chave}
+                      type="monotone"
+                      dataKey={a.chave}
+                      name={ATIVO_NOME[a.chave]}
+                      stroke={a.cor}
+                      strokeWidth={2}
+                      strokeDasharray={a.dash}
+                      dot={{ r: 3, fill: a.cor, stroke: a.cor }}
+                      activeDot={{ r: 6 }}
+                      isAnimationActive={false}
+                    />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -650,6 +728,7 @@ export function ComparativoGrafico({
               {dadosGrafico.map((item) => {
                 const taxaMotos = dadosRentabilidadeMotos.rentabilidadeAnualizadaPct
                 const diffPct = item.isDestaque ? 0 : taxaMotos - item.taxa
+                const cor = corDe(item.id)
                 return (
                   <div
                     key={item.id}
@@ -662,9 +741,8 @@ export function ComparativoGrafico({
                     <div className="min-w-0 pr-2">
                       <div className="flex items-center gap-1.5">
                         <span
-                          className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                            item.isDestaque ? 'bg-emerald-600' : 'bg-slate-400'
-                          }`}
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ background: cor }}
                         />
                         <span
                           className={`font-bold truncate ${
@@ -688,12 +766,14 @@ export function ComparativoGrafico({
                             ? 'text-emerald-600 dark:text-emerald-400 text-base'
                             : 'text-slate-800 dark:text-slate-200'
                         }`}
+                        style={item.isDestaque ? undefined : { color: cor }}
                       >
-                        {item.isDestaque ? rentMotosTexto : `${item.taxa.toFixed(1)}% a.a.`}
+                        {item.isDestaque ? rentMotosTexto : `${item.taxa.toFixed(2)}% a.a.`}
                       </span>
                       {!item.isDestaque && (
                         <span className="text-[10px] text-muted-foreground block">
-                          bruta {item.taxaBruta.toFixed(1)}% · IR {item.irPct}%
+                          bruta {item.taxaBruta.toFixed(1)}% · IR {item.irPct}% ·{' '}
+                          <span className="font-bold">líquido {item.taxa.toFixed(2)}%</span>
                         </span>
                       )}
                       {!item.isDestaque && (
@@ -734,6 +814,13 @@ export function ComparativoGrafico({
                 terceiros (R$ {formatBRL(saldoDividasTerceiros)}), que é a parte financiada por
                 terceiros. Os ativos financeiros são mostrados líquidos de IR: taxa bruta × (1 −
                 IR%). FIIs têm IR padrão de 0% por serem isentos sobre rendimentos.
+              </p>
+              <p className="text-[11px] leading-relaxed">
+                No gráfico, cada ativo financeiro é plotado pela sua TAXA LÍQUIDA de IR (taxa bruta
+                menos IR), com cor e estilo de linha próprios (sólida, tracejada ou pontilhada) para
+                facilitar a identificação. A linha MOTOS (verde escuro) representa a rentabilidade
+                real da frota e não sofre IR. A linha verde-escuro constante reflete o valor
+                anualizado do período selecionado.
               </p>
             </div>
           </div>
