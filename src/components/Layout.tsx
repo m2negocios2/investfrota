@@ -24,6 +24,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { infracoesService } from '@/services/infracoes'
+import { empresaService } from '@/services/cadastros'
 import { Infracao } from '@/types/database'
 
 export default function Layout() {
@@ -40,6 +41,7 @@ export default function Layout() {
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [pendingInfracoes, setPendingInfracoes] = useState<Infracao[]>([])
+  const [empresaNome, setEmpresaNome] = useState<string>('')
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -51,6 +53,21 @@ export default function Layout() {
         .catch(console.error)
     }
   }, [isAuthenticated, location.pathname])
+
+  // Nome da empresa vem do cadastro (empresa_config) e é recarregado ao navegar,
+  // refletindo alterações feitas em /cadastros
+  useEffect(() => {
+    if (isAuthenticated) {
+      empresaService
+        .get()
+        .then((emp) => {
+          setEmpresaNome(emp?.nome_empresa?.trim() || '')
+        })
+        .catch(console.error)
+    }
+  }, [isAuthenticated, location.pathname])
+
+  const nomeEmpresaDisplay = empresaNome || 'Empresa'
 
   const navigation = [
     {
@@ -99,17 +116,14 @@ export default function Layout() {
       {/* Sidebar Desktop */}
       <aside className="hidden md:flex md:w-64 flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
         {/* Brand */}
-        <div className="py-4 px-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3">
+        <div className="py-4 px-4 border-b border-slate-200 dark:border-slate-800 flex flex-col items-center gap-2">
           <div className="h-16 w-16 rounded-xl bg-[#F2EFE9] p-1.5 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
-            <img
-              src={logoInvestFrota}
-              alt="INVEST FROTA"
-              className="h-full w-full object-contain"
-            />
+            <img src={logoInvestFrota} alt="Logo" className="h-full w-full object-contain" />
           </div>
-          <div className="min-w-0 flex-1">
-            <span className="font-extrabold text-base tracking-wider text-slate-900 dark:text-white block leading-tight truncate">
-              INVEST FROTA
+          {/* Seção da empresa: nome vindo do cadastro (/cadastros) */}
+          <div className="min-w-0 w-full text-center">
+            <span className="text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300 block leading-tight truncate">
+              {nomeEmpresaDisplay}
             </span>
           </div>
         </div>
@@ -192,7 +206,7 @@ export default function Layout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header Mobile / Tablet / Desktop */}
         <header className="h-16 md:h-20 flex items-center justify-between px-4 md:px-8 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-          {/* Lado Esquerdo: Mobile (menu hamburguer + logo nova à esquerda) | Desktop: logo nova à esquerda */}
+          {/* Lado Esquerdo: apenas o menu hamburguer no celular (sem logo e sem nome) */}
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -201,19 +215,6 @@ export default function Layout() {
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
-
-            <div className="flex items-center gap-2.5">
-              <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl bg-[#F2EFE9] p-1 md:p-1.5 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
-                <img
-                  src={logoInvestFrota}
-                  alt="INVEST FROTA"
-                  className="h-full w-full object-contain"
-                />
-              </div>
-              <span className="font-extrabold text-slate-900 dark:text-white text-base md:text-lg tracking-wider block leading-tight">
-                INVEST FROTA
-              </span>
-            </div>
           </div>
 
           {/* Centro: Vazio conforme pedido expresso ("no centro tirar") */}
@@ -238,6 +239,11 @@ export default function Layout() {
                   {displayUserName}
                 </p>
               </div>
+            </div>
+
+            {/* Canto direito: apenas a logomarca, sem texto */}
+            <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-[#F2EFE9] p-1 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
+              <img src={logoInvestFrota} alt="Logo" className="h-full w-full object-contain" />
             </div>
           </div>
         </header>
