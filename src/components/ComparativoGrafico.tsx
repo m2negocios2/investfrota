@@ -246,12 +246,15 @@ export function ComparativoGrafico({
     // Lucro anualizado projetado
     const lucroAnualizado = lucroMensalMedio * 12
 
-    // Lucro acumulado da frota descontado das dívidas a terceiros
-    const lucroDescontadoDividas = lucroPeriodo - saldoDividasTerceiros
+    // Capital que é da sócia: capital investido menos a parte financiada por terceiros.
+    // A dívida a terceiros NÃO desconta o lucro — ela sai da BASE de capital.
+    const capitalProprio = capitalInvestido - saldoDividasTerceiros
 
-    // Rentabilidade = ((lucro acumulado − saldo das dívidas) / capital investido) * 100
-    const rentabilidadeAnualizadaPct =
-      capitalInvestido > 0 ? (lucroDescontadoDividas / capitalInvestido) * 100 : 0
+    // Rentabilidade = (lucro integral da frota / capital próprio) * 100
+    const rentabilidadeDisponivel = capitalProprio > 0
+    const rentabilidadeAnualizadaPct = rentabilidadeDisponivel
+      ? (lucroPeriodo / capitalProprio) * 100
+      : 0
 
     // Rentabilidade nominal do período (mesma base, sem anualizar)
     const rentabilidadeNominalPeriodoPct = rentabilidadeAnualizadaPct
@@ -261,7 +264,8 @@ export function ComparativoGrafico({
       despesas,
       lucroPeriodo,
       lucroAnualizado,
-      lucroDescontadoDividas,
+      capitalProprio,
+      rentabilidadeDisponivel,
       mesesComLancamento,
       lucroMensalMedio,
       rentabilidadeAnualizadaPct,
@@ -293,7 +297,7 @@ export function ComparativoGrafico({
       {
         id: 'motos',
         nome: 'MOTOS (App M2)',
-        subtitulo: 'Rentabilidade real anualizada, líquida de dívidas',
+        subtitulo: 'Rentabilidade real anualizada sobre o capital próprio',
         categoria: 'Ativo Próprio',
         taxaBruta: rentMotos,
         irPct: 0,
@@ -301,7 +305,7 @@ export function ComparativoGrafico({
         motos: rentMotos,
         isDestaque: true,
         descricao:
-          'Lucro da frota menos o saldo das dívidas a terceiros, sobre o capital investido',
+          'Lucro integral da frota dividido pelo capital próprio (capital investido menos as dívidas a terceiros)',
       },
       ...ativos,
     ]
@@ -312,6 +316,13 @@ export function ComparativoGrafico({
   const formatBRL = (v: number) => {
     return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
+
+  // Texto da rentabilidade das motos: "—" quando o capital próprio não é positivo
+  const rentMotosExibe = dadosRentabilidadeMotos.rentabilidadeDisponivel
+  const rentMotosLabel = rentMotosExibe
+    ? dadosRentabilidadeMotos.rentabilidadeAnualizadaPct.toFixed(1)
+    : '—'
+  const rentMotosTexto = rentMotosExibe ? `${rentMotosLabel}% a.a.` : '—'
 
   // Escala do eixo Y cobre todas as linhas (inclusive valores negativos)
   const todosValores = [
@@ -334,9 +345,9 @@ export function ComparativoGrafico({
               COMPARATIVO — Rentabilidade da Frota vs. Outros Investimentos
             </CardTitle>
             <CardDescription className="text-xs mt-0.5">
-              Comparação anualizada: rentabilidade real da locação de <strong>MOTOS</strong> (já
-              descontadas as dívidas a terceiros) versus investimentos tradicionais, com os ativos
-              financeiros líquidos de IR.
+              Comparação anualizada: rentabilidade real da locação de <strong>MOTOS</strong> (lucro
+              integral da frota sobre o capital próprio) versus investimentos tradicionais, com os
+              ativos financeiros líquidos de IR.
             </CardDescription>
           </div>
 
@@ -346,7 +357,7 @@ export function ComparativoGrafico({
               className="font-bold text-xs bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300 px-2.5 py-1"
             >
               <Bike className="w-3.5 h-3.5 mr-1 text-emerald-600 inline-block" />
-              Motos: {dadosRentabilidadeMotos.rentabilidadeAnualizadaPct.toFixed(1)}% a.a.
+              Motos: {rentMotosTexto}
             </Badge>
             <Badge
               variant="secondary"
@@ -451,10 +462,11 @@ export function ComparativoGrafico({
                   </span>
                 </div>
                 <span className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 block mt-1 tracking-tight">
-                  {dadosRentabilidadeMotos.rentabilidadeAnualizadaPct.toFixed(1)}% ao ano
+                  {rentMotosLabel}
+                  {rentMotosExibe ? '% ao ano' : ''}
                 </span>
                 <span className="text-[10px] text-muted-foreground block">
-                  (Lucro − dívidas a terceiros) / Capital investido
+                  Lucro da frota / Capital próprio (capital − dívidas a terceiros)
                 </span>
               </div>
               <div className="p-2 rounded-lg bg-emerald-600 text-white shrink-0">
@@ -475,6 +487,9 @@ export function ComparativoGrafico({
                 </span>
                 <span className="text-[10px] text-muted-foreground block">
                   Soma dos valores de compra das motos ativas
+                  {` · Capital próprio (− dívidas a terceiros): R$ ${formatBRL(
+                    dadosRentabilidadeMotos.capitalProprio,
+                  )}`}
                 </span>
               </div>
               <div className="p-2 rounded-lg bg-blue-600 text-white shrink-0">
@@ -674,7 +689,7 @@ export function ComparativoGrafico({
                             : 'text-slate-800 dark:text-slate-200'
                         }`}
                       >
-                        {item.taxa.toFixed(1)}% a.a.
+                        {item.isDestaque ? rentMotosTexto : `${item.taxa.toFixed(1)}% a.a.`}
                       </span>
                       {!item.isDestaque && (
                         <span className="text-[10px] text-muted-foreground block">
@@ -712,12 +727,13 @@ export function ComparativoGrafico({
                 Metodologia de Anualização e Comparabilidade
               </span>
               <p className="text-[11px] leading-relaxed">
-                A rentabilidade das motos é calculada a partir do lucro apurado no livro caixa,
-                descontado o saldo devedor das dívidas a terceiros (R${' '}
-                {formatBRL(saldoDividasTerceiros)}), dividido pelo capital total investido na compra
-                da frota ativa (R$ {formatBRL(capitalInvestido)}). Os ativos financeiros são
-                mostrados líquidos de IR: taxa bruta × (1 − IR%). FIIs têm IR padrão de 0% por serem
-                isentos sobre rendimentos.
+                A rentabilidade das motos é o lucro apurado no livro caixa (R${' '}
+                {formatBRL(dadosRentabilidadeMotos.lucroPeriodo)}), sem descontar as dívidas a
+                terceiros, dividido pelo capital próprio — o capital total investido na compra da
+                frota ativa (R$ {formatBRL(capitalInvestido)}) menos o saldo devedor das dívidas a
+                terceiros (R$ {formatBRL(saldoDividasTerceiros)}), que é a parte financiada por
+                terceiros. Os ativos financeiros são mostrados líquidos de IR: taxa bruta × (1 −
+                IR%). FIIs têm IR padrão de 0% por serem isentos sobre rendimentos.
               </p>
             </div>
           </div>
