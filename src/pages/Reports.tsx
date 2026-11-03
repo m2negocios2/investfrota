@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
   TrendingUp,
+  TrendingDown,
   DollarSign,
   PieChart,
   BarChart3,
@@ -58,6 +59,7 @@ import { LucroPorMotoReport } from '@/components/LucroPorMotoReport'
 import { GraficosReport } from '@/components/GraficosReport'
 import { ProjecaoFluxoCaixaReport } from '@/components/ProjecaoFluxoCaixaReport'
 import { MediaLucroPorMotoReport } from '@/components/MediaLucroPorMotoReport'
+import { LucroDescontadoReport } from '@/components/LucroDescontadoReport'
 
 export default function Reports() {
   const [motos, setMotos] = useState<Moto[]>([])
@@ -496,7 +498,8 @@ export default function Reports() {
             activeReportTab !== 'graficos-custos' &&
             activeReportTab !== 'graficos-crescimento' &&
             activeReportTab !== 'graficos-comparativo' &&
-            activeReportTab !== 'kpi-media-lucro' && (
+            activeReportTab !== 'kpi-media-lucro' &&
+            activeReportTab !== 'kpi-lucro-descontado' && (
               <>
                 <Select
                   value={String(selectedMonth)}
@@ -837,7 +840,7 @@ export default function Reports() {
                     variant="outline"
                     className="text-[10px] font-semibold bg-white dark:bg-slate-900"
                   >
-                    2 relatórios
+                    3 relatórios
                   </Badge>
                 </div>
               </CardHeader>
@@ -895,6 +898,34 @@ export default function Reports() {
                       <span className="text-sm font-bold truncate">LUCRO MÉDIO MOTO</span>
                     </div>
                     {activeReportTab === 'kpi-media-lucro' && (
+                      <Badge className="bg-purple-600 hover:bg-purple-600 text-white text-[10px] font-bold shrink-0">
+                        Visualizando
+                      </Badge>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveReportTab('kpi-lucro-descontado')}
+                    className={`w-full h-12 px-4 rounded-xl border flex items-center justify-between text-left transition-all ${
+                      activeReportTab === 'kpi-lucro-descontado'
+                        ? 'border-purple-600 bg-purple-50/90 dark:bg-purple-950/60 shadow-sm ring-2 ring-purple-500 text-purple-900 dark:text-purple-100'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-purple-300 dark:hover:border-purple-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg shrink-0 ${
+                          activeReportTab === 'kpi-lucro-descontado'
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <TrendingDown className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-bold truncate">LUCRO DESCONTADO</span>
+                    </div>
+                    {activeReportTab === 'kpi-lucro-descontado' && (
                       <Badge className="bg-purple-600 hover:bg-purple-600 text-white text-[10px] font-bold shrink-0">
                         Visualizando
                       </Badge>
@@ -2285,6 +2316,13 @@ export default function Reports() {
         {/* ========================================================================= */}
         {activeReportTab === 'kpi-media-lucro' && (
           <MediaLucroPorMotoReport motos={motos} caixa={caixa} />
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB: LUCRO DESCONTADO (KPI - Plano Conquista) */}
+        {/* ========================================================================= */}
+        {activeReportTab === 'kpi-lucro-descontado' && (
+          <LucroDescontadoReport motos={motos} contratos={contratos} caixa={caixa} />
         )}
       </div>
     </div>
