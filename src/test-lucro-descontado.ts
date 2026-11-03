@@ -218,15 +218,106 @@ export function runLucroDescontadoTests(): { success: boolean; results: TestResu
     updated: '2026-05-15T12:00:00Z',
   }
 
+  // Moto 6: B71 com plano conquista PASSADO/ENCERRADO e hoje contrato normal ativo -> NÃO DEVE ENTRAR
+  const motoB71Passado: Moto = {
+    id: 'moto_b71',
+    placa: 'RLQ4B71',
+    nome: 'B71',
+    modelo: 'START / HONDA',
+    ano: '2026',
+    cor: 'Vermelha',
+    status: 'locada',
+    tipo_locacao_padrao: 'normal',
+    data_compra: '2026-06-11',
+    valor_compra: 19800,
+    created: '2026-06-11T12:00:00Z',
+    updated: '2026-11-02T12:00:00Z',
+  }
+  const contratoB71ConquistaPassado: Contrato = {
+    id: 'ct_b71_conquista_antigo',
+    moto: 'moto_b71',
+    tipo: 'plano_conquista',
+    status: 'finalizado',
+    data_inicio: '2026-06-04',
+    data_entrega: '2026-09-15',
+    prazo_meses: 3,
+    valor_diario: 54.29,
+    created: '2026-06-04T12:00:00Z',
+    updated: '2026-10-28T12:00:00Z',
+  }
+  const contratoB71NormalAtivo: Contrato = {
+    id: 'ct_b71_normal_atual',
+    moto: 'moto_b71',
+    tipo: 'normal',
+    status: 'ativo',
+    data_inicio: '2026-09-23',
+    data_entrega: '',
+    valor_diario: 54.29,
+    created: '2026-09-23T12:00:00Z',
+    updated: '2026-09-23T12:00:00Z',
+  }
+
+  // Moto 7: Moto com contrato Conquista status 'ativo' mas data_entrega no passado (já entregue/concluído) -> NÃO DEVE ENTRAR
+  const motoConquistaVencido: Moto = {
+    id: 'moto_vencida',
+    placa: 'VNC0001',
+    nome: 'VENCIDA',
+    modelo: 'START / HONDA',
+    ano: '2026',
+    cor: 'Preta',
+    status: 'disponivel',
+    tipo_locacao_padrao: 'plano_conquista',
+    data_compra: '2024-01-01',
+    valor_compra: 15000,
+    created: '2024-01-01T12:00:00Z',
+    updated: '2026-11-02T12:00:00Z',
+  }
+  const contratoConquistaEntregaPassada: Contrato = {
+    id: 'ct_vencido',
+    moto: 'moto_vencida',
+    tipo: 'plano_conquista',
+    status: 'ativo',
+    data_inicio: '2024-01-10',
+    data_entrega: '2026-10-10', // data de entrega no passado em relação a 2026-11-02
+    prazo_meses: 24,
+    valor_diario: 50,
+    created: '2024-01-10T12:00:00Z',
+    updated: '2024-01-10T12:00:00Z',
+  }
+
   // Executa o cálculo com todas as motos
   const resultado = calcularLucroDescontado({
-    motos: [motoG71, motoTitanVendida, motoFanNormal, motoNova, motoSemEntrega],
-    contratos: [contratoG71, contratoTitan, contratoFan, contratoNova, contratoSemEntrega],
+    motos: [
+      motoG71,
+      motoTitanVendida,
+      motoFanNormal,
+      motoNova,
+      motoSemEntrega,
+      motoB71Passado,
+      motoConquistaVencido,
+    ],
+    contratos: [
+      contratoG71,
+      contratoTitan,
+      contratoFan,
+      contratoNova,
+      contratoSemEntrega,
+      contratoB71ConquistaPassado,
+      contratoB71NormalAtivo,
+      contratoConquistaEntregaPassada,
+    ],
     caixa: [...caixaG71, ...caixaNova],
     dataReferencia: hoje,
   })
 
-  // 1. Apenas motos elegíveis Plano Conquista ativas devem aparecer (TITAN vendida e FAN normal NÃO entram)
+  // 1. Apenas motos com Plano Conquista ativo/vigente AGORA devem aparecer:
+  // - G71 (ativo, entrega futura) -> entra
+  // - NOVA (ativo, entrega futura) -> entra
+  // - SEM ENTREGA (ativo, indefinido/sem data de fim) -> entra
+  // - TITAN (vendida) -> NÃO entra
+  // - FAN (contrato normal) -> NÃO entra
+  // - B71 (plano conquista finalizado no passado, hoje normal) -> NÃO entra
+  // - VENCIDA (plano conquista com entrega no passado) -> NÃO entra
   assertEqual(
     'Total de motos elegíveis deve ser 3 (G71, NOVA, SEM ENTREGA)',
     resultado.itens.length,
@@ -240,6 +331,16 @@ export function runLucroDescontadoTests(): { success: boolean; results: TestResu
   assertEqual(
     'FAN contrato normal não deve constar',
     resultado.itens.some((i) => i.moto.id === 'moto_fan'),
+    false,
+  )
+  assertEqual(
+    'B71 com plano conquista passado/finalizado não deve constar',
+    resultado.itens.some((i) => i.moto.id === 'moto_b71'),
+    false,
+  )
+  assertEqual(
+    'Moto com plano conquista com data de entrega já passada não deve constar',
+    resultado.itens.some((i) => i.moto.id === 'moto_vencida'),
     false,
   )
 

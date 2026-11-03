@@ -2,8 +2,10 @@
  * Utilitários de cálculo para o relatório LUCRO DESCONTADO (Plano Conquista)
  *
  * Regras de Negócio:
- * - Filtro: apenas motos com contrato Plano Conquista ativo (ou contrato Plano Conquista com data de entrega).
- *   Motos vendidas/cedidas e contratos normais NÃO entram.
+ * - Filtro: apenas motos com contrato Plano Conquista VIGENTE/ATIVO agora (já iniciado e não entregue/encerrado,
+ *   respeitando também o checkbox INDEFINIDO sem data de entrega).
+ *   Motos vendidas/cedidas, contratos normais e contratos Plano Conquista passados (finalizados, cancelados
+ *   ou com data de entrega já passada sem contrato vigente) NÃO entram.
  * - COLUNA 1 — MOTO: nome da moto (sem placa) e situação/status (ex: "Locada", "Disponível").
  * - COLUNA 2 — PREVISÃO DE LUCRO TOTAL ATÉ A DATA DE ENTREGA DO BEM:
  *   Lucro real acumulado no caixa da moto até hoje (entradas − saídas) +
@@ -23,7 +25,12 @@
  */
 
 import { Moto, Contrato, CaixaLancamento } from '@/types/database'
-import { calcularMesesCompletos, formatDateDisplay, parseYearMonthDay } from '@/lib/dateUtils'
+import {
+  calcularMesesCompletos,
+  formatDateDisplay,
+  parseYearMonthDay,
+  toLocalDateString,
+} from '@/lib/dateUtils'
 
 export interface ItemLucroDescontado {
   moto: Moto
@@ -194,38 +201,63 @@ export function calcularLucroDescontado({
     lancamentosPorMoto.set(c.moto, list)
   })
 
-  // 2. Mapear contratos Plano Conquista
-  // Critério de elegibilidade:
+  // 2. Mapear contratos Plano Conquista VIGENTES/ATIVOS AGORA
+  // Regra da usuária: "Planos conquista passados não contam. apenas as motos que agora estão no plano conquista."
+  // Critérios de elegibilidade:
   // - Motos vendidas e cedidas NÃO entram
-  // - Apenas motos com contrato Plano Conquista ativo (ou com contrato Plano Conquista associado)
-  // Contratos normais NÃO entram.
-  const contratosPlanoConquista = contratos.filter((c) => c.tipo === 'plano_conquista')
+  // - Apenas motos que possuem um contrato Plano Conquista VIGENTE/ATIVO hoje:
+  //   a) status === 'ativo'
+  //   b) Já iniciado hoje (data_inicio <= hoje ou sem data_inicio)
+  //   c) Não entregue/encerrado: se tiver data_entrega preenchida, ela deve ser >= hoje.
+  //      Se data_entrega for vazia/indefinida (checkbox INDEFINIDO), o contrato segue ativo sem prazo de fim.
+  // - Contratos Plano Conquista passados (status !== 'ativo', ex: 'finalizado'/'cancelado',
+  //   ou data_entrega no passado) NÃO contam — nem fazem a moto aparecer, nem trazem lucro de plano antigo.
+  const hojeStr = toLocalDateString(hoje)
 
-  // Agrupar contratos por moto. Damos preferência ao contrato ativo; se não houver ativo, o mais recente criado
-  const contratoPorMoto = new Map<string, Contrato>()
-  contratosPlanoConquista.forEach((c) => {
+  const contratosPlanoConquistaAtivos = contratos.filter((c) => {
+    if (c.tipo !== 'plano_conquista') return false
+    if (c.status !== 'ativo') return false
+
+    // Verificar se já iniciou
+    if (c.data_inicio) {
+      const inicioStr = toLocalDateString(c.data_inicio)
+      if (inicioStr > hojeStr) {
+        // Contrato futuro ainda não iniciado
+        return false
+      }
+    }
+
+    // Se tem data de entrega definida (não é indefinido), verificar se ainda não foi entregue/passado
+    if (c.data_entrega && c.data_entrega.trim() !== '') {
+      const entregaStr = toLocalDateString(c.data_entrega)
+      if (entregaStr < hojeStr) {
+        // Data de entrega já no passado (plano concluído/vencido)
+        return false
+      }
+    }
+
+    return true
+  })
+
+  // Agrupar contratos ativos por moto (se houver mais de um, pegar o mais recente)
+  const contratoAtivoPorMoto = new Map<string, Contrato>()
+  contratosPlanoConquistaAtivos.forEach((c) => {
     if (!c.moto) return
-    const existente = contratoPorMoto.get(c.moto)
+    const existente = contratoAtivoPorMoto.get(c.moto)
     if (!existente) {
-      contratoPorMoto.set(c.moto, c)
+      contratoAtivoPorMoto.set(c.moto, c)
     } else {
-      // Prefere ativo sobre finalizado/cancelado
-      if (existente.status !== 'ativo' && c.status === 'ativo') {
-        contratoPorMoto.set(c.moto, c)
-      } else if (existente.status === c.status) {
-        // Mais recente
-        const d1 = new Date(c.created || 0).getTime()
-        const d2 = new Date(existente.created || 0).getTime()
-        if (d1 > d2) {
-          contratoPorMoto.set(c.moto, c)
-        }
+      const d1 = new Date(c.created || 0).getTime()
+      const d2 = new Date(existente.created || 0).getTime()
+      if (d1 > d2) {
+        contratoAtivoPorMoto.set(c.moto, c)
       }
     }
   })
 
   // 3. Filtrar as motos elegíveis:
   // - status !== 'vendida' && status !== 'cedida'
-  // - Tem contrato Plano Conquista (preferencialmente ativo)
+  // - Possui contrato Plano Conquista ativo/vigente agora
   const itens: ItemLucroDescontado[] = []
 
   motos.forEach((moto) => {
@@ -234,9 +266,9 @@ export function calcularLucroDescontado({
       return
     }
 
-    const contrato = contratoPorMoto.get(moto.id)
+    const contrato = contratoAtivoPorMoto.get(moto.id)
     if (!contrato) {
-      // Não tem contrato Plano Conquista
+      // Não tem contrato Plano Conquista ativo/vigente agora
       return
     }
 
