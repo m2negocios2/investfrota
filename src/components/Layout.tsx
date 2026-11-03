@@ -116,12 +116,18 @@ export default function Layout() {
       {/* Sidebar Desktop */}
       <aside className="hidden md:flex md:w-64 flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
         {/* Brand */}
-        <div className="py-4 px-4 border-b border-slate-200 dark:border-slate-800 flex flex-col items-center gap-2">
-          <div className="h-16 w-16 rounded-xl bg-[#F2EFE9] p-1.5 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
-            <img src={logoInvestFrota} alt="Logo" className="h-full w-full object-contain" />
+        <div className="py-4 px-4 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-3">
+          {/* Identidade do sistema: logomarca + nome INVEST FROTA */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl bg-[#F2EFE9] p-1 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
+              <img src={logoInvestFrota} alt="Logo" className="h-full w-full object-contain" />
+            </div>
+            <span className="text-sm md:text-base font-extrabold tracking-wide text-slate-900 dark:text-white truncate">
+              INVEST FROTA
+            </span>
           </div>
-          {/* Seção da empresa: nome vindo do cadastro (/cadastros) */}
-          <div className="min-w-0 w-full text-center">
+          {/* Linha divisória e, abaixo dela, o nome da empresa cadastrada (/cadastros) */}
+          <div className="min-w-0 w-full pt-3 border-t border-slate-200 dark:border-slate-800 text-center">
             <span className="text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300 block leading-tight truncate">
               {nomeEmpresaDisplay}
             </span>
@@ -250,8 +256,25 @@ export default function Layout() {
 
         {/* Mobile menu dropdown */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 space-y-1">
-            <div className="p-3 mb-2 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-between">
+          <div className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 space-y-2">
+            {/* Cabeçalho do menu mobile: Logo + INVEST FROTA, linha divisória e nome da empresa */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200/70 dark:border-slate-700/60 flex flex-col gap-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="h-10 w-10 rounded-xl bg-[#F2EFE9] p-1 shadow-sm border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-center shrink-0 overflow-hidden">
+                  <img src={logoInvestFrota} alt="Logo" className="h-full w-full object-contain" />
+                </div>
+                <span className="text-sm font-extrabold tracking-wide text-slate-900 dark:text-white truncate">
+                  INVEST FROTA
+                </span>
+              </div>
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-center">
+                <span className="text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300 block leading-tight truncate">
+                  {nomeEmpresaDisplay}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold">{displayUserName}</p>
               </div>
