@@ -19,9 +19,12 @@
  *   Coluna 2 menos o valor de compra da moto (campo valor_compra da moto).
  *   Se Coluna 2 for nula (sem data de entrega), Coluna 3 fica null ("—").
  * - COLUNA 4 — LUCRO MÉDIO DESCONTADO:
- *   Coluna 3 ÷ meses de operação, usando a MESMA regra de meses completos do LUCRO MÉDIO MOTO
- *   (calcularMesesCompletos(data_compra_ou_primeiro_lanc, hoje)).
- *   Se meses de operação < 1, exibe "—" (sem divisão por zero).
+ *   Coluna 3 ÷ quantidade de meses entre a DATA DE COMPRA (o "recebimento" da moto)
+ *   e a DATA DE ENTREGA DO BEM (o "final" do contrato Plano Conquista vigente).
+ *   Usa a mesma regra de meses completos do projeto (calcularMesesCompletos(data_compra, data_entrega)).
+ *   Casos de borda:
+ *   - Menos de 1 mês completo no intervalo (mesesPrazoTotalPlano < 1) -> exibe "—" (sem divisão por zero).
+ *   - Sem data de entrega definida no contrato (ou sem data de início/compra da moto) -> null / exibe "—".
  */
 
 import { Moto, Contrato, CaixaLancamento } from '@/types/database'
@@ -42,6 +45,7 @@ export interface ItemLucroDescontado {
   valorCompra: number
   mesesOperacao: number
   mesesAteEntrega: number
+  mesesPrazoTotalPlano: number
   lucroAcumuladoReal: number
   lucroMedioMensalReal: number | null
   previsaoLucroTotal: number | null
@@ -340,11 +344,23 @@ export function calcularLucroDescontado({
       lucroDescontado = previsaoLucroTotal - valorCompra
     }
 
-    // Coluna 4: Lucro Médio Descontado (Coluna 3 ÷ meses de operação)
-    // Se mesesOperacao < 1 (0 meses), mostra "—" sem dividir por zero
+    // Prazo total do plano da compra ("recebimento" da moto) até a data de entrega do bem
+    // Usa a mesma regra de meses completos aplicada ao intervalo compra -> entrega
+    let mesesPrazoTotalPlano = 0
+    if (infoInicio.dataInicioEfetiva && !semDataEntrega && contrato.data_entrega) {
+      mesesPrazoTotalPlano = calcularMesesCompletos(
+        infoInicio.dataInicioEfetiva,
+        contrato.data_entrega,
+      )
+    }
+
+    // Coluna 4: Lucro Médio Descontado
+    // Nova regra: Lucro Descontado (3ª coluna) ÷ quantidade de meses entre a DATA DE COMPRA e a DATA DE ENTREGA DO BEM.
+    // Menos de 1 mês completo no intervalo -> null ("—" sem divisão por zero).
+    // Sem data de entrega definida -> null ("—").
     let lucroMedioDescontado: number | null = null
-    if (lucroDescontado !== null && mesesOperacao > 0) {
-      lucroMedioDescontado = lucroDescontado / mesesOperacao
+    if (lucroDescontado !== null && mesesPrazoTotalPlano > 0) {
+      lucroMedioDescontado = lucroDescontado / mesesPrazoTotalPlano
     }
 
     // Situação legível da moto
@@ -364,6 +380,7 @@ export function calcularLucroDescontado({
       valorCompra,
       mesesOperacao,
       mesesAteEntrega,
+      mesesPrazoTotalPlano,
       lucroAcumuladoReal: lucroAcumulado,
       lucroMedioMensalReal,
       previsaoLucroTotal,

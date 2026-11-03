@@ -134,7 +134,7 @@ export function LucroDescontadoReport({ motos, contratos, caixa }: LucroDesconta
               </CardTitle>
               <CardDescription className="text-[11px] mt-0.5">
                 Projeção do lucro total até a entrega do bem no Plano Conquista, descontado do valor
-                de compra da moto e distribuído pelos meses de operação.
+                de compra da moto e distribuído pelos meses totais do plano (compra até entrega).
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -257,8 +257,8 @@ export function LucroDescontadoReport({ motos, contratos, caixa }: LucroDesconta
                 {motoDestaque.nomeMoto}
                 <span className="text-[10px] text-muted-foreground font-normal ml-2">
                   Compra: {formatBRL(motoDestaque.valorCompra)} • Entrega:{' '}
-                  {motoDestaque.dataEntregaFormatada} • {motoDestaque.mesesOperacao}{' '}
-                  {motoDestaque.mesesOperacao === 1 ? 'mês' : 'meses'}
+                  {motoDestaque.dataEntregaFormatada} • {motoDestaque.mesesPrazoTotalPlano}{' '}
+                  {motoDestaque.mesesPrazoTotalPlano === 1 ? 'mês de plano' : 'meses de plano'}
                 </span>
               </p>
             </div>
@@ -287,7 +287,7 @@ export function LucroDescontadoReport({ motos, contratos, caixa }: LucroDesconta
               </CardTitle>
               <CardDescription className="text-[10px]">
                 Previsão = lucro real + projeção até entrega · Lucro descontado = previsão − compra
-                · Lucro médio = descontado ÷ meses
+                · Lucro médio = descontado ÷ meses do plano (compra até entrega)
               </CardDescription>
             </div>
           </div>
@@ -364,7 +364,7 @@ export function LucroDescontadoReport({ motos, contratos, caixa }: LucroDesconta
                     Lucro Descontado
                   </th>
 
-                  {/* COLUNA 4 — LUCRO MÉDIO DESCONTADO (coluna 3 ÷ meses de operação) */}
+                  {/* COLUNA 4 — LUCRO MÉDIO DESCONTADO (coluna 3 ÷ meses compra até entrega) */}
                   <th className="py-2 px-3 text-right font-black uppercase tracking-wider bg-purple-50/70 dark:bg-purple-950/40 text-purple-950 dark:text-purple-200 text-[10px] w-[20%]">
                     Lucro Médio
                   </th>
@@ -496,7 +496,7 @@ export function LucroDescontadoReport({ motos, contratos, caixa }: LucroDesconta
                           )}
                         </td>
 
-                        {/* COLUNA 4: Lucro Médio Descontado (Coluna 3 ÷ meses de operação) */}
+                        {/* COLUNA 4: Lucro Médio Descontado (Coluna 3 ÷ meses compra até entrega) */}
                         <td className="py-2 px-3 text-right tabular-nums bg-purple-50/40 dark:bg-purple-950/15 text-xs">
                           {item.lucroMedioDescontado !== null ? (
                             <div className="flex flex-col items-end leading-tight">
@@ -510,15 +510,18 @@ export function LucroDescontadoReport({ motos, contratos, caixa }: LucroDesconta
                                 {formatBRL(item.lucroMedioDescontado)}
                               </span>
                               <span className="text-[9px] text-muted-foreground">
-                                {item.mesesOperacao} {item.mesesOperacao === 1 ? 'mês' : 'meses'}
+                                {item.mesesPrazoTotalPlano}{' '}
+                                {item.mesesPrazoTotalPlano === 1 ? 'mês' : 'meses'}
                               </span>
                             </div>
                           ) : (
                             <div className="flex flex-col items-end leading-tight">
                               <span className="text-muted-foreground font-normal text-xs">—</span>
-                              {item.mesesOperacao === 0 && (
+                              {item.semDataEntrega ? (
+                                <span className="text-[9px] text-muted-foreground">Indefinido</span>
+                              ) : item.mesesPrazoTotalPlano === 0 ? (
                                 <span className="text-[9px] text-muted-foreground">&lt; 1 mês</span>
-                              )}
+                              ) : null}
                             </div>
                           )}
                         </td>
@@ -691,7 +694,8 @@ export function LucroDescontadoReport({ motos, contratos, caixa }: LucroDesconta
               <Info className="w-3.5 h-3.5 text-purple-600 shrink-0" />
               <span>
                 <strong>Fórmulas:</strong> Previsão = lucro real + projeção mensal até entrega ·
-                Lucro descontado = previsão − valor da moto · Lucro médio = descontado ÷ meses
+                Lucro descontado = previsão − valor da moto · Lucro médio = descontado ÷ meses do
+                plano (compra até entrega)
               </span>
             </div>
             <span className="text-[10px] text-muted-foreground">

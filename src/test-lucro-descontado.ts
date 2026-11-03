@@ -2,13 +2,14 @@
  * Testes das regras de cálculo do relatório LUCRO DESCONTADO (Plano Conquista)
  *
  * Casos cobertos:
- * 1. Moto com contrato Plano Conquista normal (compra, meses decorridos, meses futuros, previsão, lucro descontado e lucro médio).
+ * 1. Moto com contrato Plano Conquista normal (compra, meses decorridos, meses futuros, previsão, lucro descontado e lucro médio = lucro descontado / meses compra->entrega).
  * 2. Moto vendida/cedida NÃO entra no relatório (mesmo se teve contrato Plano Conquista).
  * 3. Moto com contrato normal NÃO entra no relatório.
  * 4. Contrato sem data_entrega -> previsão = null, lucro descontado = null, lucro médio = null (exibe "—").
  * 5. Data de entrega já passada (meses futuros <= 0) -> previsão = lucro real acumulado.
- * 6. Moto com menos de 1 mês completo de operação -> mesesOperacao = 0, lucroMédioDescontado = null (proteção contra divisão por zero).
- * 7. Valores negativos e positivos respeitados nas colunas de projeção e lucro descontado.
+ * 6. Moto com menos de 1 mês completo de operação até hoje: projeta com acumulado e divide pelos meses totais do plano compra->entrega.
+ * 7. Caso de borda: prazo compra->entrega < 1 mês -> lucroMedioDescontado = null (exibe "—").
+ * 8. Valores negativos e positivos respeitados nas colunas de projeção e lucro descontado.
  */
 
 import { calcularLucroDescontado } from './lib/lucroDescontadoUtils'
@@ -347,7 +348,7 @@ export function runLucroDescontadoTests(): { success: boolean; results: TestResu
   // 2. Verificação de G71:
   const itemG71 = resultado.itens.find((i) => i.moto.id === 'moto_g71')!
   assertEqual(
-    'G71: meses de operação da compra (17/06 a 02/11) = 4 meses completos',
+    'G71: meses de operação da compra (17/06/2026 a 02/11/2026) = 4 meses completos',
     itemG71.mesesOperacao,
     4,
   )
@@ -363,20 +364,83 @@ export function runLucroDescontadoTests(): { success: boolean; results: TestResu
     itemG71.lucroDescontado,
     4850,
   )
-  // Lucro médio descontado = 4850 / 4 = 1212.50
+  // Nova regra: Meses do prazo total entre data_compra (17/06/2026) e data_entrega (18/04/2029) = 34 meses completos
+  // (de 17/06/2026 a 17/04/2029 são 34 meses completos; 18 >= 17)
   assertEqual(
-    'G71: lucro médio descontado (4850 / 4) = 1212.50',
+    'G71: meses prazo total plano (compra -> entrega) = 34',
+    itemG71.mesesPrazoTotalPlano,
+    34,
+  )
+  // Lucro médio descontado = 4850 / 34 = 142.64705882352942
+  assertEqual(
+    'G71: lucro médio descontado (4850 / 34 meses da compra até a entrega)',
     itemG71.lucroMedioDescontado,
-    1212.5,
+    4850 / 34,
   )
 
-  // 3. Verificação de Moto NOVA (menos de 1 mês):
+  // 3. Verificação de Moto NOVA (menos de 1 mês de operação, mas compra 20/10/2026 até entrega 21/10/2028 = 24 meses de plano):
   const itemNova = resultado.itens.find((i) => i.moto.id === 'moto_nova')!
-  assertEqual('NOVA: meses de operação = 0 (menos de 1 mês completo)', itemNova.mesesOperacao, 0)
-  assertEqual('NOVA: lucro médio mensal real = null', itemNova.lucroMedioMensalReal, null)
   assertEqual(
-    'NOVA: lucro médio descontado = null (não divide por zero, exibe "—")',
+    'NOVA: meses de operação = 0 (menos de 1 mês completo até hoje)',
+    itemNova.mesesOperacao,
+    0,
+  )
+  assertEqual('NOVA: lucro médio mensal real = null', itemNova.lucroMedioMensalReal, null)
+  // Previsão = lucro acumulado = 500
+  assertEqual('NOVA: previsão de lucro total = 500', itemNova.previsaoLucroTotal, 500)
+  // Lucro descontado = 500 - 20000 = -19500
+  assertEqual('NOVA: lucro descontado = -19500', itemNova.lucroDescontado, -19500)
+  // Prazo total da compra (20/10/2026) até a entrega (21/10/2028) = 24 meses completos
+  assertEqual(
+    'NOVA: meses prazo total plano (compra -> entrega) = 24',
+    itemNova.mesesPrazoTotalPlano,
+    24,
+  )
+  // Lucro médio descontado = -19500 / 24 = -812.50 (negativo em vermelho)
+  assertEqual(
+    'NOVA: lucro médio descontado (-19500 / 24) = -812.5',
     itemNova.lucroMedioDescontado,
+    -812.5,
+  )
+
+  // 3b. Caso de borda: Moto com compra e entrega com menos de 1 mês de intervalo total (mesesPrazoTotalPlano < 1) -> null ("—")
+  // Vamos testar diretamente calcularLucroDescontado com moto e contrato de prazo < 1 mês
+  const motoCurtoPrazo: Moto = {
+    id: 'moto_curta',
+    placa: 'CRT0001',
+    nome: 'CURTA',
+    modelo: 'START',
+    ano: '2026',
+    cor: 'Branca',
+    status: 'locada',
+    tipo_locacao_padrao: 'plano_conquista',
+    data_compra: '2026-10-15',
+    valor_compra: 10000,
+    created: '2026-10-15T12:00:00Z',
+    updated: '2026-10-15T12:00:00Z',
+  }
+  const contratoCurtoPrazo: Contrato = {
+    id: 'ct_curta',
+    moto: 'moto_curta',
+    tipo: 'plano_conquista',
+    status: 'ativo',
+    data_inicio: '2026-10-15',
+    data_entrega: '2026-11-10', // Menos de 1 mês da compra 15/10/2026
+    valor_diario: 50,
+    created: '2026-10-15T12:00:00Z',
+    updated: '2026-10-15T12:00:00Z',
+  }
+  const resCurta = calcularLucroDescontado({
+    motos: [motoCurtoPrazo],
+    contratos: [contratoCurtoPrazo],
+    caixa: [],
+    dataReferencia: hoje,
+  })
+  const itemCurta = resCurta.itens[0]
+  assertEqual('CURTA: mesesPrazoTotalPlano < 1 (0 meses)', itemCurta.mesesPrazoTotalPlano, 0)
+  assertEqual(
+    'CURTA: lucroMedioDescontado = null ("—" sem divisão por zero para intervalo < 1 mês)',
+    itemCurta.lucroMedioDescontado,
     null,
   )
 
