@@ -308,7 +308,7 @@ export function ComparativoGrafico({
 
   // 4. Dados comparativos: motos (líquidas de dívidas) e ativos (líquidos de IR)
   const dadosGrafico = useMemo(() => {
-    const rentMotos = Number(dadosRentabilidadeMotos.rentabilidadeAnualizadaPct.toFixed(1))
+    const rentMotos = Number(dadosRentabilidadeMotos.rentabilidadeAnualizadaPct.toFixed(2))
     const ativos = ATIVOS_CONFIG.map((a) => {
       const bruta = taxas[a.chave]
       const ir = irAtivos[a.chave]
@@ -319,7 +319,7 @@ export function ComparativoGrafico({
         subtitulo: a.subtitulo,
         categoria: a.categoria,
         descricao: a.descricao,
-        taxaBruta: Number(bruta.toFixed(1)),
+        taxaBruta: Number(bruta.toFixed(2)),
         irPct: ir,
         taxa: Number(liquida.toFixed(2)),
         motos: rentMotos,
@@ -366,7 +366,7 @@ export function ComparativoGrafico({
   // Texto da rentabilidade das motos: "—" quando o capital próprio não é positivo
   const rentMotosExibe = dadosRentabilidadeMotos.rentabilidadeDisponivel
   const rentMotosLabel = rentMotosExibe
-    ? dadosRentabilidadeMotos.rentabilidadeAnualizadaPct.toFixed(1)
+    ? dadosRentabilidadeMotos.rentabilidadeAnualizadaPct.toFixed(2)
     : '—'
   const rentMotosTexto = rentMotosExibe ? `${rentMotosLabel}% a.a.` : '—'
 
@@ -498,10 +498,9 @@ export function ComparativoGrafico({
                       Líquido
                     </span>
                     <span className="text-[11px] font-black tabular-nums" style={{ color: a.cor }}>
-                      {(taxas[a.chave] * (1 - irAtivos[a.chave] / 100)).toLocaleString('pt-BR', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      {(taxas[a.chave] * (1 - irAtivos[a.chave] / 100))
+                        .toFixed(2)
+                        .replace('.', ',')}
                       %
                     </span>
                   </div>
@@ -620,7 +619,7 @@ export function ComparativoGrafico({
                   />
                   <YAxis
                     tick={{ fontSize: 10 }}
-                    tickFormatter={(v) => `${v}%`}
+                    tickFormatter={(v) => `${Number(v).toFixed(2)}%`}
                     domain={[minTaxaReferencia, Math.ceil(maiorTaxaReferencia * 1.15)]}
                     stroke="#888888"
                   />
@@ -772,7 +771,7 @@ export function ComparativoGrafico({
                       </span>
                       {!item.isDestaque && (
                         <span className="text-[10px] text-muted-foreground block">
-                          bruta {item.taxaBruta.toFixed(1)}% · IR {item.irPct}% ·{' '}
+                          bruta {item.taxaBruta.toFixed(2)}% · IR {Number(item.irPct).toFixed(2)}% ·{' '}
                           <span className="font-bold">líquido {item.taxa.toFixed(2)}%</span>
                         </span>
                       )}
@@ -783,8 +782,8 @@ export function ComparativoGrafico({
                           }`}
                         >
                           {diffPct >= 0
-                            ? `Motos +${diffPct.toFixed(1)}%`
-                            : `Motos ${diffPct.toFixed(1)}%`}
+                            ? `Motos +${diffPct.toFixed(2)}%`
+                            : `Motos ${diffPct.toFixed(2)}%`}
                         </span>
                       )}
                       {item.isDestaque && (

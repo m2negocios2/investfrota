@@ -22,7 +22,6 @@ import {
   RotateCcw,
   Gauge,
   Wallet,
-  AlertTriangle,
   Wrench,
   Clock,
   Sparkles,
@@ -156,14 +155,6 @@ export default function Reports() {
     .reduce((acc, c) => acc + Number(c.valor), 0)
 
   const contasAReceber = contasAReceberAlugueis + contasAReceberVendasEmAberto
-  const recebimentosAtrasados = recebimentos
-    .filter((r) => r.status === 'em_atraso')
-    .reduce((acc, r) => acc + r.valor, 0)
-  const taxaInadimplencia =
-    contasAReceber + totalEntradasGerais > 0
-      ? (recebimentosAtrasados / (contasAReceber + totalEntradasGerais)) * 100
-      : 0
-
   // ----------------------------------------------------------------------
   // DRE MENSAL (competência / caixa no mês selecionado)
   // ----------------------------------------------------------------------
@@ -404,7 +395,7 @@ export default function Reports() {
       : 0
   const paybackMedioMeses =
     lucroLiquidoMedioPorMotoMes > 0
-      ? Math.round(valorMedioMoto / lucroLiquidoMedioPorMotoMes)
+      ? Number((valorMedioMoto / lucroLiquidoMedioPorMotoMes).toFixed(2))
       : null
 
   // Contas a Pagar Pendentes / Abertas (com saldo devedor restante > 0)
@@ -1255,7 +1246,7 @@ export default function Reports() {
                 {/* Linha 3: Lucro Bruto */}
                 <div className="p-3 bg-blue-50/40 dark:bg-blue-950/20 rounded-lg flex items-center justify-between font-semibold text-sm text-blue-900 dark:text-blue-200 border-l-4 border-l-blue-600 pl-4">
                   <span>
-                    (=) LUCRO BRUTO OPERACIONAL (Margem Bruta: {margemBrutaMes.toFixed(1)}%)
+                    (=) LUCRO BRUTO OPERACIONAL (Margem Bruta: {margemBrutaMes.toFixed(2)}%)
                   </span>
                   <span>
                     R$ {lucroBrutoMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -1316,7 +1307,7 @@ export default function Reports() {
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0">
                                   <span className="text-[11px] text-muted-foreground font-mono">
-                                    {pctSobreFixas.toFixed(1)}%
+                                    {pctSobreFixas.toFixed(2)}%
                                   </span>
                                   <span className="font-bold text-red-600 dark:text-red-400 font-mono">
                                     - R${' '}
@@ -1348,7 +1339,7 @@ export default function Reports() {
                       (=) RESULTADO LÍQUIDO DO MÊS (LUCRO LÍQUIDO)
                     </span>
                     <span className="text-xs text-slate-300">
-                      Margem Líquida apurada: {margemLiquidaMes.toFixed(1)}% sobre a receita bruta
+                      Margem Líquida apurada: {margemLiquidaMes.toFixed(2)}% sobre a receita bruta
                     </span>
                   </div>
                   <span
@@ -1535,7 +1526,7 @@ export default function Reports() {
                                   </div>
                                   <div className="flex items-center gap-3 shrink-0">
                                     <span className="text-[11px] text-muted-foreground font-mono">
-                                      {pctSobreFixas.toFixed(1)}% do total
+                                      {pctSobreFixas.toFixed(2)}% do total
                                     </span>
                                     <span className="font-bold text-red-600 dark:text-red-400 font-mono text-sm">
                                       - R${' '}
@@ -1567,7 +1558,7 @@ export default function Reports() {
                                         </div>
                                         <div className="truncate font-mono">
                                           {temValor
-                                            ? `${valorMes >= 1000 ? `${(valorMes / 1000).toFixed(1)}k` : valorMes.toFixed(0)}`
+                                            ? `${valorMes >= 1000 ? `${(valorMes / 1000).toFixed(2)}k` : valorMes.toFixed(2)}`
                                             : '—'}
                                         </div>
                                       </div>
@@ -1598,7 +1589,7 @@ export default function Reports() {
                       (=) RESULTADO LÍQUIDO DO ANO ({selectedYear})
                     </span>
                     <span className="text-xs text-slate-300">
-                      Margem Líquida Anual: {margemLiquidaAno.toFixed(1)}%
+                      Margem Líquida Anual: {margemLiquidaAno.toFixed(2)}%
                     </span>
                   </div>
                   <span
@@ -1820,7 +1811,7 @@ export default function Reports() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-extrabold text-blue-600">
-                  {margemLiquidaMes.toFixed(1)}%
+                  {margemLiquidaMes.toFixed(2)}%
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Percentual de cada R$ 1,00 faturado que sobra limpo como lucro após custos e
@@ -1839,7 +1830,7 @@ export default function Reports() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-extrabold text-emerald-600">
-                  {roeAproximado.toFixed(1)}% a.a.
+                  {roeAproximado.toFixed(2)}% a.a.
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Rentabilidade estimada anualizada sobre o capital investido na frota e reservas.
@@ -1857,28 +1848,10 @@ export default function Reports() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-extrabold text-purple-600">
-                  {taxaOcupacao.toFixed(0)}%
+                  {taxaOcupacao.toFixed(2)}%
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {motosLocadas} de {totalMotos} motos gerando receita neste momento.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Taxa de Inadimplência */}
-            <Card className="shadow-sm border-amber-200 dark:border-amber-900">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase flex items-center justify-between">
-                  <span>Taxa de Inadimplência</span>
-                  <Activity className="w-4 h-4 text-amber-600" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-extrabold text-amber-600">
-                  {taxaInadimplencia.toFixed(1)}%
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Aluguéis em atraso: R$ {recebimentosAtrasados.toFixed(2)}
                 </p>
               </CardContent>
             </Card>
@@ -1911,7 +1884,7 @@ export default function Reports() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                  {roaFrota.toFixed(1)}% a.a.
+                  {roaFrota.toFixed(2)}% a.a.
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Eficiência da frota em transformar os ativos físicos em lucro líquido.
@@ -1961,7 +1934,7 @@ export default function Reports() {
                 <CardContent>
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl sm:text-3xl font-extrabold text-blue-600">
-                      {taxaOcupacao.toFixed(0)}%
+                      {taxaOcupacao.toFixed(2)}%
                     </span>
                     <span className="text-xs font-medium text-muted-foreground">
                       ({motosLocadas}/{totalMotos} motos)
@@ -1999,7 +1972,7 @@ export default function Reports() {
                         ) : (
                           <ArrowDownRight className="w-3.5 h-3.5" />
                         )}
-                        {Math.abs(crescimentoReceitaMoM).toFixed(1)}% vs mês anterior
+                        {Math.abs(crescimentoReceitaMoM).toFixed(2)}% vs mês anterior
                       </span>
                     ) : (
                       <span className="text-muted-foreground">Primeiro mês registrado</span>
@@ -2022,7 +1995,7 @@ export default function Reports() {
                       margemLiquidaMes >= 0 ? 'text-purple-600' : 'text-red-600'
                     }`}
                   >
-                    {margemLiquidaMes.toFixed(1)}%
+                    {margemLiquidaMes.toFixed(2)}%
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
                     Lucro líquido mensal de R${' '}
@@ -2080,41 +2053,7 @@ export default function Reports() {
                     </span>
                   </div>
                   <p className="text-[11px] text-muted-foreground pt-1">
-                    Margem Líquida Anual acumulada de {margemLiquidaAno.toFixed(1)}%.
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Inadimplência e Atrasos */}
-              <Card className="shadow-sm border-amber-200 dark:border-amber-900/40">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase flex items-center justify-between">
-                    <span>Inadimplência (Atrasos)</span>
-                    <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2.5">
-                  <div className="flex items-baseline justify-between border-b pb-1.5">
-                    <span className="text-sm text-muted-foreground">Taxa de Inadimplência:</span>
-                    <span className="text-xl font-bold text-amber-600">
-                      {taxaInadimplencia.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm border-b pb-1.5">
-                    <span className="text-muted-foreground">Total em Atraso:</span>
-                    <span className="font-bold text-amber-600">
-                      R${' '}
-                      {recebimentosAtrasados.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Contas a Receber Geral:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      R$ {contasAReceber.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground pt-1">
-                    Baseado nos recebimentos marcados como 'em_atraso'.
+                    Margem Líquida Anual acumulada de {margemLiquidaAno.toFixed(2)}%.
                   </p>
                 </CardContent>
               </Card>
@@ -2184,8 +2123,8 @@ export default function Reports() {
                     <span className="text-muted-foreground">% da Receita do Mês:</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200">
                       {receitaBrutaMes > 0
-                        ? ((comissoesMes / receitaBrutaMes) * 100).toFixed(1)
-                        : 0}
+                        ? ((comissoesMes / receitaBrutaMes) * 100).toFixed(2)
+                        : '0,00'}
                       %
                     </span>
                   </div>
@@ -2207,7 +2146,9 @@ export default function Reports() {
                   <div className="flex items-baseline justify-between border-b pb-1.5">
                     <span className="text-sm text-muted-foreground">Retorno Estimado:</span>
                     <span className="text-xl font-bold text-blue-600">
-                      {paybackMedioMeses !== null ? `~${paybackMedioMeses} meses` : 'Em apuração'}
+                      {paybackMedioMeses !== null
+                        ? `~${paybackMedioMeses.toFixed(2)} meses`
+                        : 'Em apuração'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm border-b pb-1.5">
@@ -2259,7 +2200,7 @@ export default function Reports() {
                       }`}
                     >
                       {crescimentoReceitaMoM !== null
-                        ? `${crescimentoReceitaMoM >= 0 ? '+' : ''}${crescimentoReceitaMoM.toFixed(1)}%`
+                        ? `${crescimentoReceitaMoM >= 0 ? '+' : ''}${crescimentoReceitaMoM.toFixed(2)}%`
                         : '—'}
                     </span>
                   </div>

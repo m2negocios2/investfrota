@@ -158,11 +158,18 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              R$ {previsaoSemanal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R${' '}
+              {previsaoSemanal.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               Projeção mensal: R${' '}
-              {previsaoMensal.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+              {previsaoMensal.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
           </CardContent>
         </Card>
@@ -289,7 +296,12 @@ export default function Dashboard() {
                           </div>
                           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                             <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 hidden sm:inline">
-                              R$ {valorSem.toFixed(0)}/sem
+                              R${' '}
+                              {valorSem.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                              /sem
                             </span>
                             <Badge
                               variant="outline"
@@ -327,7 +339,11 @@ export default function Dashboard() {
                 <span
                   className={`text-2xl font-bold ${saldoCaixa >= 0 ? 'text-emerald-600' : 'text-red-600'}`}
                 >
-                  R$ {saldoCaixa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R${' '}
+                  {saldoCaixa.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </span>
               </div>
 
@@ -338,7 +354,11 @@ export default function Dashboard() {
                     <span>Total Entradas</span>
                   </div>
                   <p className="font-bold text-slate-800 dark:text-slate-100">
-                    R$ {totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R${' '}
+                    {totalEntradas.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </p>
                 </div>
                 <div className="p-3 bg-red-50 dark:bg-red-950/40 rounded-lg border border-red-100 dark:border-red-900">
@@ -347,7 +367,11 @@ export default function Dashboard() {
                     <span>Total Saídas</span>
                   </div>
                   <p className="font-bold text-slate-800 dark:text-slate-100">
-                    R$ {totalSaidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R${' '}
+                    {totalSaidas.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </p>
                 </div>
               </div>

@@ -301,12 +301,12 @@ export function calcularProjecaoFluxoCaixa(
 }
 
 /**
- * Formata número no padrão pt-BR sem decimais quando inteiro (ex: 6.250 ou -1.250)
+ * Formata número no padrão pt-BR com exatamente 2 casas decimais (ex: 6.250,00)
  */
 export function formatarNumeroPlanilha(valor: number): string {
   if (valor === undefined || valor === null || isNaN(valor)) return '-'
   return valor.toLocaleString('pt-BR', {
-    maximumFractionDigits: 0,
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   })
 }

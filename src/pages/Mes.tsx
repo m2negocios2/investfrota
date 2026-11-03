@@ -339,6 +339,7 @@ export default function Mes() {
               R${' '}
               {currentMonthGroup.totalRecebimentos.toLocaleString('pt-BR', {
                 minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
               })}
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -361,6 +362,7 @@ export default function Mes() {
               R${' '}
               {currentMonthGroup.totalDespesas.toLocaleString('pt-BR', {
                 minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
               })}
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -387,7 +389,10 @@ export default function Mes() {
               }`}
             >
               R${' '}
-              {currentMonthGroup.saldoLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              {currentMonthGroup.saldoLiquido.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {currentMonthGroup.totalRecebimentos > 0
@@ -452,6 +457,7 @@ export default function Mes() {
                             R${' '}
                             {month.saldoLiquido.toLocaleString('pt-BR', {
                               minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
                             })}
                           </span>
                         </div>
@@ -511,6 +517,7 @@ export default function Mes() {
                           R${' '}
                           {month.totalRecebimentos.toLocaleString('pt-BR', {
                             minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
                           })}
                         </span>
                       </div>
@@ -553,6 +560,7 @@ export default function Mes() {
                                     R${' '}
                                     {item.valor.toLocaleString('pt-BR', {
                                       minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
                                     })}
                                   </td>
 
@@ -635,6 +643,7 @@ export default function Mes() {
                           R${' '}
                           {month.totalDespesas.toLocaleString('pt-BR', {
                             minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
                           })}
                         </span>
                       </div>
@@ -677,6 +686,7 @@ export default function Mes() {
                                     R${' '}
                                     {item.valor.toLocaleString('pt-BR', {
                                       minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
                                     })}
                                   </td>
 

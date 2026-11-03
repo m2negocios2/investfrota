@@ -665,7 +665,11 @@ export default function ContasAPagar() {
         >
           <TrendingUp className="w-4 h-4" />
           Contas a Receber ({contasReceberAbertasQtd} abertas • R${' '}
-          {totalReceberEmAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+          {totalReceberEmAberto.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+          )
         </button>
       </div>
 
@@ -685,7 +689,11 @@ export default function ContasAPagar() {
               </CardHeader>
               <CardContent className="p-3.5 pt-0">
                 <div className="text-xl font-black text-amber-700 dark:text-amber-400">
-                  R$ {totalReceberEmAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R${' '}
+                  {totalReceberEmAberto.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   {contasReceberAbertasQtd} conta(s) pendente(s) de recebimento
@@ -704,7 +712,11 @@ export default function ContasAPagar() {
               </CardHeader>
               <CardContent className="p-3.5 pt-0">
                 <div className="text-xl font-black text-emerald-600 dark:text-emerald-400">
-                  R$ {totalRecebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R${' '}
+                  {totalRecebido.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   Entradas já lançadas no Caixa
@@ -725,6 +737,7 @@ export default function ContasAPagar() {
                 <div className="text-xl font-black text-slate-900 dark:text-white">
                   R${' '}
                   {(totalReceberEmAberto + totalRecebido).toLocaleString('pt-BR', {
+                    maximumFractionDigits: 2,
                     minimumFractionDigits: 2,
                   })}
                 </div>
@@ -833,7 +846,10 @@ export default function ContasAPagar() {
                         <div className="text-right">
                           <span className="text-lg font-black text-slate-900 dark:text-white block">
                             R${' '}
-                            {Number(cr.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            {Number(cr.valor).toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                           </span>
                           {isRecebida && cr.data_recebimento && (
                             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block font-medium">
@@ -884,6 +900,7 @@ export default function ContasAPagar() {
                   <strong>"{deleteContaReceberTarget?.descricao}"</strong> (Devedor:{' '}
                   {deleteContaReceberTarget?.devedor}, Valor: R${' '}
                   {Number(deleteContaReceberTarget?.valor || 0).toLocaleString('pt-BR', {
+                    maximumFractionDigits: 2,
                     minimumFractionDigits: 2,
                   })}
                   )?
@@ -925,7 +942,11 @@ export default function ContasAPagar() {
               </CardHeader>
               <CardContent className="p-3.5 pt-0">
                 <div className="text-xl font-black text-slate-900 dark:text-white">
-                  R$ {totalPassivo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R${' '}
+                  {totalPassivo.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   Soma total das dívidas registradas
@@ -944,7 +965,11 @@ export default function ContasAPagar() {
               </CardHeader>
               <CardContent className="p-3.5 pt-0">
                 <div className="text-xl font-black text-emerald-600 dark:text-emerald-400">
-                  R$ {totalPagoGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R${' '}
+                  {totalPagoGeral.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   Amortizado em saídas no caixa
@@ -963,7 +988,11 @@ export default function ContasAPagar() {
               </CardHeader>
               <CardContent className="p-3.5 pt-0">
                 <div className="text-xl font-black text-rose-600 dark:text-rose-400">
-                  R$ {saldoDevedorGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R${' '}
+                  {saldoDevedorGeral.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
                   Valor pendente de quitação
@@ -1148,6 +1177,7 @@ export default function ContasAPagar() {
                           <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
                             R${' '}
                             {conta.valor_total.toLocaleString('pt-BR', {
+                              maximumFractionDigits: 2,
                               minimumFractionDigits: 2,
                             })}
                           </span>
@@ -1159,7 +1189,10 @@ export default function ContasAPagar() {
                           </span>
                           <span className="text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400">
                             R${' '}
-                            {conta.totalPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            {conta.totalPago.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                           </span>
                         </div>
 
@@ -1170,6 +1203,7 @@ export default function ContasAPagar() {
                           <span className="text-xs sm:text-sm font-black text-rose-600 dark:text-rose-400">
                             R${' '}
                             {conta.saldoRestante.toLocaleString('pt-BR', {
+                              maximumFractionDigits: 2,
                               minimumFractionDigits: 2,
                             })}
                           </span>
@@ -1188,6 +1222,7 @@ export default function ContasAPagar() {
                               <span className="text-[11px] text-muted-foreground">
                                 (Próxima: {conta.proximaParcelaNumero}ª • R${' '}
                                 {conta.proximaParcelaValorSugerido.toLocaleString('pt-BR', {
+                                  maximumFractionDigits: 2,
                                   minimumFractionDigits: 2,
                                 })}
                                 )
@@ -1281,6 +1316,7 @@ export default function ContasAPagar() {
                                       >
                                         R${' '}
                                         {parc.valor.toLocaleString('pt-BR', {
+                                          maximumFractionDigits: 2,
                                           minimumFractionDigits: 2,
                                         })}
                                       </span>
@@ -1323,6 +1359,7 @@ export default function ContasAPagar() {
                                         <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                                           R${' '}
                                           {pag.valor.toLocaleString('pt-BR', {
+                                            maximumFractionDigits: 2,
                                             minimumFractionDigits: 2,
                                           })}
                                         </span>
@@ -1562,6 +1599,7 @@ export default function ContasAPagar() {
                       <span>
                         Saldo: R${' '}
                         {pagamentoConta.saldoRestante.toLocaleString('pt-BR', {
+                          maximumFractionDigits: 2,
                           minimumFractionDigits: 2,
                         })}
                       </span>
@@ -1877,6 +1915,7 @@ export default function ContasAPagar() {
             <DialogDescription>
               Confirma o recebimento desta conta? Uma entrada no valor de R${' '}
               {Number(contaReceberTarget?.valor || 0).toLocaleString('pt-BR', {
+                maximumFractionDigits: 2,
                 minimumFractionDigits: 2,
               })}{' '}
               será lançada imediatamente no Fluxo de Caixa.

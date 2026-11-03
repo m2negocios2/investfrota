@@ -1379,7 +1379,10 @@ export default function Semana() {
                                     className={`w-full py-1 px-0.5 rounded text-[11px] transition-all flex flex-col items-center justify-center cursor-pointer select-none active:scale-95 leading-none ${cellClasses}`}
                                   >
                                     <span className="font-extrabold text-[11px] sm:text-xs leading-none">
-                                      {valorSemanal.toFixed(0)}
+                                      {valorSemanal.toLocaleString('pt-BR', {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
                                     </span>
                                     <span className="text-[8px] opacity-90 leading-tight tracking-tighter">
                                       {badgeLabel}
@@ -1397,7 +1400,10 @@ export default function Semana() {
                                   : 'text-slate-900 dark:text-white'
                               }`}
                             >
-                              {valorSemanal.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                              {valorSemanal.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
                             </td>
                           </tr>
                         )
@@ -1435,7 +1441,8 @@ export default function Semana() {
                         >
                           {dailyTotals[d.key] > 0
                             ? dailyTotals[d.key].toLocaleString('pt-BR', {
-                                minimumFractionDigits: 0,
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
                               })
                             : '—'}
                         </td>
@@ -1447,7 +1454,11 @@ export default function Semana() {
                             : 'text-slate-900 dark:text-white bg-slate-200/60 dark:bg-slate-700/60'
                         }`}
                       >
-                        R$ {totalBrutoSemana.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                        R${' '}
+                        {totalBrutoSemana.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </td>
                     </tr>
 
@@ -1486,8 +1497,8 @@ export default function Semana() {
                           >
                             {liqVal > 0
                               ? liqVal.toLocaleString('pt-BR', {
-                                  minimumFractionDigits: 0,
-                                  maximumFractionDigits: 0,
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
                                 })
                               : '—'}
                           </td>
@@ -1502,8 +1513,8 @@ export default function Semana() {
                       >
                         R${' '}
                         {totalLiquidoSemana.toLocaleString('pt-BR', {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 0,
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
                         })}
                       </td>
                     </tr>
@@ -1696,7 +1707,11 @@ export default function Semana() {
                           Valor Semanal do Contrato:
                         </span>
                         <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm">
-                          R$ {valorSemanal.toFixed(2)}
+                          R${' '}
+                          {valorSemanal.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </span>
                       </div>
                       <div>
@@ -1707,7 +1722,12 @@ export default function Semana() {
                           <span className="font-bold text-slate-800 dark:text-slate-100">
                             {comissaoPercent}%{' '}
                             <span className="text-muted-foreground font-normal">
-                              (R$ {valorComissao.toFixed(2)})
+                              (R${' '}
+                              {valorComissao.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                              )
                             </span>
                           </span>
                         ) : (

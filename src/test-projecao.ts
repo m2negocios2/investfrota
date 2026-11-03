@@ -346,9 +346,9 @@ export function runProjecaoTests(): { success: boolean; results: TestResult[] } 
   assertEqual('Sem movimento termina em abr/2026', resultadoSemCaixa.meses[3].nomeMes, 'abr')
   assertEqual('Sem movimento último é mês corrente', resultadoSemCaixa.meses[3].isMesCorrente, true)
 
-  // Formatação de números padrão pt-BR sem decimais
-  assertEqual('Formatação 6250', formatarNumeroPlanilha(6250), '6.250')
-  assertEqual('Formatação -1341', formatarNumeroPlanilha(-1341), '-1.341')
+  // Formatação de números padrão pt-BR com 2 casas decimais
+  assertEqual('Formatação 6250', formatarNumeroPlanilha(6250), '6.250,00')
+  assertEqual('Formatação -1341', formatarNumeroPlanilha(-1341), '-1.341,00')
 
   const allPassed = results.every((r) => r.passed)
   return { success: allPassed, results }

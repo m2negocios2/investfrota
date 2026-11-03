@@ -85,7 +85,7 @@ const renderCustomizedPieLabel = ({
       dominantBaseline="central"
       className="text-[11px] font-black drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] pointer-events-none select-none"
     >
-      {`${(percent * 100).toFixed(0)}%`}
+      {`${(percent * 100).toFixed(2)}%`}
     </text>
   )
 }
@@ -669,7 +669,7 @@ export function GraficosReport({
                         variant="outline"
                         className="text-[9px] px-1 py-0 h-4 font-bold border-emerald-300 text-emerald-700 dark:text-emerald-300"
                       >
-                        {dadosReceita.itens[0].percentual.toFixed(1)}%
+                        {dadosReceita.itens[0].percentual.toFixed(2)}%
                       </Badge>
                     </div>
                     <span
@@ -692,7 +692,7 @@ export function GraficosReport({
                         variant="outline"
                         className="text-[9px] px-1 py-0 h-4 font-bold border-red-300 text-red-700 dark:text-red-300"
                       >
-                        {dadosReceita.itens[1].percentual.toFixed(1)}%
+                        {dadosReceita.itens[1].percentual.toFixed(2)}%
                       </Badge>
                     </div>
                     <span className="text-sm sm:text-base font-extrabold text-red-600 dark:text-red-300 block mt-0.5 truncate">
@@ -709,7 +709,7 @@ export function GraficosReport({
                         variant="outline"
                         className="text-[9px] px-1 py-0 h-4 font-bold border-purple-300 text-purple-700 dark:text-purple-300"
                       >
-                        {dadosReceita.itens[2].percentual.toFixed(1)}%
+                        {dadosReceita.itens[2].percentual.toFixed(2)}%
                       </Badge>
                     </div>
                     <span className="text-sm sm:text-base font-extrabold text-purple-600 dark:text-purple-300 block mt-0.5 truncate">
@@ -742,7 +742,7 @@ export function GraficosReport({
                           <YAxis
                             tick={{ fontSize: 10 }}
                             tickFormatter={(v) =>
-                              `R$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`
+                              `R$${v >= 1000 ? `${(v / 1000).toFixed(2)}k` : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                             }
                             stroke="#888888"
                           />
@@ -834,7 +834,7 @@ export function GraficosReport({
                             `R$ ${formatBRL(Number(val) || 0)} (${(
                               (Number(val) / (dadosReceita.baseCalculoPct || 1)) *
                               100
-                            ).toFixed(1)}%)`,
+                            ).toFixed(2)}%)`,
                             String(name),
                           ]}
                           contentStyle={{
@@ -864,7 +864,9 @@ export function GraficosReport({
                         />
                         <YAxis
                           tick={{ fontSize: 10 }}
-                          tickFormatter={(v) => `R$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`}
+                          tickFormatter={(v) =>
+                            `R$${v >= 1000 ? `${(v / 1000).toFixed(2)}k` : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                          }
                           stroke="#888888"
                         />
                         <RechartsTooltip
@@ -872,7 +874,7 @@ export function GraficosReport({
                             `R$ ${formatBRL(Number(val) || 0)} (${(
                               (Number(val) / (dadosReceita.baseCalculoPct || 1)) *
                               100
-                            ).toFixed(1)}%)`,
+                            ).toFixed(2)}%)`,
                             String(name),
                           ]}
                           contentStyle={{
@@ -923,7 +925,7 @@ export function GraficosReport({
                             variant="secondary"
                             className="font-bold text-[10px] px-1.5 py-0 bg-slate-200 dark:bg-slate-800"
                           >
-                            {item.percentual.toFixed(1)}%
+                            {item.percentual.toFixed(2)}%
                           </Badge>
                         </div>
                         <span className="text-[10px] text-muted-foreground block">
@@ -1001,7 +1003,7 @@ export function GraficosReport({
                             `R$ ${formatBRL(Number(val) || 0)} (${(
                               (Number(val) / (dadosCustosPorCategoria.totalSaidas || 1)) *
                               100
-                            ).toFixed(1)}%)`,
+                            ).toFixed(2)}%)`,
                             String(name),
                           ]}
                           contentStyle={{
@@ -1046,7 +1048,7 @@ export function GraficosReport({
                             variant="secondary"
                             className="font-bold text-[10px] w-14 justify-center bg-slate-200 dark:bg-slate-800"
                           >
-                            {cat.percentual.toFixed(1)}%
+                            {cat.percentual.toFixed(2)}%
                           </Badge>
                         </div>
                       </div>
@@ -1115,7 +1117,7 @@ export function GraficosReport({
                       variant="secondary"
                       className="font-bold text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2.5 py-1"
                     >
-                      Margem: {dadosCrescimento.margemMediaPeriodo.toFixed(1)}%
+                      Margem: {dadosCrescimento.margemMediaPeriodo.toFixed(2)}%
                     </Badge>
                   )}
                 </div>
@@ -1215,7 +1217,7 @@ export function GraficosReport({
                         interval={0}
                         domain={['auto', 'auto']}
                         tickFormatter={(v) =>
-                          `R$ ${Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`
+                          `R$ ${Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(2)}k` : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                         }
                         stroke="#888888"
                       />
@@ -1267,7 +1269,7 @@ export function GraficosReport({
                                   <div className="flex items-center justify-between gap-4 text-slate-400 text-[11px]">
                                     <span>Margem Líquida:</span>
                                     <span className="font-bold text-slate-200">
-                                      {row.margemLiquida.toFixed(1)}%
+                                      {row.margemLiquida.toFixed(2)}%
                                     </span>
                                   </div>
                                 )}
@@ -1350,8 +1352,8 @@ export function GraficosReport({
                               <span className="font-bold truncate text-slate-800 dark:text-slate-200">
                                 R${' '}
                                 {m.receitaBruta >= 1000
-                                  ? `${(m.receitaBruta / 1000).toFixed(1)}k`
-                                  : m.receitaBruta.toFixed(0)}
+                                  ? `${(m.receitaBruta / 1000).toFixed(2)}k`
+                                  : m.receitaBruta.toFixed(2)}
                               </span>
                             </div>
                             <div className="flex justify-between items-center text-[10px]">
@@ -1373,8 +1375,8 @@ export function GraficosReport({
                               >
                                 R${' '}
                                 {Math.abs(m.lucroLiquido) >= 1000
-                                  ? `${(m.lucroLiquido / 1000).toFixed(1)}k`
-                                  : m.lucroLiquido.toFixed(0)}
+                                  ? `${(m.lucroLiquido / 1000).toFixed(2)}k`
+                                  : m.lucroLiquido.toFixed(2)}
                               </span>
                             </div>
                           </div>

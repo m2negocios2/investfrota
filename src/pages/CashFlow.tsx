@@ -361,7 +361,11 @@ export default function CashFlow() {
           </CardHeader>
           <CardContent className="p-3 pt-0">
             <div className="text-lg sm:text-xl font-bold text-emerald-600">
-              R$ {totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R${' '}
+              {totalEntradas.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </div>
           </CardContent>
         </Card>
@@ -377,7 +381,11 @@ export default function CashFlow() {
           </CardHeader>
           <CardContent className="p-3 pt-0">
             <div className="text-lg sm:text-xl font-bold text-red-600">
-              R$ {totalSaidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R${' '}
+              {totalSaidas.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </div>
           </CardContent>
         </Card>
@@ -395,7 +403,11 @@ export default function CashFlow() {
             <div
               className={`text-lg sm:text-xl font-bold ${saldoFinal >= 0 ? 'text-blue-600' : 'text-red-600'}`}
             >
-              R$ {saldoFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R${' '}
+              {saldoFinal.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </div>
           </CardContent>
         </Card>
@@ -930,7 +942,11 @@ export default function CashFlow() {
                             : 'text-red-600'
                         }`}
                       >
-                        R$ {targetSaldoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R${' '}
+                        {targetSaldoTotal.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </span>
                     </div>
                   </div>
@@ -989,14 +1005,14 @@ export default function CashFlow() {
                               {/* ENTRADAS */}
                               <td className="py-2 px-2 sm:px-3 text-right font-semibold text-emerald-600 dark:text-emerald-400 whitespace-nowrap text-xs">
                                 {isEntrada
-                                  ? `R$ ${row.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                  ? `R$ ${row.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                   : '-'}
                               </td>
 
                               {/* SAÍDAS */}
                               <td className="py-2 px-2 sm:px-3 text-right font-semibold text-red-600 dark:text-red-400 whitespace-nowrap text-xs">
                                 {!isEntrada
-                                  ? `R$ ${row.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                  ? `R$ ${row.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                   : '-'}
                               </td>
 
@@ -1013,6 +1029,7 @@ export default function CashFlow() {
                                 R${' '}
                                 {row.runningBalance.toLocaleString('pt-BR', {
                                   minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
                                 })}
                               </td>
 
@@ -1045,12 +1062,14 @@ export default function CashFlow() {
                             R${' '}
                             {targetEntradasTotal.toLocaleString('pt-BR', {
                               minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
                             })}
                           </td>
                           <td className="py-2 px-2 sm:px-3 text-right text-red-600 dark:text-red-400 font-extrabold whitespace-nowrap">
                             R${' '}
                             {targetSaidasTotal.toLocaleString('pt-BR', {
                               minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
                             })}
                           </td>
                           <td
@@ -1063,7 +1082,10 @@ export default function CashFlow() {
                             }`}
                           >
                             R${' '}
-                            {targetSaldoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            {targetSaldoTotal.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                           </td>
                           <td className="py-2 px-2 sm:px-3 text-[11px] text-muted-foreground whitespace-nowrap">
                             {rowsWithBalance.length} mov.
@@ -1411,7 +1433,12 @@ export default function CashFlow() {
                         </SelectItem>
                         {contasAPagar.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
-                            🤝 {c.credor} — {c.descricao} (Total R$ {c.valor_total.toFixed(2)})
+                            🤝 {c.credor} — {c.descricao} (Total R${' '}
+                            {c.valor_total.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                            )
                           </SelectItem>
                         ))}
                       </SelectContent>

@@ -418,7 +418,7 @@ export const PaybackTab: React.FC<PaybackTabProps> = ({ motos, contratos, caixa 
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-black text-purple-600">
-              {kpis.roiGeralPct.toFixed(1)}%
+              {kpis.roiGeralPct.toFixed(2)}%
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Razão lucro total / investimento consolidado
@@ -687,7 +687,7 @@ const MotoPaybackCard: React.FC<MotoPaybackCardProps> = ({ item }) => {
                 }`}
               >
                 {lucroSobreInvestimentoPct !== null
-                  ? `${lucroSobreInvestimentoPct.toFixed(1)}%`
+                  ? `${lucroSobreInvestimentoPct.toFixed(2)}%`
                   : '—'}
               </span>
             </div>
@@ -725,7 +725,7 @@ const MotoPaybackCard: React.FC<MotoPaybackCardProps> = ({ item }) => {
             <span className="text-muted-foreground block text-[11px]">Valor de Compra:</span>
             <span className="font-bold text-slate-800 dark:text-slate-200">
               {temValorCompra && valorCompra !== null
-                ? `R$ ${valorCompra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                ? `R$ ${valorCompra.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : 'Não informado'}
             </span>
           </div>
@@ -738,6 +738,7 @@ const MotoPaybackCard: React.FC<MotoPaybackCardProps> = ({ item }) => {
               R${' '}
               {lucroAcumulado.toLocaleString('pt-BR', {
                 minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
               })}
             </span>
           </div>
@@ -746,7 +747,7 @@ const MotoPaybackCard: React.FC<MotoPaybackCardProps> = ({ item }) => {
             <span className="text-muted-foreground block text-[11px]">Ritmo Mensal:</span>
             <span className="font-bold text-blue-600 dark:text-blue-400">
               {ritmoMensal > 0
-                ? `+ R$ ${ritmoMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês`
+                ? `+ R$ ${ritmoMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mês`
                 : 'Em apuração'}
             </span>
           </div>
@@ -762,8 +763,16 @@ const MotoPaybackCard: React.FC<MotoPaybackCardProps> = ({ item }) => {
               </span>
             ) : (
               <span className="font-medium text-slate-600 dark:text-slate-300">
-                +R$ {totalEntradas.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} / -R${' '}
-                {totalSaidas.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                +R${' '}
+                {totalEntradas.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}{' '}
+                / -R${' '}
+                {totalSaidas.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
             )}
           </div>
