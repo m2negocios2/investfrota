@@ -1396,6 +1396,7 @@ export function GraficosReport({
             <ComparativoGrafico
               motos={motos}
               caixa={caixa}
+              contasAPagar={contasAPagar}
               selectedYear={selectedYear}
               selectedMonth={selectedMonth}
               periodoModo={periodoModo}

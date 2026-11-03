@@ -9,24 +9,22 @@ import {
   HelpCircle,
   DollarSign,
   Bike,
-  CheckCircle2,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip as RechartsTooltip,
-  LabelList,
+  Legend,
 } from 'recharts'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Moto, CaixaLancamento } from '@/types/database'
+import { Moto, CaixaLancamento, ContaAPagarComProgresso } from '@/types/database'
 
 export interface TaxasBenchmark {
   cdb: number
@@ -36,7 +34,10 @@ export interface TaxasBenchmark {
   vale: number
 }
 
+type ChaveAtivo = keyof TaxasBenchmark
+
 const STORAGE_KEY_TAXAS = 'm2_graficos_comparativo_taxas_v1'
+const STORAGE_KEY_IR = 'm2_graficos_comparativo_ir_v1'
 
 const TAXAS_INICIAIS_PADRAO: TaxasBenchmark = {
   cdb: 10.5,
@@ -46,9 +47,89 @@ const TAXAS_INICIAIS_PADRAO: TaxasBenchmark = {
   vale: 10.0,
 }
 
+// IR padrão editável por ativo: 15% para renda fixa e ações (referência), 0% para FII (isento)
+const IR_INICIAL_PADRAO: TaxasBenchmark = {
+  cdb: 15,
+  fii: 0,
+  petrobras: 15,
+  bb: 15,
+  vale: 15,
+}
+
+// Lê os percentuais salvos no localStorage, usando o padrão para chaves ausentes
+function carregarPercentuais(key: string, padrao: TaxasBenchmark): TaxasBenchmark {
+  const out: TaxasBenchmark = { ...padrao }
+  try {
+    const salvas = localStorage.getItem(key)
+    if (salvas) {
+      const parsed = JSON.parse(salvas)
+      ;(Object.keys(padrao) as ChaveAtivo[]).forEach((k) => {
+        if (typeof parsed[k] === 'number') out[k] = parsed[k]
+      })
+    }
+  } catch {
+    // Ignora erro de leitura do localStorage
+  }
+  return out
+}
+
+// Ativos financeiros exibidos no comparativo (ordem dos campos editáveis)
+const ATIVOS_CONFIG: {
+  chave: ChaveAtivo
+  label: string
+  subtitulo: string
+  categoria: string
+  descricao: string
+}[] = [
+  {
+    chave: 'cdb',
+    label: 'CDB (100% CDI)',
+    subtitulo: 'Renda Fixa Pós-Fixada',
+    categoria: 'Renda Fixa',
+    descricao: 'Certificado de Depósito Bancário acompanhando a taxa Selic',
+  },
+  {
+    chave: 'fii',
+    label: 'Fundo Imob. (FII)',
+    subtitulo: 'Rendimentos Mensais',
+    categoria: 'Fundos Imobiliários',
+    descricao: 'Média de distribuição anual de rendimentos isentos de IR',
+  },
+  {
+    chave: 'petrobras',
+    label: 'Petrobras (PBR)',
+    subtitulo: 'Ações / Dividendos',
+    categoria: 'Renda Variável',
+    descricao: 'Estimativa de Dividend Yield e valorização média anual',
+  },
+  {
+    chave: 'bb',
+    label: 'Banco do Brasil (BB)',
+    subtitulo: 'Ações BBAS3',
+    categoria: 'Renda Variável',
+    descricao: 'Estimativa de proventos e retorno anual médio consolidado',
+  },
+  {
+    chave: 'vale',
+    label: 'Vale (VALE)',
+    subtitulo: 'Ações / Commodities',
+    categoria: 'Renda Variável',
+    descricao: 'Expectativa anualizada de dividendos do setor de mineração',
+  },
+]
+
+const ATIVO_NOME: Record<ChaveAtivo, string> = {
+  cdb: 'CDB 100% CDI',
+  fii: 'Fundo Imob. (FII)',
+  petrobras: 'Petrobras (PBR)',
+  bb: 'Banco do Brasil (BB)',
+  vale: 'Vale (VALE3)',
+}
+
 interface ComparativoGraficoProps {
   motos: Moto[]
   caixa: CaixaLancamento[]
+  contasAPagar?: ContaAPagarComProgresso[]
   selectedYear: number
   selectedMonth: number
   periodoModo?: 'ano' | 'mes'
@@ -57,34 +138,20 @@ interface ComparativoGraficoProps {
 export function ComparativoGrafico({
   motos,
   caixa,
+  contasAPagar = [],
   selectedYear,
   selectedMonth,
   periodoModo = 'ano',
 }: ComparativoGraficoProps) {
-  // Estado das taxas de referência com persistência local
-  const [taxas, setTaxas] = useState<TaxasBenchmark>(() => {
-    try {
-      const salvas = localStorage.getItem(STORAGE_KEY_TAXAS)
-      if (salvas) {
-        const parsed = JSON.parse(salvas)
-        return {
-          cdb: typeof parsed.cdb === 'number' ? parsed.cdb : TAXAS_INICIAIS_PADRAO.cdb,
-          fii: typeof parsed.fii === 'number' ? parsed.fii : TAXAS_INICIAIS_PADRAO.fii,
-          petrobras:
-            typeof parsed.petrobras === 'number'
-              ? parsed.petrobras
-              : TAXAS_INICIAIS_PADRAO.petrobras,
-          bb: typeof parsed.bb === 'number' ? parsed.bb : TAXAS_INICIAIS_PADRAO.bb,
-          vale: typeof parsed.vale === 'number' ? parsed.vale : TAXAS_INICIAIS_PADRAO.vale,
-        }
-      }
-    } catch {
-      // Ignora erro de leitura do localStorage
-    }
-    return TAXAS_INICIAIS_PADRAO
-  })
+  // Taxas de referência (% a.a. brutos) e IR (%) por ativo, com persistência local
+  const [taxas, setTaxas] = useState<TaxasBenchmark>(() =>
+    carregarPercentuais(STORAGE_KEY_TAXAS, TAXAS_INICIAIS_PADRAO),
+  )
+  const [irAtivos, setIrAtivos] = useState<TaxasBenchmark>(() =>
+    carregarPercentuais(STORAGE_KEY_IR, IR_INICIAL_PADRAO),
+  )
 
-  // Salvar no localStorage sempre que as taxas forem alteradas
+  // Salvar no localStorage sempre que forem alterados
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY_TAXAS, JSON.stringify(taxas))
@@ -93,17 +160,30 @@ export function ComparativoGrafico({
     }
   }, [taxas])
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_IR, JSON.stringify(irAtivos))
+    } catch {
+      // Ignora erro
+    }
+  }, [irAtivos])
+
   const handleRestaurarPadroes = () => {
     setTaxas(TAXAS_INICIAIS_PADRAO)
+    setIrAtivos(IR_INICIAL_PADRAO)
   }
 
-  const handleUpdateTaxa = (chave: keyof TaxasBenchmark, valorStr: string) => {
-    const limpo = valorStr.replace(',', '.')
-    const num = parseFloat(limpo)
-    setTaxas((prev) => ({
-      ...prev,
-      [chave]: isNaN(num) ? 0 : num,
-    }))
+  const parseValor = (valorStr: string) => {
+    const num = parseFloat(valorStr.replace(',', '.'))
+    return isNaN(num) ? 0 : num
+  }
+
+  const handleUpdateTaxa = (chave: ChaveAtivo, valorStr: string) => {
+    setTaxas((prev) => ({ ...prev, [chave]: parseValor(valorStr) }))
+  }
+
+  const handleUpdateIr = (chave: ChaveAtivo, valorStr: string) => {
+    setIrAtivos((prev) => ({ ...prev, [chave]: parseValor(valorStr) }))
   }
 
   // 1. Capital investido na frota (soma dos valores de compra das motos ativas/operacionais)
@@ -121,7 +201,12 @@ export function ComparativoGrafico({
     return total
   }, [motos])
 
-  // 2. Lucro acumulado e apuração financeira das motos
+  // 2. Saldo devedor total das dívidas a terceiros (contas a pagar ainda em aberto)
+  const saldoDividasTerceiros = useMemo(() => {
+    return contasAPagar.reduce((acc, c) => acc + Math.max(0, Number(c.saldoRestante) || 0), 0)
+  }, [contasAPagar])
+
+  // 3. Lucro acumulado da frota (menos dívidas a terceiros) e rentabilidade das motos
   const dadosRentabilidadeMotos = useMemo(() => {
     // Filtrar lançamentos de caixa pelo período ativo
     const caixaPeriodo = caixa.filter((c) => {
@@ -161,109 +246,81 @@ export function ComparativoGrafico({
     // Lucro anualizado projetado
     const lucroAnualizado = lucroMensalMedio * 12
 
-    // Rentabilidade anualizada = (lucroAnualizado / capitalInvestido) * 100
-    const rentabilidadeAnualizadaPct =
-      capitalInvestido > 0 ? (lucroAnualizado / capitalInvestido) * 100 : 0
+    // Lucro acumulado da frota descontado das dívidas a terceiros
+    const lucroDescontadoDividas = lucroPeriodo - saldoDividasTerceiros
 
-    // Rentabilidade nominal do período
-    const rentabilidadeNominalPeriodoPct =
-      capitalInvestido > 0 ? (lucroPeriodo / capitalInvestido) * 100 : 0
+    // Rentabilidade = ((lucro acumulado − saldo das dívidas) / capital investido) * 100
+    const rentabilidadeAnualizadaPct =
+      capitalInvestido > 0 ? (lucroDescontadoDividas / capitalInvestido) * 100 : 0
+
+    // Rentabilidade nominal do período (mesma base, sem anualizar)
+    const rentabilidadeNominalPeriodoPct = rentabilidadeAnualizadaPct
 
     return {
       receitas,
       despesas,
       lucroPeriodo,
+      lucroAnualizado,
+      lucroDescontadoDividas,
       mesesComLancamento,
       lucroMensalMedio,
-      lucroAnualizado,
       rentabilidadeAnualizadaPct,
       rentabilidadeNominalPeriodoPct,
     }
-  }, [caixa, selectedYear, selectedMonth, periodoModo, capitalInvestido])
+  }, [caixa, selectedYear, selectedMonth, periodoModo, capitalInvestido, saldoDividasTerceiros])
 
-  // 3. Montar dados para o gráfico de barras comparativo
+  // 4. Dados comparativos: motos (líquidas de dívidas) e ativos (líquidos de IR)
   const dadosGrafico = useMemo(() => {
+    const rentMotos = Number(dadosRentabilidadeMotos.rentabilidadeAnualizadaPct.toFixed(1))
+    const ativos = ATIVOS_CONFIG.map((a) => {
+      const bruta = taxas[a.chave]
+      const ir = irAtivos[a.chave]
+      const liquida = bruta * (1 - ir / 100)
+      return {
+        id: a.chave,
+        nome: ATIVO_NOME[a.chave],
+        subtitulo: a.subtitulo,
+        categoria: a.categoria,
+        descricao: a.descricao,
+        taxaBruta: Number(bruta.toFixed(1)),
+        irPct: ir,
+        taxa: Number(liquida.toFixed(1)),
+        motos: rentMotos,
+        isDestaque: false,
+      }
+    })
     return [
       {
         id: 'motos',
         nome: 'MOTOS (App M2)',
-        subtitulo: 'Rentabilidade real anualizada',
+        subtitulo: 'Rentabilidade real anualizada, líquida de dívidas',
         categoria: 'Ativo Próprio',
-        taxa: Number(dadosRentabilidadeMotos.rentabilidadeAnualizadaPct.toFixed(1)),
+        taxaBruta: rentMotos,
+        irPct: 0,
+        taxa: rentMotos,
+        motos: rentMotos,
         isDestaque: true,
-        corBarra: '#10b981', // emerald-500 vibrante
-        corBorda: '#059669', // emerald-600
-        descricao: 'Calculada com base no lucro real apurado sobre o capital investido na frota',
+        descricao:
+          'Lucro da frota menos o saldo das dívidas a terceiros, sobre o capital investido',
       },
-      {
-        id: 'petrobras',
-        nome: 'Petrobras (PBR)',
-        subtitulo: 'Ações / Dividendos',
-        categoria: 'Renda Variável',
-        taxa: Number(taxas.petrobras.toFixed(1)),
-        isDestaque: false,
-        corBarra: '#64748b', // slate-500
-        corBorda: '#475569',
-        descricao: 'Estimativa de Dividend Yield e valorização média anual',
-      },
-      {
-        id: 'bb',
-        nome: 'Banco do Brasil (BB)',
-        subtitulo: 'Ações BBAS3',
-        categoria: 'Renda Variável',
-        taxa: Number(taxas.bb.toFixed(1)),
-        isDestaque: false,
-        corBarra: '#64748b',
-        corBorda: '#475569',
-        descricao: 'Estimativa de proventos e retorno anual médio consolidado',
-      },
-      {
-        id: 'cdb',
-        nome: 'CDB 100% CDI',
-        subtitulo: 'Renda Fixa Pós-Fixada',
-        categoria: 'Renda Fixa',
-        taxa: Number(taxas.cdb.toFixed(1)),
-        isDestaque: false,
-        corBarra: '#64748b',
-        corBorda: '#475569',
-        descricao: 'Certificado de Depósito Bancário acompanhando a taxa Selic',
-      },
-      {
-        id: 'vale',
-        nome: 'Vale (VALE3)',
-        subtitulo: 'Ações / Commodities',
-        categoria: 'Renda Variável',
-        taxa: Number(taxas.vale.toFixed(1)),
-        isDestaque: false,
-        corBarra: '#64748b',
-        corBorda: '#475569',
-        descricao: 'Expectativa anualizada de dividendos do setor de mineração',
-      },
-      {
-        id: 'fii',
-        nome: 'Fundo Imob. (FII)',
-        subtitulo: 'Rendimentos Mensais',
-        categoria: 'Fundos Imobiliários',
-        taxa: Number(taxas.fii.toFixed(1)),
-        isDestaque: false,
-        corBarra: '#64748b',
-        corBorda: '#475569',
-        descricao: 'Média de distribuição anual de rendimentos isentos de IR',
-      },
+      ...ativos,
     ]
-  }, [dadosRentabilidadeMotos.rentabilidadeAnualizadaPct, taxas])
+  }, [dadosRentabilidadeMotos.rentabilidadeAnualizadaPct, taxas, irAtivos])
+
+  const ativosGrafico = dadosGrafico.filter((d) => !d.isDestaque)
 
   const formatBRL = (v: number) => {
     return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
 
-  // Ordenar ou manter com MOTOS no centro/primeira posição para destaque máximo
-  // MOTOS em primeiro lugar com barra mais espessa e cor esmeralda
-  const maiorTaxaReferencia = Math.max(
-    ...dadosGrafico.map((d) => d.taxa),
+  // Escala do eixo Y cobre todas as linhas (inclusive valores negativos)
+  const todosValores = [
+    ...ativosGrafico.map((d) => d.taxa),
     dadosRentabilidadeMotos.rentabilidadeAnualizadaPct,
-    20,
-  )
+    0,
+  ]
+  const minTaxaReferencia = Math.floor(Math.min(...todosValores))
+  const maiorTaxaReferencia = Math.max(...todosValores, 20)
 
   return (
     <Card className="shadow-sm border-slate-200 dark:border-slate-800 flex flex-col justify-between">
@@ -277,8 +334,9 @@ export function ComparativoGrafico({
               COMPARATIVO — Rentabilidade da Frota vs. Outros Investimentos
             </CardTitle>
             <CardDescription className="text-xs mt-0.5">
-              Comparação anualizada: rentabilidade real da locação de <strong>MOTOS</strong> versus
-              investimentos tradicionais de mercado (taxas de referência editáveis).
+              Comparação anualizada: rentabilidade real da locação de <strong>MOTOS</strong> (já
+              descontadas as dívidas a terceiros) versus investimentos tradicionais, com os ativos
+              financeiros líquidos de IR.
             </CardDescription>
           </div>
 
@@ -300,7 +358,7 @@ export function ComparativoGrafico({
         </CardHeader>
 
         <CardContent className="pt-4 space-y-6">
-          {/* PAINEL DE CONTROLE DE TAXAS EDITÁVEIS (Benchmark de Mercado) */}
+          {/* PAINEL DE CONTROLE DE TAXAS E IR EDITÁVEIS (Benchmark de Mercado) */}
           <div className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -312,8 +370,9 @@ export function ComparativoGrafico({
                     Taxas de Referência de Mercado (Editáveis)
                   </span>
                   <span className="text-[11px] text-muted-foreground block">
-                    Ajuste as taxas anuais (% a.a.) dos demais ativos para simular diferentes
-                    cenários econômicos. Salvo automaticamente.
+                    Ajuste a taxa bruta anual (% a.a.) e o IR (%) de cada ativo para simular
+                    cenários. A rentabilidade mostrada é líquida: taxa × (1 − IR). Salvo
+                    automaticamente.
                   </span>
                 </div>
               </div>
@@ -324,119 +383,60 @@ export function ComparativoGrafico({
                 size="sm"
                 onClick={handleRestaurarPadroes}
                 className="h-7 text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                title="Restaurar taxas iniciais sugeridas"
+                title="Restaurar taxas e IR iniciais sugeridos"
               >
                 <RotateCcw className="w-3 h-3 mr-1" />
                 Restaurar Padrões
               </Button>
             </div>
 
-            {/* Inputs das taxas em grid responsiva */}
+            {/* Inputs de taxa bruta e IR por ativo em grid responsiva */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-              {/* CDB */}
-              <div className="p-2 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  CDB (100% CDI)
-                </label>
-                <div className="relative flex items-center">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="100"
-                    value={taxas.cdb}
-                    onChange={(e) => handleUpdateTaxa('cdb', e.target.value)}
-                    className="h-8 text-xs font-bold pr-7 bg-slate-50/50 dark:bg-slate-900/50"
-                  />
-                  <span className="absolute right-2 text-[11px] font-bold text-muted-foreground pointer-events-none">
-                    %
-                  </span>
+              {ATIVOS_CONFIG.map((a) => (
+                <div
+                  key={a.chave}
+                  className="p-2 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5"
+                >
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">
+                    {a.label}
+                  </label>
+                  <div className="relative flex items-center">
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      aria-label={`Taxa bruta ${a.label}`}
+                      value={taxas[a.chave]}
+                      onChange={(e) => handleUpdateTaxa(a.chave, e.target.value)}
+                      className="h-8 text-xs font-bold pr-7 bg-slate-50/50 dark:bg-slate-900/50"
+                    />
+                    <span className="absolute right-2 text-[11px] font-bold text-muted-foreground pointer-events-none">
+                      %
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-semibold text-muted-foreground shrink-0">
+                      IR
+                    </span>
+                    <div className="relative flex items-center flex-1">
+                      <Input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        max="100"
+                        aria-label={`IR ${a.label}`}
+                        value={irAtivos[a.chave]}
+                        onChange={(e) => handleUpdateIr(a.chave, e.target.value)}
+                        className="h-7 text-xs font-bold pr-7 bg-slate-50/50 dark:bg-slate-900/50"
+                      />
+                      <span className="absolute right-2 text-[11px] font-bold text-muted-foreground pointer-events-none">
+                        %
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              {/* FII */}
-              <div className="p-2 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Fundo Imob. (FII)
-                </label>
-                <div className="relative flex items-center">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="100"
-                    value={taxas.fii}
-                    onChange={(e) => handleUpdateTaxa('fii', e.target.value)}
-                    className="h-8 text-xs font-bold pr-7 bg-slate-50/50 dark:bg-slate-900/50"
-                  />
-                  <span className="absolute right-2 text-[11px] font-bold text-muted-foreground pointer-events-none">
-                    %
-                  </span>
-                </div>
-              </div>
-
-              {/* Petrobras */}
-              <div className="p-2 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Petrobras (PBR)
-                </label>
-                <div className="relative flex items-center">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="100"
-                    value={taxas.petrobras}
-                    onChange={(e) => handleUpdateTaxa('petrobras', e.target.value)}
-                    className="h-8 text-xs font-bold pr-7 bg-slate-50/50 dark:bg-slate-900/50"
-                  />
-                  <span className="absolute right-2 text-[11px] font-bold text-muted-foreground pointer-events-none">
-                    %
-                  </span>
-                </div>
-              </div>
-
-              {/* Banco do Brasil */}
-              <div className="p-2 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Banco do Brasil (BB)
-                </label>
-                <div className="relative flex items-center">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="100"
-                    value={taxas.bb}
-                    onChange={(e) => handleUpdateTaxa('bb', e.target.value)}
-                    className="h-8 text-xs font-bold pr-7 bg-slate-50/50 dark:bg-slate-900/50"
-                  />
-                  <span className="absolute right-2 text-[11px] font-bold text-muted-foreground pointer-events-none">
-                    %
-                  </span>
-                </div>
-              </div>
-
-              {/* Vale */}
-              <div className="p-2 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Vale (VALE)
-                </label>
-                <div className="relative flex items-center">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="100"
-                    value={taxas.vale}
-                    onChange={(e) => handleUpdateTaxa('vale', e.target.value)}
-                    className="h-8 text-xs font-bold pr-7 bg-slate-50/50 dark:bg-slate-900/50"
-                  />
-                  <span className="absolute right-2 text-[11px] font-bold text-muted-foreground pointer-events-none">
-                    %
-                  </span>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
@@ -454,7 +454,7 @@ export function ComparativoGrafico({
                   {dadosRentabilidadeMotos.rentabilidadeAnualizadaPct.toFixed(1)}% ao ano
                 </span>
                 <span className="text-[10px] text-muted-foreground block">
-                  Lucro anualizado / Capital investido
+                  (Lucro − dívidas a terceiros) / Capital investido
                 </span>
               </div>
               <div className="p-2 rounded-lg bg-emerald-600 text-white shrink-0">
@@ -505,6 +505,7 @@ export function ComparativoGrafico({
                     : `Acumulado em ${dadosRentabilidadeMotos.mesesComLancamento} ${
                         dadosRentabilidadeMotos.mesesComLancamento === 1 ? 'mês' : 'meses'
                       } de ${selectedYear}`}
+                  {` · Dívidas a terceiros: R$ ${formatBRL(saldoDividasTerceiros)}`}
                 </span>
               </div>
               <div className="p-2 rounded-lg bg-slate-700 text-white shrink-0">
@@ -513,7 +514,7 @@ export function ComparativoGrafico({
             </div>
           </div>
 
-          {/* GRÁFICO DE BARRAS COMPARATIVO */}
+          {/* GRÁFICO DE LINHAS COMPARATIVO */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs px-1">
               <span className="text-muted-foreground font-semibold flex items-center gap-1.5">
@@ -521,17 +522,19 @@ export function ComparativoGrafico({
                 Rentabilidade Anualizada (% ao ano) por Ativo
               </span>
               <span className="text-[11px] text-muted-foreground">
-                <strong className="text-emerald-600 dark:text-emerald-400">Verde:</strong> Frota de
-                Motos M2 | <strong className="text-slate-500">Cinza:</strong> Mercado financeiro
+                <strong className="text-emerald-800 dark:text-emerald-400">
+                  Verde escuro:
+                </strong>{' '}
+                Frota de Motos M2 | <strong className="text-slate-500">Cinza:</strong> Ativos
+                financeiros (líquido de IR)
               </span>
             </div>
 
             <div className="h-[320px] sm:h-[300px] w-full pt-2">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={dadosGrafico}
-                  margin={{ top: 25, right: 15, left: -5, bottom: 25 }}
-                  barCategoryGap="20%"
+                <LineChart
+                  data={ativosGrafico}
+                  margin={{ top: 20, right: 20, left: -5, bottom: 25 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
                   <XAxis
@@ -544,40 +547,44 @@ export function ComparativoGrafico({
                   <YAxis
                     tick={{ fontSize: 10 }}
                     tickFormatter={(v) => `${v}%`}
-                    domain={[0, Math.ceil(maiorTaxaReferencia * 1.15)]}
+                    domain={[minTaxaReferencia, Math.ceil(maiorTaxaReferencia * 1.15)]}
                     stroke="#888888"
                   />
+                  <Legend wrapperStyle={{ fontSize: 11, fontWeight: 600 }} />
                   <RechartsTooltip
                     content={({ active, payload }) => {
                       if (!active || !payload || !payload.length) return null
-                      const item = payload[0].payload as (typeof dadosGrafico)[0]
+                      const item = payload[0].payload as (typeof ativosGrafico)[0]
                       return (
                         <div className="bg-slate-900/95 text-white p-3 rounded-xl text-xs shadow-2xl border border-slate-700 space-y-1.5 min-w-[210px]">
                           <div className="flex items-center justify-between border-b border-slate-700/80 pb-1">
-                            <span className="font-extrabold text-sm text-slate-100 flex items-center gap-1.5">
-                              {item.isDestaque && (
-                                <Bike className="w-4 h-4 text-emerald-400 shrink-0" />
-                              )}
+                            <span className="font-extrabold text-sm text-slate-100">
                               {item.nome}
                             </span>
-                            <Badge
-                              className={`text-[9px] h-4 font-bold ${
-                                item.isDestaque
-                                  ? 'bg-emerald-600 text-white'
-                                  : 'bg-slate-700 text-slate-200'
-                              }`}
-                            >
+                            <Badge className="text-[9px] h-4 font-bold bg-slate-700 text-slate-200">
                               {item.categoria}
                             </Badge>
                           </div>
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-slate-300">Taxa bruta:</span>
+                            <span className="font-bold">{item.taxaBruta.toFixed(1)}% a.a.</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-slate-300">IR ({item.irPct}%):</span>
+                            <span className="font-bold">
+                              − {(item.taxaBruta - item.taxa).toFixed(1)}%
+                            </span>
+                          </div>
                           <div className="flex items-center justify-between gap-4 pt-1">
-                            <span className="text-slate-300 font-medium">Rentabilidade Anual:</span>
-                            <span
-                              className={`text-base font-black ${
-                                item.isDestaque ? 'text-emerald-400' : 'text-slate-200'
-                              }`}
-                            >
+                            <span className="text-slate-300 font-medium">Líquida de IR:</span>
+                            <span className="text-base font-black text-slate-200">
                               {item.taxa.toFixed(1)}% a.a.
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-emerald-300 font-medium">Motos:</span>
+                            <span className="font-black text-emerald-400">
+                              {item.motos.toFixed(1)}% a.a.
                             </span>
                           </div>
                           <p className="text-[10px] text-slate-400 italic pt-1 border-t border-slate-800">
@@ -587,34 +594,32 @@ export function ComparativoGrafico({
                       )
                     }}
                   />
-                  <Bar dataKey="taxa" radius={[6, 6, 0, 0]} maxBarSize={56} strokeWidth={1}>
-                    <LabelList
-                      dataKey="taxa"
-                      position="top"
-                      formatter={(val: unknown) => `${Number(val || 0).toFixed(1)}%`}
-                      style={{
-                        fontSize: '11px',
-                        fontWeight: 800,
-                        fill: 'currentColor',
-                      }}
-                      className="fill-slate-700 dark:fill-slate-200"
-                    />
-                    {dadosGrafico.map((entry) => (
-                      <Cell
-                        key={`cell-${entry.id}`}
-                        fill={entry.corBarra}
-                        stroke={entry.corBorda}
-                        strokeWidth={entry.isDestaque ? 2 : 1}
-                        className={entry.isDestaque ? 'drop-shadow-md' : 'opacity-85'}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
+                  <Line
+                    type="monotone"
+                    dataKey="motos"
+                    name="MOTOS (App M2)"
+                    stroke="#065f46"
+                    strokeWidth={4}
+                    dot={{ r: 5, fill: '#065f46', stroke: '#065f46' }}
+                    activeDot={{ r: 7 }}
+                    isAnimationActive={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="taxa"
+                    name="Ativos financeiros (líquido de IR)"
+                    stroke="#64748b"
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: '#64748b', stroke: '#475569' }}
+                    activeDot={{ r: 6 }}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* LEGENDA E TABELA DETALHADA COM VALORES E COMPARAÇÃO RELATIVA */}
+          {/* QUADRO RESUMO DE RENTABILIDADE */}
           <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -643,7 +648,7 @@ export function ComparativoGrafico({
                       <div className="flex items-center gap-1.5">
                         <span
                           className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                            item.isDestaque ? 'bg-emerald-500' : 'bg-slate-400'
+                            item.isDestaque ? 'bg-emerald-600' : 'bg-slate-400'
                           }`}
                         />
                         <span
@@ -671,6 +676,11 @@ export function ComparativoGrafico({
                       >
                         {item.taxa.toFixed(1)}% a.a.
                       </span>
+                      {!item.isDestaque && (
+                        <span className="text-[10px] text-muted-foreground block">
+                          bruta {item.taxaBruta.toFixed(1)}% · IR {item.irPct}%
+                        </span>
+                      )}
                       {!item.isDestaque && (
                         <span
                           className={`text-[10px] font-semibold block ${
@@ -702,11 +712,12 @@ export function ComparativoGrafico({
                 Metodologia de Anualização e Comparabilidade
               </span>
               <p className="text-[11px] leading-relaxed">
-                A rentabilidade das motos é calculada a partir do lucro líquido apurado no livro
-                caixa dividido pelo capital total investido na compra da frota ativa (R${' '}
-                {formatBRL(capitalInvestido)}), multiplicando a média mensal por 12 para normalizar
-                para a base anualizada (% ao ano), permitindo uma comparação financeira justa e
-                direta contra CDB, FIIs e ações negociadas na B3.
+                A rentabilidade das motos é calculada a partir do lucro apurado no livro caixa,
+                descontado o saldo devedor das dívidas a terceiros (R${' '}
+                {formatBRL(saldoDividasTerceiros)}), dividido pelo capital total investido na compra
+                da frota ativa (R$ {formatBRL(capitalInvestido)}). Os ativos financeiros são
+                mostrados líquidos de IR: taxa bruta × (1 − IR%). FIIs têm IR padrão de 0% por serem
+                isentos sobre rendimentos.
               </p>
             </div>
           </div>
