@@ -91,8 +91,15 @@ export default function Infracoes() {
   const loadData = async () => {
     try {
       const [infList, mList] = await Promise.all([infracoesService.getAll(), motosService.getAll()])
-      setInfracoes(infList)
-      setMotos(mList)
+      // Excluir motos vendidas e que ainda não estão em operação (DETRAN / LOJA)
+      const motosOperacionais = mList.filter(
+        (m) => m.status !== 'vendida' && m.status !== 'em_loja_detran' && m.status !== 'cedida',
+      )
+      const motosOperacionaisIds = new Set(motosOperacionais.map((m) => m.id))
+      const infFiltradas = infList.filter((inf) => motosOperacionaisIds.has(inf.moto))
+
+      setInfracoes(infFiltradas)
+      setMotos(motosOperacionais)
     } catch (err) {
       console.error(err)
       toast.error('Erro ao carregar infrações')
@@ -423,7 +430,11 @@ export default function Infracoes() {
               <AlertTriangle className="w-4 h-4 text-amber-500" />
             </div>
             <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
-              R$ {summary.totalPendenteValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R${' '}
+              {summary.totalPendenteValor.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
             <span className="text-[11px] text-muted-foreground mt-1 block">
               {summary.totalPendenteQtd} infração(ões) pendente(s)
@@ -440,7 +451,11 @@ export default function Infracoes() {
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             </div>
             <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-              R$ {summary.totalPagaValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R${' '}
+              {summary.totalPagaValor.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
             <span className="text-[11px] text-muted-foreground mt-1 block">
               {summary.totalPagaQtd} infração(ões) quitada(s)
@@ -457,7 +472,11 @@ export default function Infracoes() {
               <FileText className="w-4 h-4 text-blue-600" />
             </div>
             <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-              R$ {summary.totalGeralValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R${' '}
+              {summary.totalGeralValor.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
             <span className="text-[11px] text-muted-foreground mt-1 block">
               {summary.totalGeralQtd} infração(ões) registradas no total
@@ -565,6 +584,7 @@ export default function Infracoes() {
                               R${' '}
                               {st.pendenteValor.toLocaleString('pt-BR', {
                                 minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
                               })}
                             </span>
                           ) : (
@@ -582,7 +602,10 @@ export default function Infracoes() {
                           {st.pagaValor > 0 ? (
                             <span className="text-emerald-600">
                               R${' '}
-                              {st.pagaValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              {st.pagaValor.toLocaleString('pt-BR', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
                             </span>
                           ) : (
                             <span className="text-slate-400">R$ 0,00</span>
@@ -814,7 +837,10 @@ export default function Infracoes() {
                           }`}
                         >
                           R${' '}
-                          {(inf.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          {(inf.valor || 0).toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </span>
                       </div>
 
@@ -1103,6 +1129,7 @@ export default function Infracoes() {
                   R${' '}
                   {(targetInfracao?.valor || 0).toLocaleString('pt-BR', {
                     minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
                   })}
                 </span>
               </div>

@@ -341,7 +341,11 @@ export default function Caucoes() {
               <UserCheck className="w-4 h-4 text-purple-600" />
             </div>
             <p className="text-2xl font-black text-purple-700 dark:text-purple-400 mt-1">
-              R$ {summary.totalAdm.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R${' '}
+              {summary.totalAdm.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
             <span className="text-[11px] text-muted-foreground mt-1 block">
               Na posse do administrador
@@ -355,7 +359,11 @@ export default function Caucoes() {
               Devolvidas
             </span>
             <p className="text-2xl font-black text-slate-600 dark:text-slate-400 mt-1">
-              R$ {summary.totalDevolvido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R${' '}
+              {summary.totalDevolvido.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
             <span className="text-[11px] text-muted-foreground mt-1 block">
               Restituídas aos clientes
