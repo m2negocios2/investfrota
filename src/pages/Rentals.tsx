@@ -1245,7 +1245,10 @@ export default function Rentals() {
                     R${' '}
                     {(
                       contractToDelete.valor_semanal || contractToDelete.valor_diario * 7
-                    ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    ).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">

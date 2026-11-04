@@ -1201,7 +1201,10 @@ export default function CashFlow() {
                         }`}
                       >
                         {item.tipo === 'entrada' ? '+' : '-'} R${' '}
-                        {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {item.valor.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </span>
                       <div className="flex items-center gap-1">
                         <Button

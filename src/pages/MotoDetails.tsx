@@ -683,13 +683,19 @@ export default function MotoDetails() {
               {(moto.valor_semanal !== undefined && moto.valor_semanal !== null
                 ? moto.valor_semanal
                 : (moto.valor_diario || 0) * 7
-              ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              ).toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
               {moto.data_compra && <> • Compra/Honda: {formatDateDisplay(moto.data_compra)}</>}
               {moto.valor_compra !== undefined && moto.valor_compra > 0 && (
                 <>
                   {' '}
                   • Valor Compra: R${' '}
-                  {moto.valor_compra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {moto.valor_compra.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </>
               )}
             </p>
@@ -772,7 +778,11 @@ export default function MotoDetails() {
               {moto.status === 'vendida' ? (
                 <>
                   Destinatário: <strong>{moto.destinatario_saida || 'Comprador'}</strong> • Valor:
-                  R$ {(moto.valor_venda || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}{' '}
+                  R${' '}
+                  {(moto.valor_venda || 0).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{' '}
                   • Recebimento:{' '}
                   {moto.forma_recebimento_venda === 'pago_agora'
                     ? 'Pago na hora (no Caixa)'
@@ -878,10 +888,18 @@ export default function MotoDetails() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-              R$ {totalReceitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R${' '}
+              {totalReceitas.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Despesas: R$ {totalDespesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              Despesas: R${' '}
+              {totalDespesas.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
           </CardContent>
         </Card>
@@ -896,7 +914,11 @@ export default function MotoDetails() {
             <div
               className={`text-2xl font-bold ${lucroMoto >= 0 ? 'text-blue-600' : 'text-red-600'}`}
             >
-              R$ {lucroMoto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R${' '}
+              {lucroMoto.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Caixa líquido individualizado</p>
           </CardContent>
@@ -1062,7 +1084,10 @@ export default function MotoDetails() {
                             R${' '}
                             {(contrato.valor_semanal || contrato.valor_diario * 7).toLocaleString(
                               'pt-BR',
-                              { minimumFractionDigits: 2 },
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              },
                             )}
                             /sem
                           </span>
@@ -1143,7 +1168,10 @@ export default function MotoDetails() {
                           }`}
                         >
                           {item.tipo === 'entrada' ? '+' : '-'} R${' '}
-                          {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          {item.valor.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </span>
                         <span className="block text-[10px] text-muted-foreground uppercase">
                           {item.tipo}
@@ -1470,7 +1498,10 @@ export default function MotoDetails() {
                     R${' '}
                     {(
                       contractToDelete.valor_semanal || contractToDelete.valor_diario * 7
-                    ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    ).toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">

@@ -1223,7 +1223,11 @@ export default function Reports() {
                     </p>
                   </div>
                   <span className="font-extrabold text-xl text-emerald-600 dark:text-emerald-400">
-                    R$ {receitaBrutaMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R${' '}
+                    {receitaBrutaMes.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 </div>
 
@@ -1239,7 +1243,10 @@ export default function Reports() {
                   </div>
                   <span className="font-bold text-base text-red-600 dark:text-red-400">
                     - R${' '}
-                    {custosOperacionaisMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    {custosOperacionaisMes.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 </div>
 
@@ -1249,7 +1256,11 @@ export default function Reports() {
                     (=) LUCRO BRUTO OPERACIONAL (Margem Bruta: {margemBrutaMes.toFixed(2)}%)
                   </span>
                   <span>
-                    R$ {lucroBrutoMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R${' '}
+                    {lucroBrutoMes.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 </div>
 
@@ -1274,7 +1285,11 @@ export default function Reports() {
                       </p>
                     </div>
                     <span className="font-bold text-base text-red-600 dark:text-red-400">
-                      - R$ {despesasFixasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      - R${' '}
+                      {despesasFixasMes.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
 
@@ -1313,6 +1328,7 @@ export default function Reports() {
                                     - R${' '}
                                     {item.total.toLocaleString('pt-BR', {
                                       minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
                                     })}
                                   </span>
                                 </div>
@@ -1324,7 +1340,10 @@ export default function Reports() {
                           <span>Total Despesas Fixas do Mês:</span>
                           <span className="text-red-600 dark:text-red-400">
                             - R${' '}
-                            {despesasFixasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            {despesasFixasMes.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                           </span>
                         </div>
                       </>
@@ -1347,7 +1366,11 @@ export default function Reports() {
                       lucroLiquidoMes >= 0 ? 'text-emerald-400' : 'text-red-400'
                     }`}
                   >
-                    R$ {lucroLiquidoMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R${' '}
+                    {lucroLiquidoMes.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 </div>
               </div>
@@ -1442,7 +1465,11 @@ export default function Reports() {
                     </p>
                   </div>
                   <span className="font-extrabold text-xl text-emerald-600 dark:text-emerald-400">
-                    R$ {receitaBrutaAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R${' '}
+                    {receitaBrutaAno.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 </div>
 
@@ -1457,14 +1484,21 @@ export default function Reports() {
                   </div>
                   <span className="font-bold text-base text-red-600 dark:text-red-400">
                     - R${' '}
-                    {custosOperacionaisAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    {custosOperacionaisAno.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 </div>
 
                 <div className="p-3 bg-blue-50/40 dark:bg-blue-950/20 rounded-lg flex items-center justify-between font-semibold text-sm text-blue-900 dark:text-blue-200 border-l-4 border-l-blue-600 pl-4">
                   <span>(=) LUCRO BRUTO DO EXERCÍCIO</span>
                   <span>
-                    R$ {lucroBrutoAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R${' '}
+                    {lucroBrutoAno.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 </div>
 
@@ -1489,7 +1523,11 @@ export default function Reports() {
                       </p>
                     </div>
                     <span className="font-bold text-base text-red-600 dark:text-red-400">
-                      - R$ {despesasFixasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      - R${' '}
+                      {despesasFixasAno.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
 
@@ -1532,6 +1570,7 @@ export default function Reports() {
                                       - R${' '}
                                       {item.total.toLocaleString('pt-BR', {
                                         minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
                                       })}
                                     </span>
                                   </div>
@@ -1551,7 +1590,7 @@ export default function Reports() {
                                             ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 font-medium'
                                             : 'bg-slate-50 dark:bg-slate-900/40 text-slate-400 dark:text-slate-600'
                                         }`}
-                                        title={`${mNome}: R$ ${valorMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                        title={`${mNome}: R$ ${valorMes.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                       >
                                         <div className="text-[9px] uppercase tracking-tighter opacity-70">
                                           {mNome.slice(0, 3)}
@@ -1575,7 +1614,10 @@ export default function Reports() {
                           <span>Total Despesas Fixas Anuais ({selectedYear}):</span>
                           <span className="text-red-600 dark:text-red-400 font-mono text-sm">
                             - R${' '}
-                            {despesasFixasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            {despesasFixasAno.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                           </span>
                         </div>
                       </>
@@ -1597,7 +1639,11 @@ export default function Reports() {
                       lucroLiquidoAno >= 0 ? 'text-emerald-400' : 'text-red-400'
                     }`}
                   >
-                    R$ {lucroLiquidoAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R${' '}
+                    {lucroLiquidoAno.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 </div>
               </div>
@@ -1632,7 +1678,11 @@ export default function Reports() {
                       ATIVO TOTAL (Bens & Direitos)
                     </span>
                     <span className="text-2xl font-black text-blue-600 dark:text-blue-400 block mt-1">
-                      R$ {totalAtivo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R${' '}
+                      {totalAtivo.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
 
@@ -1647,6 +1697,7 @@ export default function Reports() {
                         R${' '}
                         {Math.max(0, saldoCaixaAtual).toLocaleString('pt-BR', {
                           minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
                         })}
                       </span>
                     </div>
@@ -1657,6 +1708,7 @@ export default function Reports() {
                         R${' '}
                         {contasAReceberAlugueis.toLocaleString('pt-BR', {
                           minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
                         })}
                       </span>
                     </div>
@@ -1668,6 +1720,7 @@ export default function Reports() {
                           R${' '}
                           {contasAReceberVendasEmAberto.toLocaleString('pt-BR', {
                             minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
                           })}
                         </span>
                       </div>
@@ -1682,7 +1735,11 @@ export default function Reports() {
                     <div className="flex justify-between items-center text-sm border-b pb-2">
                       <span>Frota Ativa ({totalMotos} motos):</span>
                       <span className="font-bold text-slate-900 dark:text-white">
-                        R$ {ativoFrotaTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R${' '}
+                        {ativoFrotaTotal.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
@@ -1703,6 +1760,7 @@ export default function Reports() {
                       R${' '}
                       {totalPassivoEPatrimonioLiquido.toLocaleString('pt-BR', {
                         minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
                       })}
                     </span>
                   </div>
@@ -1748,6 +1806,7 @@ export default function Reports() {
                                 R${' '}
                                 {c.saldoDevedor.toLocaleString('pt-BR', {
                                   minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
                                 })}
                               </span>
                               <span className="text-[10px] text-muted-foreground">
@@ -1765,7 +1824,11 @@ export default function Reports() {
                         Total Contas a Pagar (Passivo):
                       </span>
                       <span className="font-extrabold text-red-600 dark:text-red-400 text-base">
-                        R$ {passivoCirculante.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R${' '}
+                        {passivoCirculante.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
@@ -1782,7 +1845,11 @@ export default function Reports() {
                     <div className="flex justify-between items-center text-base border-b pb-2 font-bold text-emerald-900 dark:text-emerald-100">
                       <span>Patrimônio Líquido Consolidado:</span>
                       <span className="text-xl">
-                        R$ {patrimonioLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R${' '}
+                        {patrimonioLiquido.toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground">
@@ -1866,7 +1933,11 @@ export default function Reports() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                  R$ {pontoEquilibrioMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R${' '}
+                  {pontoEquilibrioMes.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Faturamento mínimo mensal necessário para cobrir os custos e despesas totais.
@@ -1956,7 +2027,11 @@ export default function Reports() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600">
-                    R$ {receitaBrutaMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R${' '}
+                    {receitaBrutaMes.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </div>
                   <div className="mt-2 flex items-center gap-1.5 text-xs">
                     {crescimentoReceitaMoM !== null ? (
@@ -1999,7 +2074,11 @@ export default function Reports() {
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
                     Lucro líquido mensal de R${' '}
-                    {lucroLiquidoMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.
+                    {lucroLiquidoMes.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                    .
                   </p>
                 </CardContent>
               </Card>
@@ -2014,7 +2093,11 @@ export default function Reports() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
-                    R$ {ticketMedioSemanal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R${' '}
+                    {ticketMedioSemanal.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
                     Média de aluguel por contrato ativo por semana.
@@ -2037,19 +2120,31 @@ export default function Reports() {
                   <div className="flex justify-between items-center text-sm border-b pb-1.5">
                     <span className="text-muted-foreground">Receita Bruta Anual:</span>
                     <span className="font-bold text-emerald-600">
-                      R$ {receitaBrutaAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R${' '}
+                      {receitaBrutaAno.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm border-b pb-1.5">
                     <span className="text-muted-foreground">Despesas Totais no Ano:</span>
                     <span className="font-bold text-red-600">
-                      R$ {totalDespesasAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R${' '}
+                      {totalDespesasAno.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm font-semibold">
                     <span>Lucro Líquido Anual:</span>
                     <span className={lucroLiquidoAno >= 0 ? 'text-emerald-600' : 'text-red-600'}>
-                      R$ {lucroLiquidoAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R${' '}
+                      {lucroLiquidoAno.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
                   <p className="text-[11px] text-muted-foreground pt-1">
@@ -2073,6 +2168,7 @@ export default function Reports() {
                       R${' '}
                       {custoManutencaoPorMotoMes.toLocaleString('pt-BR', {
                         minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
                       })}
                     </span>
                   </div>
@@ -2082,6 +2178,7 @@ export default function Reports() {
                       R${' '}
                       {custoManutencaoPorMotoAno.toLocaleString('pt-BR', {
                         minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
                       })}
                     </span>
                   </div>
@@ -2089,7 +2186,10 @@ export default function Reports() {
                     <span className="text-muted-foreground">Oficina / Peças no Mês:</span>
                     <span className="font-semibold text-red-600">
                       R${' '}
-                      {custosOperacionaisMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      {custosOperacionaisMes.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
                   <p className="text-[11px] text-muted-foreground pt-1">
@@ -2110,13 +2210,21 @@ export default function Reports() {
                   <div className="flex justify-between items-center text-sm border-b pb-1.5">
                     <span className="text-muted-foreground">Comissões no Mês:</span>
                     <span className="font-bold text-purple-600">
-                      R$ {comissoesMes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R${' '}
+                      {comissoesMes.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm border-b pb-1.5">
                     <span className="text-muted-foreground">Comissões no Ano:</span>
                     <span className="font-bold text-purple-600">
-                      R$ {comissoesAno.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R${' '}
+                      {comissoesAno.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
@@ -2154,7 +2262,11 @@ export default function Reports() {
                   <div className="flex justify-between items-center text-sm border-b pb-1.5">
                     <span className="text-muted-foreground">Valor Médio da Moto:</span>
                     <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      R$ {valorMedioMoto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R${' '}
+                      {valorMedioMoto.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
@@ -2163,6 +2275,7 @@ export default function Reports() {
                       R${' '}
                       {lucroLiquidoMedioPorMotoMes.toLocaleString('pt-BR', {
                         minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
                       })}
                     </span>
                   </div>
@@ -2187,6 +2300,7 @@ export default function Reports() {
                       R${' '}
                       {receitaBrutaMesAnterior.toLocaleString('pt-BR', {
                         minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
                       })}
                     </span>
                   </div>
@@ -2210,6 +2324,7 @@ export default function Reports() {
                       R${' '}
                       {totalContasAPagarPendente.toLocaleString('pt-BR', {
                         minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
                       })}
                     </span>
                   </div>

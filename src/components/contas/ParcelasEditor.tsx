@@ -91,11 +91,18 @@ export const ParcelasEditor: React.FC<ParcelasEditorProps> = ({
           <div>
             <span className="font-semibold">
               Soma das Parcelas: R${' '}
-              {somaAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              {somaAtual.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </span>
             <span className="text-muted-foreground ml-1.5">
               (Total da Dívida: R${' '}
-              {valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+              {valorTotal.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+              )
             </span>
           </div>
         </div>
@@ -103,8 +110,8 @@ export const ParcelasEditor: React.FC<ParcelasEditorProps> = ({
         {!somaBate && (
           <div className="text-[11px] font-medium text-amber-800 dark:text-amber-300">
             {diferenca > 0
-              ? `A soma excede o total em R$ ${Math.abs(diferenca).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-              : `Faltam R$ ${Math.abs(diferenca).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para fechar o total`}
+              ? `A soma excede o total em R$ ${Math.abs(diferenca).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              : `Faltam R$ ${Math.abs(diferenca).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} para fechar o total`}
           </div>
         )}
       </div>

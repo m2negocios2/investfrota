@@ -220,7 +220,10 @@ export function GraficosReport({
         descricao:
           lucroReal < 0
             ? 'Resultado no período foi negativo (-R$ ' +
-              Math.abs(lucroReal).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) +
+              Math.abs(lucroReal).toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }) +
               ')'
             : 'Receitas − (Custos + Contas pagas no período)',
       },

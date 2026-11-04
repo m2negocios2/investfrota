@@ -279,7 +279,10 @@ export default function MotosList() {
                         {(moto.valor_semanal !== undefined && moto.valor_semanal !== null
                           ? moto.valor_semanal
                           : (moto.valor_diario || 0) * 7
-                        ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        ).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </span>
                     </div>
                     <div className="col-span-2 pt-1 border-t border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between">

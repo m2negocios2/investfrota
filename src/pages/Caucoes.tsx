@@ -307,7 +307,11 @@ export default function Caucoes() {
               Total Retido em Caução
             </span>
             <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-              R$ {summary.totalRetido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R${' '}
+              {summary.totalRetido.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
             <span className="text-[11px] text-muted-foreground mt-1 block">
               Garantias ativas de locatários
@@ -324,7 +328,11 @@ export default function Caucoes() {
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
             </div>
             <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-1">
-              R$ {summary.totalProprietario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R${' '}
+              {summary.totalProprietario.toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
             <span className="text-[11px] text-muted-foreground mt-1 block">
               Na conta da proprietária
@@ -528,7 +536,11 @@ export default function Caucoes() {
                           Valor da Caução
                         </span>
                         <span className="text-lg font-black text-slate-900 dark:text-white">
-                          R$ {c.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          R${' '}
+                          {c.valor.toLocaleString('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </span>
                       </div>
 

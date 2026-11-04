@@ -939,7 +939,11 @@ export default function LancamentoAluguel() {
               </Label>
               {valorNumerico > 0 && (
                 <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                  R$ {valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R${' '}
+                  {valorNumerico.toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </span>
               )}
             </div>
@@ -970,7 +974,11 @@ export default function LancamentoAluguel() {
                 <div className="flex items-center justify-between text-emerald-600 font-semibold">
                   <span>1. Receita de Aluguel:</span>
                   <span>
-                    + R$ {valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    + R${' '}
+                    {valorNumerico.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 </div>
                 {semComissao ? (
@@ -997,7 +1005,10 @@ export default function LancamentoAluguel() {
                               0,
                           )) /
                         100
-                      ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      ).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
                 ) : (
@@ -1016,7 +1027,11 @@ export default function LancamentoAluguel() {
                 <div className="flex items-center justify-between text-emerald-600 font-bold text-sm">
                   <span>Receita ({getParticipantDisplayName()}):</span>
                   <span>
-                    + R$ {valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    + R${' '}
+                    {valorNumerico.toLocaleString('pt-BR', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 </div>
                 <p className="text-[11px] text-muted-foreground pt-1">
@@ -1170,7 +1185,10 @@ export default function LancamentoAluguel() {
                       >
                         {isEntrada ? '+ ' : '- '}
                         R${' '}
-                        {Number(item.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {Number(item.valor).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </Badge>
                     </div>
                   </div>

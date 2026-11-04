@@ -727,7 +727,11 @@ export default function LancamentosRapidos() {
                   </Label>
                   {valorNumerico > 0 && (
                     <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                      R$ {valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R${' '}
+                      {valorNumerico.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                   )}
                 </div>
@@ -994,7 +998,11 @@ export default function LancamentosRapidos() {
                   <div className="flex items-center justify-between text-red-600 font-bold text-sm">
                     <span>Saída ({getParticipantDisplayName()}):</span>
                     <span>
-                      - R$ {valorNumerico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      - R${' '}
+                      {valorNumerico.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
                   <p className="text-[11px] text-muted-foreground pt-0.5">
@@ -1132,7 +1140,10 @@ export default function LancamentosRapidos() {
                         className="text-xs font-bold text-red-600 border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/30"
                       >
                         - R${' '}
-                        {Number(item.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {Number(item.valor).toLocaleString('pt-BR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </Badge>
                     </div>
                   </div>
