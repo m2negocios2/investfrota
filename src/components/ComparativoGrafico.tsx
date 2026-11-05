@@ -38,6 +38,9 @@ type ChaveAtivo = keyof TaxasBenchmark
 
 const STORAGE_KEY_TAXAS = 'm2_graficos_comparativo_taxas_v1'
 const STORAGE_KEY_IR = 'm2_graficos_comparativo_ir_v1'
+// Variante "operacional" (receita − custos) guarda taxas e IR em chaves próprias
+const STORAGE_KEY_TAXAS_OPERACIONAL = 'm2_graficos_comparativo_operacional_taxas_v1'
+const STORAGE_KEY_IR_OPERACIONAL = 'm2_graficos_comparativo_operacional_ir_v1'
 
 const TAXAS_INICIAIS_PADRAO: TaxasBenchmark = {
   cdb: 10.5,
@@ -159,6 +162,13 @@ const ATIVO_NOME: Record<ChaveAtivo, string> = {
   vale: 'Vale (VALE3)',
 }
 
+// Saída de caixa que é pagamento de Contas a Pagar / Terceiros (não entra nos custos operacionais)
+function isSaidaTerceiros(c: CaixaLancamento): boolean {
+  const ent = (c.entidade || '').trim().toLowerCase()
+  const cat = (c.categoria || '').trim().toLowerCase()
+  return ent === 'terceiros' || cat === 'terceiros' || !!c.conta_a_pagar
+}
+
 interface ComparativoGraficoProps {
   motos: Moto[]
   caixa: CaixaLancamento[]
@@ -166,6 +176,9 @@ interface ComparativoGraficoProps {
   selectedYear: number
   selectedMonth: number
   periodoModo?: 'ano' | 'mes'
+  // 'lucro': numerador é o lucro integral (receita − custos − despesas);
+  // 'operacional': numerador é receita − custos (lucro operacional)
+  variante?: 'lucro' | 'operacional'
 }
 
 export function ComparativoGrafico({
@@ -175,31 +188,36 @@ export function ComparativoGrafico({
   selectedYear,
   selectedMonth,
   periodoModo = 'ano',
+  variante = 'lucro',
 }: ComparativoGraficoProps) {
+  const isOperacional = variante === 'operacional'
+  const keyTaxas = isOperacional ? STORAGE_KEY_TAXAS_OPERACIONAL : STORAGE_KEY_TAXAS
+  const keyIr = isOperacional ? STORAGE_KEY_IR_OPERACIONAL : STORAGE_KEY_IR
+
   // Taxas de referência (% a.a. brutos) e IR (%) por ativo, com persistência local
   const [taxas, setTaxas] = useState<TaxasBenchmark>(() =>
-    carregarPercentuais(STORAGE_KEY_TAXAS, TAXAS_INICIAIS_PADRAO),
+    carregarPercentuais(keyTaxas, TAXAS_INICIAIS_PADRAO),
   )
   const [irAtivos, setIrAtivos] = useState<TaxasBenchmark>(() =>
-    carregarPercentuais(STORAGE_KEY_IR, IR_INICIAL_PADRAO),
+    carregarPercentuais(keyIr, IR_INICIAL_PADRAO),
   )
 
   // Salvar no localStorage sempre que forem alterados
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY_TAXAS, JSON.stringify(taxas))
+      localStorage.setItem(keyTaxas, JSON.stringify(taxas))
     } catch {
       // Ignora erro
     }
-  }, [taxas])
+  }, [taxas, keyTaxas])
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY_IR, JSON.stringify(irAtivos))
+      localStorage.setItem(keyIr, JSON.stringify(irAtivos))
     } catch {
       // Ignora erro
     }
-  }, [irAtivos])
+  }, [irAtivos, keyIr])
 
   const handleRestaurarPadroes = () => {
     setTaxas(TAXAS_INICIAIS_PADRAO)
@@ -260,6 +278,14 @@ export function ComparativoGrafico({
 
     const lucroPeriodo = receitas - despesas
 
+    // Custos operacionais do período (saídas que não são pagamento de Contas a Pagar / Terceiros)
+    const custosOperacionais = caixaPeriodo
+      .filter((c) => c.tipo === 'saida' && !isSaidaTerceiros(c))
+      .reduce((acc, c) => acc + (Number(c.valor) || 0), 0)
+
+    // Numerador da rentabilidade das motos: lucro integral ou receita − custos (lucro operacional)
+    const numeradorPeriodo = isOperacional ? receitas - custosOperacionais : lucroPeriodo
+
     // Identificar quantos meses do ano corrente já têm lançamentos para média mensal justa
     let mesesComLancamento = 1
     if (periodoModo === 'ano') {
@@ -286,7 +312,7 @@ export function ComparativoGrafico({
     // Rentabilidade = (lucro integral da frota / capital próprio) * 100
     const rentabilidadeDisponivel = capitalProprio > 0
     const rentabilidadeAnualizadaPct = rentabilidadeDisponivel
-      ? (lucroPeriodo / capitalProprio) * 100
+      ? (numeradorPeriodo / capitalProprio) * 100
       : 0
 
     // Rentabilidade nominal do período (mesma base, sem anualizar)
@@ -295,7 +321,9 @@ export function ComparativoGrafico({
     return {
       receitas,
       despesas,
+      custosOperacionais,
       lucroPeriodo,
+      numeradorPeriodo,
       lucroAnualizado,
       capitalProprio,
       rentabilidadeDisponivel,
@@ -304,7 +332,15 @@ export function ComparativoGrafico({
       rentabilidadeAnualizadaPct,
       rentabilidadeNominalPeriodoPct,
     }
-  }, [caixa, selectedYear, selectedMonth, periodoModo, capitalInvestido, saldoDividasTerceiros])
+  }, [
+    caixa,
+    selectedYear,
+    selectedMonth,
+    periodoModo,
+    capitalInvestido,
+    saldoDividasTerceiros,
+    isOperacional,
+  ])
 
   // 4. Dados comparativos: motos (líquidas de dívidas) e ativos (líquidos de IR)
   const dadosGrafico = useMemo(() => {
@@ -330,19 +366,22 @@ export function ComparativoGrafico({
       {
         id: 'motos',
         nome: 'MOTOS (App M2)',
-        subtitulo: 'Rentabilidade real anualizada sobre o capital próprio',
+        subtitulo: isOperacional
+          ? 'Lucro operacional (receita − custos) anualizado sobre o capital próprio'
+          : 'Rentabilidade real anualizada sobre o capital próprio',
         categoria: 'Ativo Próprio',
         taxaBruta: rentMotos,
         irPct: 0,
         taxa: rentMotos,
         motos: rentMotos,
         isDestaque: true,
-        descricao:
-          'Lucro integral da frota dividido pelo capital próprio (capital investido menos as dívidas a terceiros)',
+        descricao: isOperacional
+          ? 'Receita menos custos operacionais dividido pelo capital próprio (capital investido menos as dívidas a terceiros)'
+          : 'Lucro integral da frota dividido pelo capital próprio (capital investido menos as dívidas a terceiros)',
       },
       ...ativos,
     ]
-  }, [dadosRentabilidadeMotos.rentabilidadeAnualizadaPct, taxas, irAtivos])
+  }, [dadosRentabilidadeMotos.rentabilidadeAnualizadaPct, taxas, irAtivos, isOperacional])
 
   const ativosGrafico = dadosGrafico.filter((d) => !d.isDestaque)
 
@@ -388,12 +427,16 @@ export function ComparativoGrafico({
               <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
                 <BarChart3 className="w-4 h-4" />
               </div>
-              COMPARATIVO — Rentabilidade da Frota vs. Outros Investimentos
+              {isOperacional
+                ? 'COMPARATIVO — Lucro Operacional (Receita − Custos) vs. Outros Investimentos'
+                : 'COMPARATIVO — Rentabilidade da Frota vs. Outros Investimentos'}
             </CardTitle>
             <CardDescription className="text-xs mt-0.5">
-              Comparação anualizada: rentabilidade real da locação de <strong>MOTOS</strong> (lucro
-              integral da frota sobre o capital próprio) versus investimentos tradicionais, com os
-              ativos financeiros líquidos de IR.
+              Comparação anualizada: rentabilidade real da locação de <strong>MOTOS</strong> (
+              {isOperacional
+                ? 'receita menos custos operacionais sobre o capital próprio'
+                : 'lucro integral da frota sobre o capital próprio'}
+              ) versus investimentos tradicionais, com os ativos financeiros líquidos de IR.
             </CardDescription>
           </div>
 
@@ -524,7 +567,8 @@ export function ComparativoGrafico({
                   {rentMotosExibe ? '% ao ano' : ''}
                 </span>
                 <span className="text-[10px] text-muted-foreground block">
-                  Lucro da frota / Capital próprio (capital − dívidas a terceiros)
+                  {isOperacional ? 'Receita − custos' : 'Lucro da frota'} / Capital próprio (capital
+                  − dívidas a terceiros)
                 </span>
               </div>
               <div className="p-2 rounded-lg bg-emerald-600 text-white shrink-0">
@@ -560,21 +604,23 @@ export function ComparativoGrafico({
                 <div className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-purple-500 shrink-0" />
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800 dark:text-slate-300">
-                    Lucro Apurado no Período
+                    {isOperacional ? 'Receita − Custos no Período' : 'Lucro Apurado no Período'}
                   </span>
                 </div>
                 <span
                   className={`text-lg sm:text-xl font-extrabold block mt-1 tracking-tight ${
-                    dadosRentabilidadeMotos.lucroPeriodo >= 0
+                    dadosRentabilidadeMotos.numeradorPeriodo >= 0
                       ? 'text-emerald-600 dark:text-emerald-400'
                       : 'text-red-500'
                   }`}
                 >
-                  R$ {formatBRL(dadosRentabilidadeMotos.lucroPeriodo)}
+                  R$ {formatBRL(dadosRentabilidadeMotos.numeradorPeriodo)}
                 </span>
                 <span className="text-[10px] text-muted-foreground block">
                   {periodoModo === 'mes'
-                    ? 'Receitas − Despesas no mês'
+                    ? isOperacional
+                      ? 'Receitas − Custos no mês'
+                      : 'Receitas − Despesas no mês'
                     : `Acumulado em ${dadosRentabilidadeMotos.mesesComLancamento} ${
                         dadosRentabilidadeMotos.mesesComLancamento === 1 ? 'mês' : 'meses'
                       } de ${selectedYear}`}
@@ -806,9 +852,12 @@ export function ComparativoGrafico({
                 Metodologia de Anualização e Comparabilidade
               </span>
               <p className="text-[11px] leading-relaxed">
-                A rentabilidade das motos é o lucro apurado no livro caixa (R${' '}
-                {formatBRL(dadosRentabilidadeMotos.lucroPeriodo)}), sem descontar as dívidas a
-                terceiros, dividido pelo capital próprio — o capital total investido na compra da
+                A rentabilidade das motos é{' '}
+                {isOperacional
+                  ? 'a receita menos os custos operacionais do período'
+                  : 'o lucro apurado no livro caixa'}{' '}
+                (R$ {formatBRL(dadosRentabilidadeMotos.numeradorPeriodo)}), sem descontar as dívidas
+                a terceiros, dividido pelo capital próprio — o capital total investido na compra da
                 frota ativa (R$ {formatBRL(capitalInvestido)}) menos o saldo devedor das dívidas a
                 terceiros (R$ {formatBRL(saldoDividasTerceiros)}), que é a parte financiada por
                 terceiros. Os ativos financeiros são mostrados líquidos de IR: taxa bruta × (1 −

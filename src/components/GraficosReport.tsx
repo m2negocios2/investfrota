@@ -1411,7 +1411,7 @@ export function GraficosReport({
         {/* GRÁFICO 4 — "COMPARATIVO": RENTABILIDADE MOTOS VS CDB, FII, PBR, BB, VALE */}
         {/* ========================================================================= */}
         {(activeGraph === 'todos' || activeGraph === 'comparativo') && (
-          <div className={activeGraph === 'todos' ? 'lg:col-span-2' : ''}>
+          <div className={`space-y-6 ${activeGraph === 'todos' ? 'lg:col-span-2' : ''}`}>
             <ComparativoGrafico
               motos={motos}
               caixa={caixa}
@@ -1419,6 +1419,16 @@ export function GraficosReport({
               selectedYear={selectedYear}
               selectedMonth={selectedMonth}
               periodoModo={periodoModo}
+            />
+            {/* SEGUNDO COMPARATIVO: mesma estrutura, com as motos medidas por receita − custos */}
+            <ComparativoGrafico
+              motos={motos}
+              caixa={caixa}
+              contasAPagar={contasAPagar}
+              selectedYear={selectedYear}
+              selectedMonth={selectedMonth}
+              periodoModo={periodoModo}
+              variante="operacional"
             />
           </div>
         )}
