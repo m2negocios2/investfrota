@@ -134,20 +134,6 @@ export default function Layout() {
           </div>
         </div>
 
-        {/* User Card */}
-        <div className="p-3 mx-3 my-3 bg-slate-100/80 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/50">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary text-xs shrink-0">
-              {displayUserName ? displayUserName.slice(0, 2).toUpperCase() : 'IF'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                {displayUserName}
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Navigation Links */}
         <nav className="flex-1 px-3 py-2 space-y-1">
           {navigation.map((item) => {
@@ -274,10 +260,7 @@ export default function Layout() {
               </div>
             </div>
 
-            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold">{displayUserName}</p>
-              </div>
+            <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-end">
               <Button
                 size="sm"
                 variant="ghost"
