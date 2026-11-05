@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Bike, ArrowLeft, Save } from 'lucide-react'
+import { ArrowLeft, Save } from 'lucide-react'
 import {
   Card,
   CardHeader,
@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { motosService } from '@/services/motos'
-import { Moto, MotoStatus, TipoLocacao } from '@/types/database'
+import { Moto, MotoStatus } from '@/types/database'
 
 export default function MotoForm() {
   const { id } = useParams<{ id?: string }>()
@@ -38,8 +38,6 @@ export default function MotoForm() {
   const [modelo, setModelo] = useState('')
   const [ano, setAno] = useState<string>(String(new Date().getFullYear()))
   const [cor, setCor] = useState('')
-  const [valorSemanal, setValorSemanal] = useState<number>(245)
-  const [tipoLocacaoPadrao, setTipoLocacaoPadrao] = useState<TipoLocacao>('normal')
   const [status, setStatus] = useState<MotoStatus>('disponivel')
   const [dataCompra, setDataCompra] = useState<string>('')
   const [valorCompra, setValorCompra] = useState<string>('')
@@ -57,14 +55,6 @@ export default function MotoForm() {
           setModelo(moto.modelo)
           setAno(moto.ano !== undefined && moto.ano !== null ? String(moto.ano) : '')
           setCor(moto.cor)
-          const sem =
-            moto.valor_semanal !== undefined && moto.valor_semanal !== null
-              ? moto.valor_semanal
-              : moto.valor_diario
-                ? Number((moto.valor_diario * 7).toFixed(2))
-                : 245
-          setValorSemanal(sem)
-          setTipoLocacaoPadrao(moto.tipo_locacao_padrao)
           setStatus(moto.status)
           setDataCompra(moto.data_compra ? moto.data_compra.split('T')[0] : '')
           setValorCompra(
@@ -98,31 +88,43 @@ export default function MotoForm() {
     // Se a dona não informou um nome específico, usamos o modelo ou modelo + cor como padrão
     const finalNome = nome.trim() || modelo.trim()
 
-    const payload: Omit<Moto, 'id' | 'created' | 'updated'> = {
-      nome: finalNome,
-      placa: placa.trim().toUpperCase(),
-      modelo: modelo.trim(),
-      ano: ano.trim(),
-      cor: cor.trim(),
-      valor_semanal: Number(valorSemanal),
-      valor_diario: Number((Number(valorSemanal) / 7).toFixed(2)),
-      tipo_locacao_padrao: tipoLocacaoPadrao,
-      status: status,
-      data_compra: dataCompra ? dataCompra : undefined,
-      valor_compra: valorCompra !== '' ? Number(valorCompra) : undefined,
-      km_atual: kmAtual !== '' ? Number(kmAtual) : undefined,
-      km_atualizado_em: kmAtual !== '' ? new Date().toISOString() : undefined,
-      km_ultimo_oleo: kmUltimoOleo !== '' ? Number(kmUltimoOleo) : undefined,
-      observacoes: observacoes.trim(),
-    }
-
     try {
       if (isEditing && id) {
-        await motosService.update(id, payload)
+        // Ao editar, não enviamos/gravamos nem valor_semanal nem tipo_locacao_padrao
+        const updatePayload: Partial<Moto> = {
+          nome: finalNome,
+          placa: placa.trim().toUpperCase(),
+          modelo: modelo.trim(),
+          ano: ano.trim(),
+          cor: cor.trim(),
+          status: status,
+          data_compra: dataCompra ? dataCompra : undefined,
+          valor_compra: valorCompra !== '' ? Number(valorCompra) : undefined,
+          km_atual: kmAtual !== '' ? Number(kmAtual) : undefined,
+          km_atualizado_em: kmAtual !== '' ? new Date().toISOString() : undefined,
+          km_ultimo_oleo: kmUltimoOleo !== '' ? Number(kmUltimoOleo) : undefined,
+          observacoes: observacoes.trim(),
+        }
+        await motosService.update(id, updatePayload)
         toast.success('Moto atualizada com sucesso!')
         navigate(`/motos/${id}`)
       } else {
-        const created = await motosService.create(payload)
+        const createPayload: Omit<Moto, 'id' | 'created' | 'updated'> = {
+          nome: finalNome,
+          placa: placa.trim().toUpperCase(),
+          modelo: modelo.trim(),
+          ano: ano.trim(),
+          cor: cor.trim(),
+          tipo_locacao_padrao: 'normal',
+          status: status,
+          data_compra: dataCompra ? dataCompra : undefined,
+          valor_compra: valorCompra !== '' ? Number(valorCompra) : undefined,
+          km_atual: kmAtual !== '' ? Number(kmAtual) : undefined,
+          km_atualizado_em: kmAtual !== '' ? new Date().toISOString() : undefined,
+          km_ultimo_oleo: kmUltimoOleo !== '' ? Number(kmUltimoOleo) : undefined,
+          observacoes: observacoes.trim(),
+        }
+        const created = await motosService.create(createPayload)
         toast.success('Moto cadastrada com sucesso!')
         navigate(`/motos/${created.id}`)
       }
@@ -160,9 +162,7 @@ export default function MotoForm() {
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="text-base">Informações do Veículo</CardTitle>
-            <CardDescription>
-              Informe placa, modelo, características e política de locação.
-            </CardDescription>
+            <CardDescription>Informe placa, modelo e características da moto.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Campo NOME da moto com destaque */}
@@ -246,49 +246,6 @@ export default function MotoForm() {
                   onChange={(e) => setCor(e.target.value)}
                   required
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="valorSemanal">
-                  Valor Semanal de Aluguel (R$) <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="valorSemanal"
-                  type="number"
-                  step="0.01"
-                  min={1}
-                  placeholder="Ex: 245"
-                  value={valorSemanal}
-                  onChange={(e) => setValorSemanal(Number(e.target.value))}
-                  required
-                />
-                <span className="text-[11px] text-muted-foreground">
-                  Cobrança por semana (ex.: R$ 245/semana = ~R$ {(valorSemanal / 7).toFixed(2)}/dia)
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <div className="space-y-2">
-                <Label htmlFor="tipoLocacaoPadrao">Tipo de Locação Padrão</Label>
-                <Select
-                  value={tipoLocacaoPadrao}
-                  onValueChange={(val: TipoLocacao) => setTipoLocacaoPadrao(val)}
-                >
-                  <SelectTrigger id="tipoLocacaoPadrao">
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="normal">Locação Normal (Recorrente)</SelectItem>
-                    <SelectItem value="plano_conquista">
-                      Plano Conquista (Com prazo e entrega)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground">
-                  A locação normal é contínua; o Plano Conquista possui prazo estipulado para
-                  entrega da moto.
-                </p>
               </div>
 
               <div className="space-y-2">
