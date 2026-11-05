@@ -56,7 +56,9 @@ export default function MotoForm() {
           setAno(moto.ano !== undefined && moto.ano !== null ? String(moto.ano) : '')
           setCor(moto.cor)
           setStatus(moto.status)
-          setDataCompra(moto.data_compra ? moto.data_compra.split('T')[0] : '')
+          // PocketBase retorna datas como "YYYY-MM-DD 12:00:00.000Z" (espaço, sem "T").
+          // split('T') não corta nada e o input type="date" não aceita o valor -> aparecia em branco.
+          setDataCompra(moto.data_compra ? moto.data_compra.split('T')[0].split(' ')[0] : '')
           setValorCompra(
             moto.valor_compra !== undefined && moto.valor_compra !== null
               ? String(moto.valor_compra)
