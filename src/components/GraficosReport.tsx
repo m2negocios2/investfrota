@@ -403,6 +403,20 @@ export function GraficosReport({
     }
   }, [caixa, selectedYear, selectedMonth, periodoModo])
 
+  // Eixo Y do gráfico Crescimento: graduações de 2 em 2 mil (2k), conforme pedido da usuária
+  const eixoYCrescimento = useMemo(() => {
+    const passo = 2000
+    const valores = dadosCrescimento.meses.flatMap((m) => [m.receitaBruta, m.lucroLiquido])
+    const maxVal = Math.max(...valores, 0)
+    const minVal = Math.min(...valores, 0)
+    const minTick = Math.floor(minVal / passo) * passo
+    let maxTick = Math.ceil(maxVal / passo) * passo
+    if (maxTick === minTick) maxTick = minTick + passo
+    const ticks: number[] = []
+    for (let v = minTick; v <= maxTick; v += passo) ticks.push(v)
+    return { minTick, maxTick, ticks }
+  }, [dadosCrescimento])
+
   const formatBRL = (v: number) => {
     return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
@@ -1214,11 +1228,11 @@ export function GraficosReport({
                       <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
                       <XAxis dataKey="mes" tick={{ fontSize: 11 }} stroke="#888888" dy={8} />
                       <YAxis
-                        width={52}
+                        width={60}
                         tick={{ fontSize: 10 }}
-                        tickCount={5}
                         interval={0}
-                        domain={['auto', 'auto']}
+                        domain={[eixoYCrescimento.minTick, eixoYCrescimento.maxTick]}
+                        ticks={eixoYCrescimento.ticks}
                         tickFormatter={(v) =>
                           `R$ ${Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(2)}k` : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                         }
