@@ -28,6 +28,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import { ExportarBancoDialog } from '@/components/ExportarBancoDialog'
 import { empresaService, sociosService } from '@/services/cadastros'
 import { categoriasService } from '@/services/categorias'
 import { EmpresaConfig, Socio, CategoriaGasto } from '@/types/database'
@@ -308,6 +309,7 @@ export default function Cadastros() {
             de Caixa.
           </p>
         </div>
+        <ExportarBancoDialog />
       </div>
 
       {/* Navegação por Abas em Cadastros */}
