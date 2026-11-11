@@ -21,11 +21,20 @@ export interface ColecaoPulada {
   motivo: string
 }
 
+/** Resumo de uma coleção na exportação (para conferência na tela). */
+export interface ResumoColecao {
+  nome: string
+  registros: number
+  falhou: boolean
+}
+
 export interface ResultadoExportacao {
   arquivo: string
   totalRegistros: number
   totalColecoes: number
   puladas: ColecaoPulada[]
+  resumo: ResumoColecao[]
+  fonte: 'banco' | 'espelho'
 }
 
 interface FieldRaw {
@@ -57,6 +66,9 @@ const espelhoModules = import.meta.glob('./pocketbase/schema.json', {
 }) as Record<string, MirrorSchema>
 
 const CAMPOS_OCULTOS = ['password', 'tokenKey']
+
+/** Registros por página ao paginar. O PocketBase aceita até 500 em getList. */
+const REGISTROS_POR_PAGINA = 500
 
 function motivoErro(err: unknown): string {
   const status = (err as { status?: number })?.status
@@ -132,18 +144,42 @@ function baixarArquivo(conteudo: BlobPart, nomeArquivo: string, tipo: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-/** Busca todos os registros de uma coleção (getFullList pagina em lotes até esgotar). */
+/**
+ * Busca TODOS os registros de uma coleção, paginando de 500 em 500 até esgotar.
+ * Ordena por id para a paginação ser estável mesmo com dados mudando durante a busca.
+ * Diferente do getFullList, aqui NENHUM erro é engolido: quem chama decide o que fazer.
+ */
 async function buscarTodos(nome: string): Promise<Record<string, unknown>[]> {
-  return await pb.collection(nome).getFullList<Record<string, unknown>>({ batch: 500 })
+  if (!pb.authStore.isValid) {
+    throw new Error('sessão expirada — faça login novamente para exportar os dados')
+  }
+
+  const registros: Record<string, unknown>[] = []
+  let page = 1
+  for (;;) {
+    const resposta = await pb
+      .collection(nome)
+      .getList<Record<string, unknown>>(page, REGISTROS_POR_PAGINA, { sort: 'id' })
+    registros.push(...resposta.items)
+    const totalPaginas = resposta.totalPages ?? 1
+    if (resposta.items.length === 0 || page >= totalPaginas) break
+    page++
+  }
+  return registros
 }
 
-/** Gera o backup JSON completo (estrutura + dados) e dispara o download. */
+/**
+ * Gera o backup JSON completo (estrutura + TODOS os registros de cada coleção) e
+ * dispara o download. Coleções cuja busca de registros falhar não são engolidas:
+ * voltam em `puladas` com o motivo e aparecem no resumo da interface.
+ */
 export async function exportarBancoJson(
   onProgresso?: (colecaoAtual: string, indice: number, total: number) => void,
 ): Promise<ResultadoExportacao> {
   const { colecoes, fonte } = await carregarEstrutura()
   const dados: Record<string, Record<string, unknown>[]> = {}
   const puladas: ColecaoPulada[] = []
+  const resumo: ResumoColecao[] = []
   let totalRegistros = 0
 
   for (let i = 0; i < colecoes.length; i++) {
@@ -153,8 +189,12 @@ export async function exportarBancoJson(
       const registros = await buscarTodos(colecao.nome)
       dados[colecao.nome] = registros
       totalRegistros += registros.length
+      resumo.push({ nome: colecao.nome, registros: registros.length, falhou: false })
     } catch (err) {
-      puladas.push({ colecao: colecao.nome, motivo: motivoErro(err) })
+      const motivo = motivoErro(err)
+      puladas.push({ colecao: colecao.nome, motivo })
+      resumo.push({ nome: colecao.nome, registros: 0, falhou: true })
+      console.error(`Falha ao exportar registros da coleção "${colecao.nome}":`, err)
     }
   }
 
@@ -173,7 +213,14 @@ export async function exportarBancoJson(
 
   baixarArquivo(JSON.stringify(conteudo, null, 2), arquivo, 'application/json;charset=utf-8')
 
-  return { arquivo, totalRegistros, totalColecoes: Object.keys(dados).length, puladas }
+  return {
+    arquivo,
+    totalRegistros,
+    totalColecoes: Object.keys(dados).length,
+    puladas,
+    resumo,
+    fonte,
+  }
 }
 
 function celulaCsv(valor: unknown): string {

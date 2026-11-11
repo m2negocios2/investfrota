@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Database, Download, FileSpreadsheet, Loader2 } from 'lucide-react'
+import { AlertTriangle, Database, Download, FileSpreadsheet, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -10,7 +10,12 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { exportarBancoJson, exportarColecaoCsv, listarNomesColecoes } from '@/lib/exportBanco'
+import {
+  exportarBancoJson,
+  exportarColecaoCsv,
+  listarNomesColecoes,
+  type ResultadoExportacao,
+} from '@/lib/exportBanco'
 
 export function ExportarBancoDialog() {
   const [open, setOpen] = useState(false)
@@ -18,6 +23,7 @@ export function ExportarBancoDialog() {
   const [mensagem, setMensagem] = useState('Gerando arquivo...')
   const [colecoes, setColecoes] = useState<string[]>([])
   const [csvAtual, setCsvAtual] = useState<string | null>(null)
+  const [resultado, setResultado] = useState<ResultadoExportacao | null>(null)
 
   const handleOpenChange = async (value: boolean) => {
     setOpen(value)
@@ -36,23 +42,33 @@ export function ExportarBancoDialog() {
     setExportando(true)
     setMensagem('Gerando arquivo...')
     try {
-      const resultado = await exportarBancoJson((nome, indice, total) => {
-        setMensagem(`Gerando arquivo... (${indice}/${total}: ${nome})`)
+      const res = await exportarBancoJson((nome, indice, total) => {
+        setMensagem(`Buscando registros... (${indice}/${total}: ${nome})`)
       })
-      if (resultado.puladas.length > 0) {
+      setResultado(res)
+
+      if (res.puladas.length > 0) {
+        // Falhas ficam visíveis no diálogo (painel de resumo), não apenas neste aviso.
         toast.warning(
-          `Backup gerado com ${resultado.totalRegistros} registros. Coleções puladas (sem permissão ou erro): ${resultado.puladas
+          `ATENÇÃO: ${res.puladas.length} coleção(ões) ficaram SEM registros no backup: ${res.puladas
             .map((p) => p.colecao)
-            .join(', ')}`,
+            .join(', ')}. Veja o resumo na janela de exportação.`,
+        )
+      } else if (res.totalRegistros === 0) {
+        toast.error(
+          'O arquivo foi gerado SEM nenhum registro — a sessão provavelmente expirou. Faça login novamente e tente de novo.',
         )
       } else {
         toast.success(
-          `Backup exportado: ${resultado.totalRegistros} registros em ${resultado.totalColecoes} coleções.`,
+          `Backup exportado: ${res.totalRegistros} registros em ${res.totalColecoes} coleções.`,
         )
       }
     } catch (err) {
       console.error('Erro ao exportar banco:', err)
-      toast.error('Erro ao exportar o banco de dados')
+      const msg = (err as { message?: string })?.message
+      toast.error(
+        msg ? `Erro ao exportar o banco de dados: ${msg}` : 'Erro ao exportar o banco de dados',
+      )
     } finally {
       setExportando(false)
     }
@@ -84,7 +100,7 @@ export function ExportarBancoDialog() {
         <DialogHeader>
           <DialogTitle>Exportar Banco de Dados</DialogTitle>
           <DialogDescription>
-            Baixa um arquivo JSON com a estrutura e todos os registros do sistema. Também é possível
+            Baixa um arquivo JSON com a estrutura e TODOS os registros do sistema. Também é possível
             baixar cada coleção separadamente em CSV. A operação é somente leitura.
           </DialogDescription>
         </DialogHeader>
@@ -103,6 +119,53 @@ export function ExportarBancoDialog() {
               </>
             )}
           </Button>
+
+          {resultado && (
+            <div className="space-y-2 rounded-md border p-3">
+              <p className="text-sm font-semibold">
+                Resumo do backup: {resultado.totalRegistros} registros em {resultado.totalColecoes}{' '}
+                coleções
+              </p>
+              {resultado.fonte === 'espelho' && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  A estrutura foi lida da cópia local do projeto (não do banco ao vivo).
+                </p>
+              )}
+              <div className="max-h-56 overflow-y-auto space-y-1">
+                {resultado.resumo.map((r) => (
+                  <div key={r.nome} className="flex items-center justify-between text-xs">
+                    <span className="font-mono">{r.nome}</span>
+                    {r.falhou ? (
+                      <span className="flex items-center gap-1 font-semibold text-red-600 dark:text-red-400">
+                        <AlertTriangle className="w-3 h-3" />
+                        FALHOU — sem registros
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {r.registros} {r.registros === 1 ? 'registro' : 'registros'}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {resultado.puladas.length > 0 && (
+                <div className="rounded-md bg-red-50 dark:bg-red-950/40 p-2 text-xs text-red-700 dark:text-red-300">
+                  <p className="font-semibold flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    O arquivo NÃO está completo
+                  </p>
+                  {resultado.puladas.map((p) => (
+                    <p key={p.colecao}>
+                      <span className="font-mono">{p.colecao}</span>: {p.motivo}
+                    </p>
+                  ))}
+                  <p className="mt-1">
+                    Faça login novamente e gere o backup de novo para incluir estas coleções.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
